@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-sonnet-5",
+  "mcpServers": {
+    "tavily-remote-mcp": {
+      "type": "http",
+      "url": "https://mcp.tavily.com/mcp/?tavilyApiKey=${TAVILY_API_KEY}"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--browser",
+        "chromium",
+        "--isolated",
+        "--codegen",
+        "typescript",
+        "--output-dir",
+        ".claude/playwright-flows"
+      ]
+    }
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/caveman-statusline.sh\""
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "rtk hook claude" }]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/caveman-activate.js\"",
+            "timeout": 5,
+            "statusMessage": "Loading caveman mode..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/caveman-mode-tracker.js\"",
+            "timeout": 5,
+            "statusMessage": "Tracking caveman mode..."
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)",
+      "Bash(su:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Read(**/rtk/tee/**)",
+      "Write(**/*.env*)",
+      "Edit(**/*.env*)",
+      "Write(**/*.key)",
+      "Edit(**/*.key)",
+      "Write(**/*.secret)",
+      "Edit(**/*.secret)",
+      "Write(node_modules/**)",
+      "Edit(node_modules/**)",
+      "Write(.git/**)",
+      "Edit(.git/**)"
+    ],
+    "allow": [
+      "Edit(docs/stories/**)",
+      "Write(docs/stories/**)",
+      "Edit(docs/product/**)",
+      "Write(docs/product/**)",
+      "Edit(docs/epics/**)",
+      "Write(docs/epics/**)",
+      "Edit(docs/architecture/**)",
+      "Write(docs/architecture/**)",
+      "Write(.claude/**)"
+    ]
+  }
+}
