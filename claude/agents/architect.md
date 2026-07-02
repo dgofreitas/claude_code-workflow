@@ -204,7 +204,7 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 
 | Task | Description | Node.js | Python | C |
 |------|-------------|---------|--------|---|
-| 0 | Code analysis | code-analyzer | code-analyzer-python | code-analyzer-c |
+| 0 | Code analysis | code-analyzer | code-analyzer (generic)¹ | code-analyzer (generic)¹ |
 | 0b | UX design (if UI) | ux-designer | ux-designer | N/A |
 | 1 | Coordination | tech-lead (skill) | tech-lead (skill) | tech-lead (skill) |
 | 2 | Backend impl. | backend-developer | backend-developer-python | backend-developer-c |
@@ -213,6 +213,8 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 | 5 | QA validation | qa-analyst | qa-analyst | qa-analyst |
 | 6 | Code review | code-reviewer | code-reviewer-python | code-reviewer-c |
 | 7 | Merge request | merge-request-creator | merge-request-creator | merge-request-creator |
+
+> ¹ **Code analysis has no per-language variant** — `code-analyzer`'s workflow (stack detection, pattern recognition, dependency mapping) is language-agnostic by design. Always delegate Task 0 to plain `code-analyzer` regardless of detected language.
 
 ### Execution Order
 
@@ -235,18 +237,20 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 
 **Frontend (by framework):** frontend-developer-react · frontend-developer-vue · frontend-developer-angular
 
-**Node.js:** code-analyzer · backend-developer · test-engineer · code-reviewer · bug-fixer-nodejs
+**Node.js:** backend-developer · test-engineer · code-reviewer · bug-fixer-nodejs
 
-**Python:** code-analyzer-python · backend-developer-python · test-engineer-python · code-reviewer-python · bug-fixer-python
+**Python:** backend-developer-python · test-engineer-python · code-reviewer-python · bug-fixer-python
 
-**C:** code-analyzer-c · backend-developer-c · test-engineer-c · code-reviewer-c · bug-fixer-c
+**C:** backend-developer-c · test-engineer-c · code-reviewer-c · bug-fixer-c (not yet implemented)
+
+**Code analysis (all languages):** code-analyzer (generic, see footnote above)
 
 ### Instructions to Main Agent (Master)
 
 0. Read `docs/architecture/TECH-STACK.md` if it exists (greenfield) OR detect language from build files (existing project)
 1. Detect project language and frontend framework from the source above
 2. Detect frontend framework (React/Vue/Angular) if the story involves UI work
-3. If codebase context needed, delegate Task 0 to language-specific code-analyzer
+3. If codebase context needed, delegate Task 0 to `code-analyzer` (generic — same agent regardless of detected language)
 4. If UI work needed, delegate Task 0b to ux-designer
 5. Save technical analysis to `/docs/stories/STORY-XXX-technical-analysis.md`
 6. Include detected language, framework, AND frontend-backend integration pattern

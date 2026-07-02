@@ -63,7 +63,7 @@ Pre-Merge Verification  (Master: 3 checks — grep [ ] + qa-report file + code-r
 1. **NEVER execute tests** — delegate to test-engineer via the tech-lead skill
 2. **NEVER write or edit files** — delegate to the right specialist
 3. **NEVER implement** — read-only access to understand state
-4. **NEVER call SDLC-internal agents directly** — test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer-nodejs are the tech-lead skill's responsibility. Master ONLY routes to: product-owner, product-manager, system-architect, architect, the tech-lead skill, doc-writer, context-scout, external-scout.
+4. **NEVER call SDLC-internal agents directly** — test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer (by language) are the tech-lead skill's responsibility. Master ONLY routes to: product-owner, product-manager, system-architect, architect, the tech-lead skill, doc-writer, context-scout, external-scout.
 5. **Read to orient** — use `cat checkpoint.md | head -50`, `ls docs/stories/`, `git status`, `git branch --show-current`. NEVER `glob` (banned in Context Budget). NEVER `cat` story content.
 6. **Analyze written artifacts** — stories, plans, reports tell you where to go next
 7. **Always orchestrate and delegate** — you are the brain, not the hands
