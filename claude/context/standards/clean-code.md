@@ -1,16 +1,19 @@
-<!-- Context: development/clean-code | Priority: low | Version: 1.0 | Updated: 2026-02-15 -->
+<!-- Context: standards/clean-code | Priority: high | Version: 2.0 | Updated: 2026-07-02 -->
 
-# Clean Code Principles
+# Clean Code — Local Quality Rules
 
-**Category**: development  
-**Purpose**: Core coding standards and best practices for writing clean, maintainable code  
-**Used by**: FrontendDeveloper, ShellDeveloper, Master, BackendDeveloper
+**Purpose**: The layer *below* patterns and architecture — rules for names, functions, nesting, comments, and error handling at the line/function scope. Not architecture, not patterns — those live in `standards/design-patterns.md` and `standards/code-smells-refactoring.md`.
+
+**When to use**: Every developer agent, every review agent, every pass over the code. This is the floor.
 
 ---
 
-## Overview
+## Core Rules (non-negotiable)
 
-Clean code is code that is easy to read, understand, and maintain. It follows consistent patterns, uses meaningful names, and is well-organized. This guide provides principles and patterns for writing clean code across all languages.
+- **Boy Scout Rule** — leave every file you touched a little cleaner than you found it. A small rename, a magic number promoted to a constant, one extra guard clause. Not a refactoring session — one small improvement per touch.
+- **SRP at function level** — a function does one thing when you can name it without using "and" or a conjunction. `validateAndSave` is two things. Split.
+- **Comments are code smells** — see `standards/code-smells-refactoring.md` §Dispensables → Comments. If you feel the need to explain *what* the next block does, extract a method with that name instead. Comments explain *why* (a workaround, a constraint, a surprising invariant), never *what*.
+- **Names carry the type of thing they name** — collections plural (`users`, not `userList`), booleans read as predicates (`isActive`, `hasPermission`, `canRetry`), functions read as verbs (`calculateTotal`, not `total`).
 
 ## Core Principles
 
@@ -184,8 +187,8 @@ async function fetchData() {
 - Prefer iterators over loops
 - Handle errors with Result types
 
-## References
+## Related Context
 
-- Clean Code by Robert C. Martin
-- The Pragmatic Programmer by Hunt & Thomas
-- Refactoring by Martin Fowler
+- `standards/design-patterns.md` — the layer *above*: structural solutions when local cleanliness isn't enough
+- `standards/code-smells-refactoring.md` — how to spot when clean-code rules were violated in legacy code, and the named refactoring to fix it
+- `standards/code-quality.md` — review checklist that references these rules

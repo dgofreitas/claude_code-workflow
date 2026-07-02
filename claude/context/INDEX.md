@@ -25,7 +25,9 @@
 
 - `standards/essential-patterns.md` | tags: patterns, core, fundamentals, critical | summary: Cross-cutting patterns every agent should know.
 - `standards/code-quality.md` | tags: quality, code, review, critical | summary: Universal code quality rules for writing/reviewing code.
-- `standards/clean-code.md` | tags: clean-code, principles | summary: Clean code practices, language-agnostic.
+- `standards/clean-code.md` | tags: clean-code, principles, naming, functions, comments | summary: Local quality rules — names, functions, nesting, comments; Boy Scout Rule.
+- `standards/design-patterns.md` | tags: patterns, gof, creational, structural, behavioral, catalog | summary: Prescriptive GoF pattern catalog — intent, when to use, when NOT to (overengineering traps), minimal shape.
+- `standards/code-smells-refactoring.md` | tags: smells, refactoring, fowler, legacy, review | summary: Fowler smell catalog mapped to refactoring moves; safety principle (green tests, small steps); review reporting convention.
 - `standards/api-design.md` | tags: api, design, rest, principles | summary: API design principles and patterns.
 - `standards/test-coverage.md` | tags: tests, coverage, critical | summary: Testing standards across stacks.
 - `standards/security.md` | tags: security, patterns, auth | summary: Security best practices and review checklist.
