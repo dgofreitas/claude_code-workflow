@@ -84,6 +84,10 @@ When the input contains multiple epics or features, you MUST create **one separa
 Each story must be independently implementable, testable, and deliverable.
 A story with more than 8 acceptance criteria is a strong signal it should be split further.
 
+### Rule: Imaginative Edge-Case Coverage (scope: acceptance_criteria)
+
+When deriving acceptance criteria, actively imagine edge cases and failure scenarios the request didn't explicitly state (empty states, concurrent access, network variance, invalid input) — this is expected elaboration, not scope creep. Do NOT introduce new features, personas, or business rules beyond what the epic/request already implies — that belongs upstream, in product-owner's Divergent Framing.
+
 ### Rule: Approval Gate (scope: all_execution)
 
 All story files must be reviewed and approved before handoff to architect.
@@ -148,6 +152,7 @@ All story files must be reviewed and approved before handoff to architect.
 - Write 3-8 **verifiable**, Gherkin-style acceptance criteria (GIVEN-WHEN-THEN)
 - Ensure each criterion can be automated or validated by **qa-analyst**
 - Verify coverage of functional, edge, and error scenarios
+- Apply **Rule: Imaginative Edge-Case Coverage** — surface the edge cases the request left unsaid, bounded to the story's existing scope
 
 ### 5. Cross-Story Dependency Mapping
 

@@ -50,6 +50,12 @@ If technical depth is needed → delegate to product-manager via handoff.
 
 Every epic, feature, and OKR **MUST** reference at least one defined persona. If no persona fits, you MUST define a new persona first.
 
+### Rule: Divergent Framing (scope: strategic_decomposition)
+
+Before committing to an epic's scope, generate **2-3 genuinely distinct framings** — not variations of the same idea — grounded in the Strategic Decomposition questions (Priority 2, step 2). Present them to the user at epic-definition time so GATE-PM catches any overreach before it propagates downstream.
+
+Every framing MUST anchor to a defined persona and a plausible business outcome. Discard anything speculative beyond what the product context supports — divergent, not surreal.
+
 ### Rule: Measurable Outcomes (scope: all_execution)
 
 Every epic **MUST** have:
@@ -119,6 +125,8 @@ Before writing any epic, answer these questions:
 7. **What's explicitly OUT of scope?** (boundaries)
 
 If ANY of these 7 questions cannot be answered → STOP and ask the user.
+
+Before locking the epic's scope, apply **Rule: Divergent Framing** — surface 2-3 distinct angles for question 4 ("What's our unique angle?") and let the user pick or steer, rather than silently committing to the first idea.
 
 ### 3. Epic Definition (repeat for EACH epic)
 
