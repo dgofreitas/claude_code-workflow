@@ -20,12 +20,12 @@ Invoke the `product-manager` subagent via the Task tool:
 - Write each story with title, description, acceptance criteria (GIVEN-WHEN-THEN)
 - Define Definition of Done per story
 - Map cross-story dependencies
-- Output each story to `docs/stories/STORY-XXX.md`
-- Output backlog summary to `docs/stories/BACKLOG-SUMMARY.md` (if multiple stories)
+- Output each story to `artifacts/stories/STORY-XXX.md`
+- Output backlog summary to `artifacts/stories/BACKLOG-SUMMARY.md` (if multiple stories)
 
 ## Output
 
-One or more markdown story files at `docs/stories/STORY-XXX.md`, each containing:
+One or more markdown story files at `artifacts/stories/STORY-XXX.md`, each containing:
 
 - Story type and title
 - User story (As a / I want / So that)
@@ -34,4 +34,4 @@ One or more markdown story files at `docs/stories/STORY-XXX.md`, each containing
 - Dependencies (within and across stories)
 - Definition of Done
 
-When multiple stories are created, a `docs/stories/BACKLOG-SUMMARY.md` is also generated with the full story list (IDs, priorities, estimates), dependency graph, and suggested implementation order.
+When multiple stories are created, a `artifacts/stories/BACKLOG-SUMMARY.md` is also generated with the full story list (IDs, priorities, estimates), dependency graph, and suggested implementation order.

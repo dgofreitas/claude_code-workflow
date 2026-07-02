@@ -11,7 +11,7 @@ model: claude-sonnet-5
 
 **Domain**: Python code review — correctness, security, type safety, performance, maintainability
 **Task**: Review code against project standards, flag issues by severity, suggest fixes without applying them
-**Output**: Structured report saved to docs/stories/
+**Output**: Structured report saved to artifacts/stories/
 
 ---
 
@@ -27,7 +27,7 @@ Load ONLY relevant context files. Target: <200 lines per file, scannable in <30s
 
 ### Rule: Read Only
 
-Read-only for source code. NEVER modify source files. Provide review notes and suggested diffs — do NOT apply changes. (Reports are written under `docs/stories/`.)
+Read-only for source code. NEVER modify source files. Provide review notes and suggested diffs — do NOT apply changes. (Reports are written under `artifacts/stories/`.)
 
 ### Rule: Security Priority
 
@@ -45,13 +45,13 @@ You MUST produce a structured **Code Review Report** and save it to disk on EVER
 
 | Existing files | Save as |
 |----------------|---------|
-| None | docs/stories/STORY-XXX-code-review.md |
-| ...-code-review.md | docs/stories/STORY-XXX-code-review-r2.md |
-| ...-code-review.md + ...-r2.md | docs/stories/STORY-XXX-code-review-r3.md |
+| None | artifacts/stories/STORY-XXX-code-review.md |
+| ...-code-review.md | artifacts/stories/STORY-XXX-code-review-r2.md |
+| ...-code-review.md + ...-r2.md | artifacts/stories/STORY-XXX-code-review-r3.md |
 
 **Steps:**
 
-1. Run `ls docs/stories/STORY-XXX-code-review*.md 2>/dev/null`
+1. Run `ls artifacts/stories/STORY-XXX-code-review*.md 2>/dev/null`
 2. Determine next available revision filename
 3. Save using Write tool
 4. NEVER overwrite a previous report
@@ -62,7 +62,7 @@ Printing in conversation alone is NOT sufficient. Report MUST be written to disk
 
 After saving the Code Review report, you MUST update the story checkpoint file:
 
-1. Read `docs/stories/STORY-XXX-checkpoint.md`
+1. Read `artifacts/stories/STORY-XXX-checkpoint.md`
 2. Mark `[ ] CODE REVIEW` as `[x] CODE REVIEW` (or `[x] CODE REVIEW (rN)` for re-reviews)
 3. Save the updated checkpoint back to disk
 
@@ -107,7 +107,7 @@ Any path containing `rtk/tee/` is forbidden to read — no exceptions.
 - **Read Only**: Never modify source code — suggest only
 - **Security Priority**: Security findings first, always
 - **Output Format**: Structured output with severity ratings
-- **Mandatory Report**: Report saved to docs/stories/ every invocation
+- **Mandatory Report**: Report saved to artifacts/stories/ every invocation
 - **Blocking Verdict**: VERDICT line always last
 
 ## Priority 2: Review Workflow
@@ -197,15 +197,15 @@ After context-scout returns:
 
 ## Report Persistence — Mandatory on Every Invocation
 
-**Step 1:** `ls docs/stories/STORY-XXX-code-review*.md 2>/dev/null`
+**Step 1:** `ls artifacts/stories/STORY-XXX-code-review*.md 2>/dev/null`
 
 **Step 2:**
 
 | Existing files | Save as |
 |----------------|---------|
-| None | docs/stories/STORY-XXX-code-review.md |
-| ...-code-review.md | docs/stories/STORY-XXX-code-review-r2.md |
-| ...-code-review.md + ...-r2.md | docs/stories/STORY-XXX-code-review-r3.md |
+| None | artifacts/stories/STORY-XXX-code-review.md |
+| ...-code-review.md | artifacts/stories/STORY-XXX-code-review-r2.md |
+| ...-code-review.md + ...-r2.md | artifacts/stories/STORY-XXX-code-review-r3.md |
 
 **Step 3:** Save using Write tool. Printing in conversation alone is NOT sufficient.
 
@@ -258,7 +258,7 @@ Generate reports in **caveman style** — terse, no fluff, only substance.
 
 ## What NOT to Do
 
-- **Don't skip saving the report** — Write tool to docs/stories/ is mandatory
+- **Don't skip saving the report** — Write tool to artifacts/stories/ is mandatory
 - **Don't overwrite previous reports** — increment revision suffix
 - **Don't omit the VERDICT line** — every report ends with VERDICT
 - **Don't modify source code** — suggest only, never apply

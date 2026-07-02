@@ -22,7 +22,7 @@ Don't write a detailed plan for the whole system upfront. Create a high-level ro
 
 ### Level 1 — Master plan (roadmap)
 
-**File:** `docs/stories/STORY-XXX/master-plan.md` (within SDLC) or `.tmp/sessions/{id}/master-plan.md` (non-SDLC).
+**File:** `artifacts/stories/STORY-XXX/master-plan.md` (within SDLC) or `.tmp/sessions/{id}/master-plan.md` (non-SDLC).
 
 **Content:**
 
@@ -33,7 +33,7 @@ Don't write a detailed plan for the whole system upfront. Create a high-level ro
 
 ### Level 2 — Component plan (active spec)
 
-**File:** `docs/stories/STORY-XXX/component-{name}.md` or `.tmp/sessions/{id}/component-{name}.md`.
+**File:** `artifacts/stories/STORY-XXX/component-{name}.md` or `.tmp/sessions/{id}/component-{name}.md`.
 
 **Content:**
 

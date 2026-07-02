@@ -66,7 +66,7 @@ Every claim backed by evidence. No "it works" without proof.
 
 After creating the MR (PR URL returned successfully), you MUST update the story checkpoint file:
 
-1. Read `docs/stories/STORY-XXX-checkpoint.md`.
+1. Read `artifacts/stories/STORY-XXX-checkpoint.md`.
 2. Mark `[ ] Merge Request` as `[x] Merge Request — <full PR URL>` in the `## SDLC STATUS` section.
 3. Save the updated checkpoint back to disk.
 
@@ -117,10 +117,10 @@ merge-request-creator runs AFTER tech-lead's GATE 4. The first 4 checks below ve
 | Tests passing | `npm run test` (Node) / `pytest` (Python) / `ctest` (C) — NEVER `yarn test` / `npm test` (AGENTS.md) | PASS / FAIL |
 | Coverage >= 90% | Coverage report (test-engineer test-report.md) | PASS / FAIL |
 | No lint/type errors | Linter output | PASS / FAIL |
-| **Test report exists** | `ls docs/stories/STORY-XXX-test-report.md` | PASS / FAIL |
-| **QA report exists + Status PASSED** | `ls docs/stories/STORY-XXX-qa-report*.md` + grep `Status: PASSED` | PASS / FAIL |
-| **Code review exists + VERDICT APPROVED** | `ls docs/stories/STORY-XXX-code-review*.md` + grep `VERDICT: APPROVED` | PASS / FAIL |
-| **Checkpoint clean** | `grep '\[ \]' docs/stories/STORY-XXX-checkpoint.md` returns only `Merge Request` (or nothing) | PASS / FAIL |
+| **Test report exists** | `ls artifacts/stories/STORY-XXX-test-report.md` | PASS / FAIL |
+| **QA report exists + Status PASSED** | `ls artifacts/stories/STORY-XXX-qa-report*.md` + grep `Status: PASSED` | PASS / FAIL |
+| **Code review exists + VERDICT APPROVED** | `ls artifacts/stories/STORY-XXX-code-review*.md` + grep `VERDICT: APPROVED` | PASS / FAIL |
+| **Checkpoint clean** | `grep '\[ \]' artifacts/stories/STORY-XXX-checkpoint.md` returns only `Merge Request` (or nothing) | PASS / FAIL |
 | No merge conflicts | `git merge-tree` | PASS / FAIL |
 | Docs updated | README, API docs | PASS / FAIL |
 | No secrets/debug code | Grep scan | PASS / FAIL |
@@ -183,8 +183,8 @@ Generate MR descriptions in **caveman style** — terse, no fluff, only substanc
 [1-2 lines: what + why]
 
 ## Related Docs
-- PM Story: `docs/stories/STORY-XXX.md`
-- Tech Analysis: `docs/stories/STORY-XXX-technical-analysis.md`
+- PM Story: `artifacts/stories/STORY-XXX.md`
+- Tech Analysis: `artifacts/stories/STORY-XXX-technical-analysis.md`
 
 ## Changes
 | File | Change |

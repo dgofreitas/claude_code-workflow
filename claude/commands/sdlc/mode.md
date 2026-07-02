@@ -16,7 +16,7 @@ Parse `$ARGUMENTS` (case-insensitive):
 - empty or `status` → `cat .claude/.exec-mode 2>/dev/null || echo "default (no override file)"`. Report the current mode. Do nothing else.
 - `default` / `manual` → `rm -f .claude/.exec-mode`. Confirm: "Modo: default (todos os gates pedem aprovação)."
 - `auto-gate` / `auto` / `auto-gates` → `echo "auto-gate" > .claude/.exec-mode`. Confirm: "Modo: auto-gate (GATE-PM/SA/AR/MR automáticos, GATE-NEXT ainda pergunta)."
-- `batch-auto` / `batch` → `echo "batch-auto" > .claude/.exec-mode`. Confirm: "Modo: batch-auto (todos os gates automáticos, roda até esgotar a fila)." The queue itself (`.claude/.batch-queue.json`) is built by the normal Batch-Auto flow on the next delegation (story IDs from the prompt, or `ls docs/stories/STORY-*.md` minus already-merged stories) — this command only sets the mode flag, it does not start execution.
+- `batch-auto` / `batch` → `echo "batch-auto" > .claude/.exec-mode`. Confirm: "Modo: batch-auto (todos os gates automáticos, roda até esgotar a fila)." The queue itself (`.claude/.batch-queue.json`) is built by the normal Batch-Auto flow on the next delegation (story IDs from the prompt, or `ls artifacts/stories/STORY-*.md` minus already-merged stories) — this command only sets the mode flag, it does not start execution.
 - anything else → ask the user to pick one of: default / auto-gate / batch-auto.
 
 ## Safety notes

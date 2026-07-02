@@ -76,14 +76,14 @@
       "Edit(.git/**)"
     ],
     "allow": [
-      "Edit(docs/stories/**)",
-      "Write(docs/stories/**)",
-      "Edit(docs/product/**)",
-      "Write(docs/product/**)",
-      "Edit(docs/epics/**)",
-      "Write(docs/epics/**)",
-      "Edit(docs/architecture/**)",
-      "Write(docs/architecture/**)",
+      "Edit(artifacts/stories/**)",
+      "Write(artifacts/stories/**)",
+      "Edit(artifacts/product/**)",
+      "Write(artifacts/product/**)",
+      "Edit(artifacts/epics/**)",
+      "Write(artifacts/epics/**)",
+      "Edit(artifacts/architecture/**)",
+      "Write(artifacts/architecture/**)",
       "Write(.claude/**)"
     ]
   }

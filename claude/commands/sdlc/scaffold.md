@@ -21,17 +21,17 @@ Invoke the `system-architect` subagent via the Task tool:
 
 ## system-architect will
 
-- Read `docs/product/NFRS.md` + `docs/product/VISION.md`
+- Read `artifacts/product/NFRS.md` + `artifacts/product/VISION.md`
 - Analyze technical requirements from NFRs
 - Propose complete tech stack with rationale
 - ⏸️ GATE #SA: await your approval
-- After approval: create `docs/architecture/TECH-STACK.md`
+- After approval: create `artifacts/architecture/TECH-STACK.md`
 - Scaffold initial project structure
 - Document decisions in `context/project/`
 
 ## Output
 
-- `docs/architecture/TECH-STACK.md`
+- `artifacts/architecture/TECH-STACK.md`
 - `context/project/technical-domain.md` (filled)
 - `context/project/decisions-log.md` (stack decision recorded)
 - Initial project scaffolding (directories, config files)

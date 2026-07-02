@@ -20,7 +20,7 @@ Invoke the `architect` subagent via the Task tool:
 - Invoke code-analyzer for codebase pattern analysis
 - Design the architecture and component plan
 - Create execution batches with agent assignments
-- Output technical analysis to `docs/stories/STORY-XXX-technical-analysis.md`
+- Output technical analysis to `artifacts/stories/STORY-XXX-technical-analysis.md`
 
 ## Output
 
@@ -29,4 +29,4 @@ A technical analysis file containing: stack detection results, architecture deci
 ## Prerequisites
 
 - A story file should exist (run `/story` or `/epic` first)
-- For greenfield projects: `docs/architecture/TECH-STACK.md` must exist (run `/scaffold` first)
+- For greenfield projects: `artifacts/architecture/TECH-STACK.md` must exist (run `/scaffold` first)

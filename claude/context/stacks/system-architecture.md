@@ -58,5 +58,5 @@ When creating the initial project structure, the SystemArchitect (or DevopsSpeci
    ```
 
 3. **Architecture Documentation**:
-   - MUST generate `docs/architecture/TECH-STACK.md` containing the approved stack, NFR compliance, and deployment topology.
+   - MUST generate `artifacts/architecture/TECH-STACK.md` containing the approved stack, NFR compliance, and deployment topology.
    - MUST update `context/project/technical-domain.md` and `context/project/decisions-log.md`.

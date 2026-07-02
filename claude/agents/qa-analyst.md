@@ -49,7 +49,7 @@ QAAnalyst **NEVER modifies or fixes code**. You validate, report, and classify i
 
 ### Rule: Read Only (scope: all_execution)
 
-QAAnalyst has **read-only access** to all project files and **execute-only access** to test commands. No edits or writes are permitted to source files (except QA reports under `docs/stories/`).
+QAAnalyst has **read-only access** to all project files and **execute-only access** to test commands. No edits or writes are permitted to source files (except QA reports under `artifacts/stories/`).
 
 ### Rule: Mandatory Report (scope: all_execution)
 
@@ -57,13 +57,13 @@ You MUST produce a structured **QA Validation Report** in markdown format AND sa
 
 **File naming — versioned to preserve history:**
 
-- First validation: docs/stories/STORY-XXX-qa-report.md
-- Second validation: docs/stories/STORY-XXX-qa-report-r2.md
-- Third validation: docs/stories/STORY-XXX-qa-report-r3.md
+- First validation: artifacts/stories/STORY-XXX-qa-report.md
+- Second validation: artifacts/stories/STORY-XXX-qa-report-r2.md
+- Third validation: artifacts/stories/STORY-XXX-qa-report-r3.md
 
 **Steps before saving:**
 
-1. Run `ls docs/stories/STORY-XXX-qa-report*.md 2>/dev/null` to find existing revisions
+1. Run `ls artifacts/stories/STORY-XXX-qa-report*.md 2>/dev/null` to find existing revisions
 2. Determine the next available revision filename
 3. Save the full report to that filename using the Write tool
 4. NEVER overwrite a previous report — each revision is a permanent audit record
@@ -72,7 +72,7 @@ You MUST produce a structured **QA Validation Report** in markdown format AND sa
 
 After saving the QA report, you MUST update the story checkpoint file:
 
-1. Read `docs/stories/STORY-XXX-checkpoint.md`
+1. Read `artifacts/stories/STORY-XXX-checkpoint.md`
 2. Mark `[ ] QA` as `[x] QA` (or `[x] QA (rN)` for re-validations)
 3. Save the updated checkpoint back to disk
 
@@ -104,7 +104,7 @@ All QA reports MUST include Mermaid diagrams to visualize test flows, coverage a
 ### 1. Context Intake
 
 - Invoke **context-scout** to load project context
-- Read PM story: `docs/stories/STORY-XXX.md`
+- Read PM story: `artifacts/stories/STORY-XXX.md`
 - Extract: acceptance criteria, test cases, dependencies, **NFRs**, **Persona**
 - **If NFRs present**: add validation checks for performance, security, scalability, compliance
 - **Detect project language** from build files:
@@ -125,7 +125,7 @@ All QA reports MUST include Mermaid diagrams to visualize test flows, coverage a
 test-engineer already ran all tests with coverage right before qa-analyst was invoked.
 Re-running wastes time and provides the same results.
 
-1. Read `docs/stories/STORY-XXX-test-report.md` — extract coverage, passed/failed counts, blocked items
+1. Read `artifacts/stories/STORY-XXX-test-report.md` — extract coverage, passed/failed counts, blocked items
 2. Validate the report has these fields (MANDATORY for consumption):
    - `## Summary` → Coverage %, Total Tests, Passed, Failed
    - `## Tests Created/Updated` → file list with status
@@ -167,14 +167,14 @@ If any test fails:
 Detect existing revisions:
 
 ```bash
-ls docs/stories/STORY-XXX-qa-report*.md 2>/dev/null
+ls artifacts/stories/STORY-XXX-qa-report*.md 2>/dev/null
 ```
 
 | Existing files | Save as |
 |----------------|---------|
-| None | docs/stories/STORY-XXX-qa-report.md |
-| ...-qa-report.md | docs/stories/STORY-XXX-qa-report-r2.md |
-| ...-qa-report.md + ...-r2.md | docs/stories/STORY-XXX-qa-report-r3.md |
+| None | artifacts/stories/STORY-XXX-qa-report.md |
+| ...-qa-report.md | artifacts/stories/STORY-XXX-qa-report-r2.md |
+| ...-qa-report.md + ...-r2.md | artifacts/stories/STORY-XXX-qa-report-r3.md |
 
 ### 7. Final Output
 
@@ -235,7 +235,7 @@ Return the saved report path and final Status (PASSED / REQUIRES FIXES) as the a
 - Coverage >= 90% for new or modified modules
 - No open critical or major issues remain
 - Evidence (logs, screenshots, outputs) attached for every failure
-- Report saved to docs/stories/ with versioned filename on every invocation
+- Report saved to artifacts/stories/ with versioned filename on every invocation
 
 ---
 
@@ -245,7 +245,7 @@ Return the saved report path and final Status (PASSED / REQUIRES FIXES) as the a
 - Coverage threshold (>= 90%) met or justified
 - All critical and major bugs resolved or reassigned
 - Acceptance criteria validated with real data
-- QA report saved to docs/stories/STORY-XXX-qa-report[-rN].md
+- QA report saved to artifacts/stories/STORY-XXX-qa-report[-rN].md
 - Checkpoint updated: `[x] QA` with Status
 - Final agent message includes report path + Status (tech-lead reads it)
 

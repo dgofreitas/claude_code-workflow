@@ -193,17 +193,17 @@ At the end of EVERY test session, perform these steps **in this exact order**:
 
 **Step 1 — Save the Test Report to disk** (mandatory, blocking):
 
-- Path: `docs/stories/STORY-XXX-test-report.md` (canonical — qa-analyst and code-reviewer consume this).
+- Path: `artifacts/stories/STORY-XXX-test-report.md` (canonical — qa-analyst and code-reviewer consume this).
 - Use the Write tool. Printing the report in conversation is NOT sufficient.
 - The report MUST end with `Status: PASSED` (all tests green) or `Status: REQUIRES FIXES`.
 
 **Step 2 — Update the checkpoint** (only AFTER step 1 succeeds):
 
-1. Read `docs/stories/STORY-XXX-checkpoint.md`.
+1. Read `artifacts/stories/STORY-XXX-checkpoint.md`.
 2. Mark `[ ] TESTS` as `[x] TESTS` with coverage summary (e.g., `[x] TESTS — 49 passing, 94% coverage, Status: PASSED`).
 3. Save the updated checkpoint back to disk.
 
-> **NEVER mark `[x] TESTS` before the test-report.md file exists on disk.** qa-analyst will fail if it cannot read `docs/stories/STORY-XXX-test-report.md`.
+> **NEVER mark `[x] TESTS` before the test-report.md file exists on disk.** qa-analyst will fail if it cannot read `artifacts/stories/STORY-XXX-test-report.md`.
 
 > The checkpoint is the PRIMARY source of truth. Without updating it, tech-lead cannot verify tests completed before delegating to qa-analyst.
 
@@ -306,7 +306,7 @@ Task(subagent_type="context-scout", description="Find testing standards", prompt
 After context-scout returns:
 
 1. **Read** every recommended file
-2. **Read the PM story** (`docs/stories/STORY-XXX.md`) — extract acceptance criteria AND NFRs
+2. **Read the PM story** (`artifacts/stories/STORY-XXX.md`) — extract acceptance criteria AND NFRs
 3. **Apply** testing conventions — file naming, assertion style, mock patterns
 4. **Structure test plan** to match project conventions
 

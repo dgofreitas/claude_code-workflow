@@ -64,7 +64,7 @@ Pre-Merge Verification  (Master: 3 checks — grep [ ] + qa-report file + code-r
 2. **NEVER write or edit files** — delegate to the right specialist
 3. **NEVER implement** — read-only access to understand state
 4. **NEVER call SDLC-internal agents directly** — test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer (by language) are the tech-lead skill's responsibility. Master ONLY routes to: product-owner, product-manager, system-architect, architect, the tech-lead skill, doc-writer, context-scout, external-scout.
-5. **Read to orient** — use `cat checkpoint.md | head -50`, `ls docs/stories/`, `git status`, `git branch --show-current`. NEVER `glob` (banned in Context Budget). NEVER `cat` story content.
+5. **Read to orient** — use `cat checkpoint.md | head -50`, `ls artifacts/stories/`, `git status`, `git branch --show-current`. NEVER `glob` (banned in Context Budget). NEVER `cat` story content.
 6. **Analyze written artifacts** — stories, plans, reports tell you where to go next
 7. **Always orchestrate and delegate** — you are the brain, not the hands
 8. **When in doubt** — suggest the most likely agent or ask the user
@@ -99,7 +99,7 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 ### Batch-Auto specifics
 
 - **Story queue**: written to `.claude/.batch-queue.json` at start. Format: `{"queue": ["STORY-001", "STORY-002"], "current": 0, "completed": [], "failed": []}`.
-- **Queue source**: (a) story IDs in user prompt, OR (b) `ls docs/stories/STORY-*.md` minus already-merged stories (check via `git log --grep STORY-`).
+- **Queue source**: (a) story IDs in user prompt, OR (b) `ls artifacts/stories/STORY-*.md` minus already-merged stories (check via `git log --grep STORY-`).
 - **Execution loop**: pick `queue[current]` → run pipeline → on success move to `completed` → increment `current` → next. On failure: append to `failed`, STOP, report.
 - **Stop conditions** (non-overridable, even in batch-auto):
   - Any agent returns BLOCKED, error, or refuses task.
@@ -122,9 +122,9 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 
 > **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — 3 checks). All three must pass. (2) THEN on approval (manual or auto) → `gh pr merge <MR_URL> --merge` → `git branch -d <feature-branch>` → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
 
-> **GATE-SA**: only for **greenfield projects** (no build files AND no `docs/architecture/TECH-STACK.md`). Existing projects skip system-architect and GATE-SA entirely.
+> **GATE-SA**: only for **greenfield projects** (no build files AND no `artifacts/architecture/TECH-STACK.md`). Existing projects skip system-architect and GATE-SA entirely.
 
-> **Optional pre-step**: If user asks for strategic/product-level work (vision, personas, epics, roadmap), invoke **product-owner** FIRST. PO outputs feed product-manager via `docs/product/PM-HANDOFF.md`. There is no GATE-PO — product-owner output flows directly to product-manager.
+> **Optional pre-step**: If user asks for strategic/product-level work (vision, personas, epics, roadmap), invoke **product-owner** FIRST. PO outputs feed product-manager via `artifacts/product/PM-HANDOFF.md`. There is no GATE-PO — product-owner output flows directly to product-manager.
 
 ---
 
@@ -134,13 +134,13 @@ Run on every request (including "continue"). **Hard budget: max 2 bash calls per
 
 ```
 If user mentioned a SPECIFIC story id ("STORY-021", "STORY-theme-003"):
-  1. bash: ls docs/stories/STORY-XXX*.md 2>/dev/null                          → story exists? plan exists?
-  2. bash: cat docs/stories/STORY-XXX-checkpoint.md 2>/dev/null | head -50    → routing via SDLC STATUS + QUALITY AND DELIVERY
+  1. bash: ls artifacts/stories/STORY-XXX*.md 2>/dev/null                          → story exists? plan exists?
+  2. bash: cat artifacts/stories/STORY-XXX-checkpoint.md 2>/dev/null | head -50    → routing via SDLC STATUS + QUALITY AND DELIVERY
 
 If user gave a vague request ("continue", "build X"):
   1. bash: git branch --show-current                                           → on feature branch? which story?
-  2a. (if on feat/STORY-XXX) bash: cat docs/stories/STORY-XXX-checkpoint.md 2>/dev/null | head -50
-  2b. (if NOT on feature branch) bash: ls docs/stories/                       → filenames only, route from there
+  2a. (if on feat/STORY-XXX) bash: cat artifacts/stories/STORY-XXX-checkpoint.md 2>/dev/null | head -50
+  2b. (if NOT on feature branch) bash: ls artifacts/stories/                       → filenames only, route from there
 ```
 
 > **`cat checkpoint.md | head -50` is the ONLY allowed `cat`** — reads SDLC STATUS + QUALITY AND DELIVERY. NEVER `cat` story content, technical analysis, or any other file. NEVER `glob`.
@@ -236,13 +236,13 @@ If the first line is neither `STORY-XXX-DONE` nor `STORY-XXX-BLOCKED` → ASK us
 
 ```bash
 # Check 1: no unchecked items in checkpoint
-grep -E '^- \[ \]' docs/stories/STORY-XXX-checkpoint.md
+grep -E '^- \[ \]' artifacts/stories/STORY-XXX-checkpoint.md
 
 # Check 2: QA report file exists
-ls docs/stories/STORY-XXX-qa-report*.md 2>/dev/null
+ls artifacts/stories/STORY-XXX-qa-report*.md 2>/dev/null
 
 # Check 3: Code Review report file exists
-ls docs/stories/STORY-XXX-code-review*.md 2>/dev/null
+ls artifacts/stories/STORY-XXX-code-review*.md 2>/dev/null
 ```
 
 **Decision matrix:**

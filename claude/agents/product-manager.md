@@ -15,20 +15,20 @@ model: claude-sonnet-5
 
 ## Upstream: ProductOwner Integration
 
-If `docs/product/PM-HANDOFF.md` exists, you MUST read it FIRST before decomposing anything. Then read ALL referenced epic files. The product-owner provides:
+If `artifacts/product/PM-HANDOFF.md` exists, you MUST read it FIRST before decomposing anything. Then read ALL referenced epic files. The product-owner provides:
 
-- **Personas** at `docs/product/PERSONAS.md` — reference in every story
-- **Epics** at `docs/epics/EPIC-XXX.md` — decompose each into stories
-- **NFRs** at `docs/product/NFRS.md` — apply to all relevant stories
-- **Glossary** at `docs/product/GLOSSARY.md` — use correct domain terminology
-- **Roadmap** at `docs/product/ROADMAP.md` — respect release priorities
+- **Personas** at `artifacts/product/PERSONAS.md` — reference in every story
+- **Epics** at `artifacts/epics/EPIC-XXX.md` — decompose each into stories
+- **NFRs** at `artifacts/product/NFRS.md` — apply to all relevant stories
+- **Glossary** at `artifacts/product/GLOSSARY.md` — use correct domain terminology
+- **Roadmap** at `artifacts/product/ROADMAP.md` — respect release priorities
 
 **If no PO artifacts exist**: proceed with stories directly from user input (legacy mode).
 
 **If PO artifacts exist**:
 
 1. Read `PM-HANDOFF.md` — extract: epics list, priorities, persona mappings, sequencing
-2. **Read each `docs/epics/EPIC-XXX.md`** — extract: title, description, scenarios (GIVEN/WHEN/THEN), dependencies, NFRs, acceptance criteria
+2. **Read each `artifacts/epics/EPIC-XXX.md`** — extract: title, description, scenarios (GIVEN/WHEN/THEN), dependencies, NFRs, acceptance criteria
 3. Order epics by: roadmap milestones > MoSCoW priority > WSJF score
 4. Decompose each epic into stories (see Decomposition Rules below)
 
@@ -170,8 +170,8 @@ All story files must be reviewed and approved before handoff to architect.
 
 ### 7. Documentation and Handoff
 
-- **Save EACH story** using Write tool to `/docs/stories/STORY-XXX.md`
-- After ALL stories, create a **backlog summary** at `/docs/stories/BACKLOG-SUMMARY.md`:
+- **Save EACH story** using Write tool to `/artifacts/stories/STORY-XXX.md`
+- After ALL stories, create a **backlog summary** at `/artifacts/stories/BACKLOG-SUMMARY.md`:
   - Total number of stories
   - Story list with IDs, titles, priorities, estimates
   - **Mermaid dependency graph**
@@ -266,8 +266,8 @@ graph TD
 - **Each** story contains all required fields
 - Acceptance criteria verified and aligned with business (3-8 per story)
 - Dependencies and risks documented (within and across stories)
-- **Each** story file saved at `/docs/stories/STORY-XXX.md`
-- Backlog summary saved at `/docs/stories/BACKLOG-SUMMARY.md` (when multiple stories)
+- **Each** story file saved at `/artifacts/stories/STORY-XXX.md`
+- Backlog summary saved at `/artifacts/stories/BACKLOG-SUMMARY.md` (when multiple stories)
 - Stories approved and ready for **architect**
 - No single story exceeds 21 story points
 - No single story has more than 8 acceptance criteria

@@ -139,7 +139,7 @@ For each UI component:
 
 ## UX Specification Document Format
 
-Save to: `docs/stories/STORY-XXX-ux-spec.md`
+Save to: `artifacts/stories/STORY-XXX-ux-spec.md`
 
 ```markdown
 # UX Specification -- STORY-XXX: <title>
@@ -196,7 +196,7 @@ Save to: `docs/stories/STORY-XXX-ux-spec.md`
 
 ## Definition of Done
 
-- UX spec saved to `docs/stories/STORY-XXX-ux-spec.md`
+- UX spec saved to `artifacts/stories/STORY-XXX-ux-spec.md`
 - All PM acceptance criteria have corresponding design solutions
 - All component states defined (default, hover, active, focus, disabled, loading, error, empty)
 - Responsive behavior defined for mobile, tablet, and desktop

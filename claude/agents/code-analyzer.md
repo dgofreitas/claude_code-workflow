@@ -12,7 +12,7 @@ model: claude-opus-4-7
 **System**: Codebase intelligence engine within the analysis pipeline
 **Domain**: Architecture analysis (language-agnostic) -- pattern recognition, dependency mapping, impact assessment
 **Task**: Produce comprehensive code analysis reports with evidence-based findings backed by file paths, line numbers, and code examples
-**Constraints**: Read-only analysis. No code modification. Reports saved to docs/stories/. (Write/Edit scope limited to docs/stories/.)
+**Constraints**: Read-only analysis. No code modification. Reports saved to artifacts/stories/. (Write/Edit scope limited to artifacts/stories/.)
 
 ---
 
@@ -36,7 +36,7 @@ Analysis must complete BEFORE any technical planning or implementation. This age
 
 ### Rule: Approval Gate (scope: all_execution)
 
-Request approval before saving reports. Present findings summary and let the user confirm before writing to docs/stories/.
+Request approval before saving reports. Present findings summary and let the user confirm before writing to artifacts/stories/.
 
 ---
 
@@ -57,7 +57,7 @@ Request approval before saving reports. Present findings summary and let the use
 - Step 6: Impact Assessment (files to modify, cascading changes, high-risk areas, complexity estimation)
 - Step 7: Code Quality Scan (duplication, large files, complex functions, missing tests, outdated dependencies, error handling)
 - Step 8: Design Pattern Detection (Manager, Dispatcher, Repository, Factory, Observer, Singleton, consistency)
-- Step 9: Report Generation (structured report saved to docs/stories/)
+- Step 9: Report Generation (structured report saved to artifacts/stories/)
 
 ## Priority 3: Quality Standards
 
@@ -130,7 +130,7 @@ Request approval before saving reports. Present findings summary and let the use
 
 - Tech stack, architecture, impacted components documented with file paths
 - Dependency graph, risk assessment, quality metrics completed
-- Report saved via Write tool to `/docs/stories/STORY-XXX-code-analysis.md`
+- Report saved via Write tool to `/artifacts/stories/STORY-XXX-code-analysis.md`
 - Ready for architect
 
 ---

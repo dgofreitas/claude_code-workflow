@@ -56,7 +56,7 @@ Reference **exact agent names** (kebab-case, matching the subagent filenames) wh
 
 ### Rule: Technical Analysis Doc (scope: all_execution)
 
-**Always create technical analysis document** -- Save as `STORY-XXX-technical-analysis.md` in `/docs/stories/`.
+**Always create technical analysis document** -- Save as `STORY-XXX-technical-analysis.md` in `/artifacts/stories/`.
 
 ### Rule: Mermaid Diagrams (scope: documentation)
 
@@ -80,13 +80,13 @@ Reference **exact agent names** (kebab-case, matching the subagent filenames) wh
 
 - Invoke **context-scout** to load project context
 - **Stack detection (MANDATORY before story analysis)**:
-  - If `docs/architecture/TECH-STACK.md` exists → read it (greenfield with system-architect output)
+  - If `artifacts/architecture/TECH-STACK.md` exists → read it (greenfield with system-architect output)
   - If it does not exist → detect stack from build files (`package.json`, `pyproject.toml`, `CMakeLists.txt`)
-- Read User Story from **product-manager**: `/docs/stories/STORY-XXX.md`
+- Read User Story from **product-manager**: `/artifacts/stories/STORY-XXX.md`
 - **Request code analysis from code-analyzer** when needed:
   - **MANDATORY**: New features modifying existing code, refactoring, architectural changes
   - **OPTIONAL**: Simple bug fixes, documentation updates, new isolated features
-- Review code analysis: `/docs/stories/STORY-XXX-code-analysis.md`
+- Review code analysis: `/artifacts/stories/STORY-XXX-code-analysis.md`
 - Understand business requirements and acceptance criteria
 
 ### 2. Technical Analysis
@@ -106,9 +106,9 @@ Reference **exact agent names** (kebab-case, matching the subagent filenames) wh
 
 ### 4. Technical Documentation
 
-Create and **save** (Write tool) to `/docs/stories/STORY-XXX-technical-analysis.md`:
+Create and **save** (Write tool) to `/artifacts/stories/STORY-XXX-technical-analysis.md`:
 
-- **Stack Reference**: link to `docs/architecture/TECH-STACK.md` (if greenfield) or detected stack summary
+- **Stack Reference**: link to `artifacts/architecture/TECH-STACK.md` (if greenfield) or detected stack summary
 - Technical task breakdown
 - NFR Analysis (from story's `NFRs` field): performance, security, scalability, compliance
 - **Persona Impact**: which personas are affected and how
@@ -159,9 +159,9 @@ graph LR
 
 Prepare clear instructions for the **tech-lead** skill (invoked by Master) with references to:
 
-- PM story: `/docs/stories/STORY-XXX.md`
-- Technical analysis: `/docs/stories/STORY-XXX-technical-analysis.md`
-- Code analysis (if exists): `/docs/stories/STORY-XXX-code-analysis.md`
+- PM story: `/artifacts/stories/STORY-XXX.md`
+- Technical analysis: `/artifacts/stories/STORY-XXX-technical-analysis.md`
+- Code analysis (if exists): `/artifacts/stories/STORY-XXX-code-analysis.md`
 
 ---
 
@@ -170,7 +170,7 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 ### Task Analysis
 
 - [Project summary in 2-3 bullets]
-- [Detected tech stack — source: `docs/architecture/TECH-STACK.md` (greenfield) OR build file detection (existing project)]
+- [Detected tech stack — source: `artifacts/architecture/TECH-STACK.md` (greenfield) OR build file detection (existing project)]
 - [Code analysis summary if used]
 
 ### Language Detection (MANDATORY)
@@ -247,12 +247,12 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 
 ### Instructions to Main Agent (Master)
 
-0. Read `docs/architecture/TECH-STACK.md` if it exists (greenfield) OR detect language from build files (existing project)
+0. Read `artifacts/architecture/TECH-STACK.md` if it exists (greenfield) OR detect language from build files (existing project)
 1. Detect project language and frontend framework from the source above
 2. Detect frontend framework (React/Vue/Angular) if the story involves UI work
 3. If codebase context needed, delegate Task 0 to `code-analyzer` (generic — same agent regardless of detected language)
 4. If UI work needed, delegate Task 0b to ux-designer
-5. Save technical analysis to `/docs/stories/STORY-XXX-technical-analysis.md`
+5. Save technical analysis to `/artifacts/stories/STORY-XXX-technical-analysis.md`
 6. Include detected language, framework, AND frontend-backend integration pattern
 7. After the architecture gate, Master invokes the tech-lead skill with all document references
 8. tech-lead coordinates Tasks 2-7 using correct agents
@@ -274,11 +274,11 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 
 ## Definition of Done
 
-- **Stack known** — read from `docs/architecture/TECH-STACK.md` (greenfield) or detected from build files (existing project)
+- **Stack known** — read from `artifacts/architecture/TECH-STACK.md` (greenfield) or detected from build files (existing project)
 - PM story read and understood
 - Code analysis completed (if needed)
 - Story fully decomposed into technical tasks
-- Technical analysis document saved in `/docs/stories/`
+- Technical analysis document saved in `/artifacts/stories/`
 - Each task assigned to a valid agent
 - Execution order clear and dependency-safe
 - Output ready for execution by the **tech-lead** skill

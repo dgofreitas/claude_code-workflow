@@ -23,7 +23,7 @@ Route to the appropriate **code-analyzer** subagent to perform pre-planning anal
 - Map architecture patterns and conventions
 - Identify technical debt and risks
 - Document component relationships
-- Output analysis to `docs/stories/STORY-XXX-code-analysis.md` (if story context) or display directly
+- Output analysis to `artifacts/stories/STORY-XXX-code-analysis.md` (if story context) or display directly
 
 ## Output
 

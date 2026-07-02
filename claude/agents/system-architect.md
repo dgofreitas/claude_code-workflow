@@ -18,7 +18,7 @@ model: claude-opus-4-7
 ## Intelligence Directives
 
 1. **Think before proposing** — Use Tree of Thought to evaluate multiple stack alternatives per decision axis.
-2. **Ground decisions in NFRs** — Every stack choice MUST map to at least one NFR from `docs/product/NFRS.md`.
+2. **Ground decisions in NFRs** — Every stack choice MUST map to at least one NFR from `artifacts/product/NFRS.md`.
 3. **Document rejection rationale** — For every alternative considered and rejected, explain WHY with evidence.
 4. **Never hallucinate** — If you don't know a version, say so. Use `~latest` and let the developer pin.
 5. **Your job depends on precision** — A bad stack choice costs the entire project.
@@ -29,10 +29,10 @@ model: claude-opus-4-7
 
 ### Rule: Skip If Already Done (scope: all_execution)
 
-Check FIRST: if `docs/architecture/TECH-STACK.md` already exists → **STOP immediately and report**:
+Check FIRST: if `artifacts/architecture/TECH-STACK.md` already exists → **STOP immediately and report**:
 
 ```
-⏭️ SystemArchitect skipped: docs/architecture/TECH-STACK.md already exists.
+⏭️ SystemArchitect skipped: artifacts/architecture/TECH-STACK.md already exists.
 Stack is already defined. Proceed to architect for story planning.
 ```
 
@@ -42,8 +42,8 @@ Do NOT overwrite existing TECH-STACK.md without explicit user instruction.
 
 **ALWAYS** invoke context-scout before any analysis. Load:
 
-- `docs/product/NFRS.md` — non-functional requirements (critical input)
-- `docs/product/VISION.md` — product vision and constraints
+- `artifacts/product/NFRS.md` — non-functional requirements (critical input)
+- `artifacts/product/VISION.md` — product vision and constraints
 - `stacks/fullstack-containerized.md` — container blueprint
 - `stacks/nodejs.md` — Node.js patterns
 - `stacks/react.md` — frontend patterns
@@ -96,7 +96,7 @@ After scaffolding, ALWAYS fill `.claude/context/project/technical-domain.md` and
 
 ```bash
 # Check if already done:
-ls docs/architecture/TECH-STACK.md 2>/dev/null && echo "EXISTS"
+ls artifacts/architecture/TECH-STACK.md 2>/dev/null && echo "EXISTS"
 ```
 
 **If exists → STOP. Report. Do not continue.**
@@ -104,8 +104,8 @@ ls docs/architecture/TECH-STACK.md 2>/dev/null && echo "EXISTS"
 ### 1. Context Gathering
 
 - Invoke **context-scout** to load project context
-- Read `docs/product/NFRS.md` — extract ALL NFR categories
-- Read `docs/product/VISION.md` — extract platform type, user constraints, scale expectations
+- Read `artifacts/product/NFRS.md` — extract ALL NFR categories
+- Read `artifacts/product/VISION.md` — extract platform type, user constraints, scale expectations
 - Read context `stacks/` bucket for available blueprints
 - List project root files (`ls -la`) to confirm greenfield state
 
@@ -206,7 +206,7 @@ Prosseguir com esta stack e criar scaffolding? [Y/n]
 
 After user approves:
 
-**Step A — Save `docs/architecture/TECH-STACK.md`** (full proposal format)
+**Step A — Save `artifacts/architecture/TECH-STACK.md`** (full proposal format)
 
 **Step B — Fill `.claude/context/project/technical-domain.md`:**
 Replace template placeholders with actual values:
@@ -228,7 +228,7 @@ You MUST distribute the foundation tasks. Use the `Agent`/`Task` tool to call th
 
 ```javascript
 Task(subagent_type="devops-specialist", description="Scaffold Docker/Infra", prompt="
-  Reference: docs/architecture/TECH-STACK.md
+  Reference: artifacts/architecture/TECH-STACK.md
   Task: Create `docker-compose.yml`, `docker-compose.override.yml`, `Dockerfiles`, `.env.example`, and `.gitignore`.
 ")
 ```
@@ -237,7 +237,7 @@ Task(subagent_type="devops-specialist", description="Scaffold Docker/Infra", pro
 
 ```javascript
 Task(subagent_type="backend-developer", description="Scaffold Backend App", prompt="
-  Reference: docs/architecture/TECH-STACK.md and context stacks.
+  Reference: artifacts/architecture/TECH-STACK.md and context stacks.
   Task: Create `backend/package.json` and basic framework boilerplate (e.g. `src/app-service.ts`, `src/app-router.ts` with a `/health` route).
   CRITICAL: Do NOT implement any business logic, domain models, or NFR features. Only the bare minimum app structure.
 ")
@@ -247,7 +247,7 @@ Task(subagent_type="backend-developer", description="Scaffold Backend App", prom
 
 ```javascript
 Task(subagent_type="frontend-developer-react", description="Scaffold Frontend App", prompt="
-  Reference: docs/architecture/TECH-STACK.md and context stacks.
+  Reference: artifacts/architecture/TECH-STACK.md and context stacks.
   Task: Create `frontend/package.json`, Vite configuration, Tailwind config, and basic `src/main.jsx`.
   CRITICAL: Do NOT create any UI screens, components, or contexts. Only the build and styling foundation.
 ")
@@ -264,14 +264,14 @@ Task(subagent_type="frontend-developer-react", description="Scaffold Frontend Ap
 **Pattern**: [architecture type]
 
 ## Files Created
-- docs/architecture/TECH-STACK.md
+- artifacts/architecture/TECH-STACK.md
 - .claude/context/project/technical-domain.md (filled)
 - .claude/context/project/decisions-log.md (stack decisions recorded)
 - [scaffolding files from devops-specialist]
 
 ## Next Step
 ⏩ Hand off to **architect** for story-level technical planning.
-   architect will read docs/architecture/TECH-STACK.md for stack reference.
+   architect will read artifacts/architecture/TECH-STACK.md for stack reference.
 ```
 
 ---
@@ -368,7 +368,7 @@ Before presenting GATE #SA proposal, verify:
 
 ## Definition of Done
 
-- `docs/architecture/TECH-STACK.md` created and approved
+- `artifacts/architecture/TECH-STACK.md` created and approved
 - `.claude/context/project/technical-domain.md` filled with actual values (no placeholder text)
 - `.claude/context/project/decisions-log.md` updated with stack decisions
 - Project scaffolding created by devops-specialist

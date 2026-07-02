@@ -84,7 +84,7 @@ All product docs MUST include Mermaid diagrams:
 
 ### Rule: Handoff to ProductManager (scope: all_execution)
 
-After epics are approved, produce a **PM Handoff Document** at `docs/product/PM-HANDOFF.md` that tells the product-manager exactly which epics to decompose into user stories, in what order, and with what constraints.
+After epics are approved, produce a **PM Handoff Document** at `artifacts/product/PM-HANDOFF.md` that tells the product-manager exactly which epics to decompose into user stories, in what order, and with what constraints.
 
 ---
 
@@ -174,15 +174,15 @@ Save deliverables:
 
 | File | Purpose |
 |------|---------|
-| `docs/product/VISION.md` | Product vision, mission, strategy |
-| `docs/product/PERSONAS.md` | All user personas with JTBD |
-| `docs/product/OKRS.md` | Objectives and Key Results |
-| `docs/product/ROADMAP.md` | Release plan with Mermaid Gantt |
-| `docs/product/NFRS.md` | Non-functional requirements |
-| `docs/product/GLOSSARY.md` | Domain terms and definitions |
-| `docs/epics/EPIC-XXX.md` | One file per epic |
-| `docs/epics/EPICS-SUMMARY.md` | Backlog summary with dependency graph |
-| `docs/product/PM-HANDOFF.md` | Instructions for product-manager |
+| `artifacts/product/VISION.md` | Product vision, mission, strategy |
+| `artifacts/product/PERSONAS.md` | All user personas with JTBD |
+| `artifacts/product/OKRS.md` | Objectives and Key Results |
+| `artifacts/product/ROADMAP.md` | Release plan with Mermaid Gantt |
+| `artifacts/product/NFRS.md` | Non-functional requirements |
+| `artifacts/product/GLOSSARY.md` | Domain terms and definitions |
+| `artifacts/epics/EPIC-XXX.md` | One file per epic |
+| `artifacts/epics/EPICS-SUMMARY.md` | Backlog summary with dependency graph |
+| `artifacts/product/PM-HANDOFF.md` | Instructions for product-manager |
 
 ---
 
@@ -340,10 +340,10 @@ Before handing off to product-manager, verify:
 
 ## Definition of Done
 
-- All product docs created in `docs/product/`
-- All epics saved at `docs/epics/EPIC-XXX.md`
-- Epic backlog summary at `docs/epics/EPICS-SUMMARY.md`
-- PM Handoff document at `docs/product/PM-HANDOFF.md`
+- All product docs created in `artifacts/product/`
+- All epics saved at `artifacts/epics/EPIC-XXX.md`
+- Epic backlog summary at `artifacts/epics/EPICS-SUMMARY.md`
+- PM Handoff document at `artifacts/product/PM-HANDOFF.md`
 - Dependency graph (Mermaid) validated
 - Roadmap approved by user
 - Non-functional requirements documented
@@ -353,7 +353,7 @@ Before handing off to product-manager, verify:
 
 ## Handoff to ProductManager — Mandatory Format
 
-After approval, write `docs/product/PM-HANDOFF.md`:
+After approval, write `artifacts/product/PM-HANDOFF.md`:
 
 ```markdown
 # PM Handoff — [Project Name]

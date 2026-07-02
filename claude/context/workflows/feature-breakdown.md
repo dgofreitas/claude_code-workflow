@@ -75,7 +75,7 @@ The breakdown produces input for `task.json` + `subtask_NN.json` per `workflows/
 
 ## Markdown template (planning artifact)
 
-Use during planning before generating JSON. Save to `docs/stories/STORY-XXX/breakdown.md` if SDLC, else `.tmp/sessions/{id}/breakdown.md`.
+Use during planning before generating JSON. Save to `artifacts/stories/STORY-XXX/breakdown.md` if SDLC, else `.tmp/sessions/{id}/breakdown.md`.
 
 ```markdown
 # Breakdown: {Feature}
