@@ -16,10 +16,6 @@ model: claude-sonnet-5
 
 ---
 
-## ⚠️ HARD STOP — Anti-Loop Protocol (HIGHEST PRIORITY)
-
-This rule OVERRIDES all other rules. Violating it blocks the entire pipeline.
-
 ## ⚠️ HARD STOP — Pre-Read Protocol (HIGHEST PRIORITY, runs BEFORE everything)
 
 **BEFORE reading ANY file from the delegation prompt — STOP and do this first:**
