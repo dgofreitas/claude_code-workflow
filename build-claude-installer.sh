@@ -33,10 +33,10 @@ OUTPUT_FILE="${OUTPUT_DEFAULT}"
 # Lista de itens obrigatórios para o bundle (dentro de claude/)
 readonly CLAUDE_REQUIRED_ITEMS=(
     "agents"
-    "bin"
     "commands"
     "context"
     "hooks"
+    "model-profiles"
     "skills"
     "CLAUDE.md"
     "RTK.md"

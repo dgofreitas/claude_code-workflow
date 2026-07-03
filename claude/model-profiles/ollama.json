@@ -1,0 +1,45 @@
+{
+  "provider": "ollama",
+  "description": "Model assignment for personal/Ollama Cloud projects. Applied by install-claude.sh when the user picks 'Ollama' at install time, or later via a re-run with --provider ollama. Tags carry the ':cloud' suffix required by Ollama Cloud — verified against this machine's 'ollama list' output and ollama.com/library pages.",
+  "session": {
+    "model": "kimi-k2.7-code:cloud"
+  },
+  "agents": {
+    "architect": "glm-5.2:cloud",
+    "system-architect": "glm-5.2:cloud",
+    "product-owner": "glm-5.2:cloud",
+    "code-analyzer": "deepseek-v4-pro:cloud",
+    "bug-fixer-nodejs": "deepseek-v4-pro:cloud",
+    "bug-fixer-python": "deepseek-v4-pro:cloud",
+    "backend-developer": "glm-5.2:cloud",
+    "backend-developer-python": "glm-5.2:cloud",
+    "frontend-developer": "glm-5.2:cloud",
+    "frontend-developer-angular": "glm-5.2:cloud",
+    "frontend-developer-react": "glm-5.2:cloud",
+    "frontend-developer-vue": "glm-5.2:cloud",
+    "shell-developer": "glm-5.2:cloud",
+    "devops-specialist": "glm-5.2:cloud",
+    "test-engineer": "qwen3-coder:480b-cloud",
+    "test-engineer-python": "qwen3-coder:480b-cloud",
+    "code-reviewer": "kimi-k2.7-code:cloud",
+    "code-reviewer-python": "kimi-k2.7-code:cloud",
+    "impl-reviewer-nodejs": "kimi-k2.7-code:cloud",
+    "qa-analyst": "deepseek-v4-flash:cloud",
+    "doc-writer": "deepseek-v4-flash:cloud",
+    "gui-debugger": "deepseek-v4-flash:cloud",
+    "product-manager": "deepseek-v4-flash:cloud",
+    "ux-designer": "deepseek-v4-flash:cloud",
+    "context-scout": "qwen3.5:cloud",
+    "external-scout": "qwen3.5:cloud",
+    "build-agent": "minimax-m3:cloud",
+    "merge-request-creator": "minimax-m3:cloud",
+    "task-manager": "minimax-m3:cloud",
+    "context-organizer": "minimax-m3:cloud"
+  },
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:11434",
+    "ANTHROPIC_AUTH_TOKEN": "ollama",
+    "ANTHROPIC_API_KEY": "",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1"
+  }
+}

@@ -33,16 +33,18 @@ readonly DEFAULT_LOCAL_DIR=".claude"
 
 readonly CLAUDE_REQUIRED_ITEMS=(
     "agents"
-    "bin"
     "commands"
     "context"
     "hooks"
     "skills"
+    "model-profiles"
     "CLAUDE.md"
     "RTK.md"
     "settings.json"
     ".rtk"
 )
+
+readonly RTK_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh"
 
 COUNT_AGENTS=0
 COUNT_COMMANDS=0
@@ -53,6 +55,8 @@ COUNT_CONTEXT=0
 INSTALL_DEST=""
 VERBOSE=false
 NO_TAVILY=false
+MODEL_PROVIDER=""
+RTK_VERSION=""
 
 # ==============================================================================
 # LOG
@@ -75,7 +79,6 @@ calculateMetrics() {
     COUNT_SKILLS=$(find "${baseDir}/skills"  -name "SKILL.md" 2>/dev/null | wc -l)
     COUNT_HOOKS=$(find "${baseDir}/hooks"    -type f          2>/dev/null | wc -l)
     COUNT_CONTEXT=$(find "${baseDir}/context" -name "*.md"    2>/dev/null | wc -l)
-    COUNT_BIN=$(find "${baseDir}/bin"        -type f          2>/dev/null | wc -l)
 }
 
 printBanner() {
@@ -84,7 +87,7 @@ printBanner() {
     echo "║        🤖 Claude Code Workflow - Instalador v${SCRIPT_VERSION}                ║"
     echo "║                                                                ║"
     echo "║  🤖 Agentes: ${COUNT_AGENTS} | ⌨️  Comandos: ${COUNT_COMMANDS} | 🛠️  Skills: ${COUNT_SKILLS}               ║"
-    echo "║  🔗 Hooks: ${COUNT_HOOKS} | 📂 Contexto: ${COUNT_CONTEXT} | 🧰 Bin: ${COUNT_BIN}                   ║"
+    echo "║  🔗 Hooks: ${COUNT_HOOKS} | 📂 Contexto: ${COUNT_CONTEXT} | ⬇️  RTK: baixado na instalação        ║"
     echo "╚════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
@@ -101,8 +104,12 @@ printHelp() {
     echo "  -h, --help            Mostrar esta ajuda"
     echo "  --version             Mostrar versão"
     echo "  --no-tavily           Não configurar Tavily MCP (padrão: pergunta)"
+    echo "  --provider <p>        Provedor de modelo: 'claude' ou 'ollama' (padrão: pergunta)"
+    echo "  --rtk-version <v>     Fixa a versão do RTK baixada (ex.: v0.43.0). Padrão: sempre a mais recente"
     echo ""
     echo "Sem --dest: instala em <cwd>/.claude/ (interativo confirma o caminho)."
+    echo "Sem --provider: pergunta interativamente qual provedor usar neste projeto."
+    echo "RTK é sempre baixado direto de github.com/rtk-ai/rtk na instalação — nunca vendorizado neste repo."
     echo ""
     echo "Variáveis de ambiente:"
     echo "  API_KEY_TAVILY        Chave da API Tavily (evita prompt interativo)"
@@ -145,14 +152,11 @@ checkPrerequisites() {
         fi
     fi
 
-    # RTK no PATH (opcional — avisa se não encontrar, usará binário shipado)
+    # RTK no PATH (opcional — o instalador baixa a versão atual em .claude/bin/rtk de qualquer forma)
     if ! command -v rtk > /dev/null 2>&1; then
-        warnings+=("rtk")
-        logWarn "RTK não encontrado no PATH"
-        logInfo "  O instalador disponibilizará o binário shipado em .claude/bin/rtk"
-        logInfo "  Adicione ao PATH ou rode: export PATH=\"\$PWD/.claude/bin:\$PATH\""
+        logInfo "RTK não encontrado no PATH global — será baixado direto do GitHub (rtk-ai/rtk) em .claude/bin/rtk"
     else
-        logSuccess "RTK: $(rtk --version 2>/dev/null || echo "instalado")"
+        logSuccess "RTK (global): $(rtk --version 2>/dev/null || echo "instalado")"
     fi
 
     # Git (recomendado)
@@ -160,6 +164,14 @@ checkPrerequisites() {
         logWarn "Git não encontrado (recomendado para workflows em equipe)"
     else
         logSuccess "Git: $(git --version | cut -d' ' -f3)"
+    fi
+
+    # jq (obrigatório apenas se o provedor Ollama for escolhido)
+    if ! command -v jq > /dev/null 2>&1; then
+        warnings+=("jq")
+        logWarn "jq não encontrado (necessário apenas se você escolher o provedor Ollama)"
+    else
+        logSuccess "jq: $(jq --version 2>/dev/null || echo "instalado")"
     fi
 
     if [[ ${#missing[@]} -gt 0 ]]; then
@@ -194,13 +206,38 @@ copyWorkflowFiles() {
         fi
     done
 
-    # Garantir que bin/rtk seja executável
-    if [[ -f "${targetDir}/bin/rtk" ]]; then
-        chmod +x "${targetDir}/bin/rtk"
-        logSuccess "  Binário rtk tornado executável"
+    logSuccess "Arquivos copiados com sucesso"
+}
+
+installRtk() {
+    local targetDir="$1"
+    local binDir="${targetDir}/bin"
+
+    logStep "Baixando RTK (rtk-ai/rtk) direto da fonte..."
+
+    if ! command -v curl > /dev/null 2>&1; then
+        logWarn "curl não encontrado — não é possível baixar o RTK automaticamente"
+        logInfo "  Instale manualmente: RTK_INSTALL_DIR=\"${binDir}\" curl -fsSL ${RTK_INSTALL_SCRIPT_URL} | sh"
+        return 0
     fi
 
-    logSuccess "Arquivos copiados com sucesso"
+    mkdir -p "${binDir}"
+
+    local installOutput
+    if [[ -n "${RTK_VERSION}" ]]; then
+        logInfo "  Versão fixada: ${RTK_VERSION}"
+        installOutput=$(RTK_INSTALL_DIR="${binDir}" RTK_VERSION="${RTK_VERSION}" curl -fsSL "${RTK_INSTALL_SCRIPT_URL}" 2>&1 | RTK_INSTALL_DIR="${binDir}" RTK_VERSION="${RTK_VERSION}" sh 2>&1) || true
+    else
+        installOutput=$(curl -fsSL "${RTK_INSTALL_SCRIPT_URL}" 2>&1 | RTK_INSTALL_DIR="${binDir}" sh 2>&1) || true
+    fi
+
+    if [[ -x "${binDir}/rtk" ]]; then
+        logSuccess "RTK instalado: $("${binDir}/rtk" --version 2>/dev/null || echo "${binDir}/rtk")"
+    else
+        logWarn "Falha ao baixar o RTK automaticamente — a instalação continua sem ele"
+        [[ "${VERBOSE}" == "true" ]] && logInfo "  Saída do instalador: ${installOutput}"
+        logInfo "  Para tentar manualmente depois: RTK_INSTALL_DIR=\"${binDir}\" curl -fsSL ${RTK_INSTALL_SCRIPT_URL} | sh"
+    fi
 }
 
 removeExistingInstallation() {
@@ -347,6 +384,105 @@ configureTavilyMCP() {
     fi
 }
 
+askModelProvider() {
+    [[ -n "${MODEL_PROVIDER}" ]] && return 0
+
+    echo ""
+    logInfo "Qual provedor de modelo este projeto vai usar?"
+    logInfo "  1) Claude (Anthropic) — padrão, requer login/assinatura Claude"
+    logInfo "  2) Ollama Cloud — modelos abertos (glm-5.2, kimi-k2.7-code, deepseek-v4, etc.)"
+    echo ""
+    read -p "Escolha [1/2] (ENTER = 1): " -r providerChoice
+
+    case "${providerChoice}" in
+        2) MODEL_PROVIDER="ollama" ;;
+        ""|1) MODEL_PROVIDER="claude" ;;
+        *)
+            logWarn "Opção inválida '${providerChoice}' — usando 'claude'"
+            MODEL_PROVIDER="claude"
+            ;;
+    esac
+}
+
+applyModelProvider() {
+    local targetDir="$1"
+    local profileFile="${targetDir}/model-profiles/ollama.json"
+    local settingsLocal="${targetDir}/settings.local.json"
+
+    if [[ "${MODEL_PROVIDER}" == "claude" ]]; then
+        logInfo "Provedor: Claude (Anthropic) — modelos padrão já aplicados pela cópia dos arquivos"
+        # Limpa overrides de um flavor Ollama anterior, se existirem
+        if [[ -f "${settingsLocal}" ]] && command -v jq > /dev/null 2>&1; then
+            if jq -e '.env.ANTHROPIC_BASE_URL' "${settingsLocal}" > /dev/null 2>&1; then
+                local tmpFile
+                tmpFile="$(mktemp)"
+                jq 'del(.env.ANTHROPIC_BASE_URL, .env.ANTHROPIC_AUTH_TOKEN, .env.ANTHROPIC_API_KEY, .env.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY) | del(.model)
+                    | if (.env // {}) == {} then del(.env) else . end' \
+                    "${settingsLocal}" > "${tmpFile}" && mv "${tmpFile}" "${settingsLocal}"
+                if [[ "$(jq -c '.' "${settingsLocal}")" == "{}" ]]; then
+                    rm -f "${settingsLocal}"
+                    logSuccess "settings.local.json: vazio após limpeza — removido"
+                else
+                    logSuccess "settings.local.json: overrides do provedor Ollama removidos"
+                fi
+            fi
+        fi
+        return 0
+    fi
+
+    # provider == ollama
+    logStep "Aplicando flavor Ollama Cloud..."
+
+    if ! command -v jq > /dev/null 2>&1; then
+        logError "jq é obrigatório para aplicar o provedor Ollama (merge de settings.local.json)."
+        logError "Instale jq e rode novamente: bash install-claude.sh --dest <path> --provider ollama"
+        return 1
+    fi
+
+    if [[ ! -f "${profileFile}" ]]; then
+        logError "Perfil não encontrado: ${profileFile}"
+        return 1
+    fi
+
+    local agentName modelTag
+    while IFS= read -r agentName; do
+        modelTag=$(jq -r --arg k "${agentName}" '.agents[$k]' "${profileFile}")
+        local agentFile="${targetDir}/agents/${agentName}.md"
+
+        if [[ ! -f "${agentFile}" ]]; then
+            logError "  Agente no perfil não existe no destino: ${agentName}.md (mapeamento desatualizado?)"
+            return 1
+        fi
+
+        if ! grep -q '^model:' "${agentFile}"; then
+            logError "  ${agentName}.md não tem linha 'model:' — abortando"
+            return 1
+        fi
+
+        sed -i "s/^model:.*/model: ${modelTag}/" "${agentFile}"
+        logInfo "  ${agentName} → ${modelTag}"
+    done < <(jq -r '.agents | keys[]' "${profileFile}")
+
+    local sessionModel envJson
+    sessionModel=$(jq -r '.session.model' "${profileFile}")
+    envJson=$(jq -c '.env' "${profileFile}")
+
+    local tmpFile
+    tmpFile="$(mktemp)"
+    if [[ -f "${settingsLocal}" ]]; then
+        jq --argjson envObj "${envJson}" --arg model "${sessionModel}" \
+            '.env = ((.env // {}) + $envObj) | .model = $model' \
+            "${settingsLocal}" > "${tmpFile}" && mv "${tmpFile}" "${settingsLocal}"
+    else
+        jq -n --argjson envObj "${envJson}" --arg model "${sessionModel}" \
+            '{model: $model, env: $envObj}' > "${settingsLocal}"
+    fi
+
+    logSuccess "Sessão (Master/tech-lead): ${sessionModel}"
+    logSuccess "settings.local.json atualizado com env do gateway Ollama"
+    logWarn "Lembrete: exporte no shell/servidor Ollama o suporte a contexto maior (num_ctx) e mantenha o Ollama atualizado — ver conversa de setup para detalhes."
+}
+
 installLocal() {
     if [[ -z "${INSTALL_DEST}" ]]; then
         askLocalDestination
@@ -371,8 +507,12 @@ installLocal() {
     fi
 
     copyWorkflowFiles "${targetDir}"
+    installRtk "${targetDir}"
     updateGitignore "${projectRoot}"
     configureTavilyMCP "${targetDir}"
+
+    askModelProvider
+    applyModelProvider "${targetDir}"
 
     logSuccess "Instalação local concluída!"
     logInfo "Para compartilhar: git add .claude/ && git commit -m 'Add Claude Code workflow'"
@@ -427,8 +567,7 @@ verifyInstallation() {
     if [[ -f "${targetDir}/bin/rtk" && -x "${targetDir}/bin/rtk" ]]; then
         logSuccess "  Binário rtk: executável"
     else
-        logError "  Binário rtk: não encontrado ou não executável"
-        ((errors++))
+        logWarn "  Binário rtk: não encontrado (download pode ter falhado — veja instruções manuais acima)"
     fi
 
     if [[ ${errors} -eq 0 ]]; then
@@ -467,6 +606,19 @@ parseArguments() {
                 NO_TAVILY=true
                 shift
                 ;;
+            --provider)
+                [[ -z "${2:-}" ]] && { logError "Opção --provider requer 'claude' ou 'ollama'"; exit 1; }
+                case "$2" in
+                    claude|ollama) MODEL_PROVIDER="$2" ;;
+                    *) logError "Provedor inválido: '$2' (use 'claude' ou 'ollama')"; exit 1 ;;
+                esac
+                shift 2
+                ;;
+            --rtk-version)
+                [[ -z "${2:-}" ]] && { logError "Opção --rtk-version requer uma tag (ex.: v0.43.0)"; exit 1; }
+                RTK_VERSION="$2"
+                shift 2
+                ;;
             # Compatibilidade: avisa e ignora flags removidas
             -g|--global|-H|--hybrid|-l|--local)
                 logWarn "Flag '$1' foi removida — apenas instalação local é suportada"
@@ -503,6 +655,7 @@ main() {
     logSuccess "═══════════════════════════════════════════════════════════════"
     logSuccess "  Instalação concluída!"
     logSuccess "═══════════════════════════════════════════════════════════════"
+    logInfo "Provedor configurado: ${MODEL_PROVIDER}"
     logInfo "Para começar: claude"
     logInfo ""
     logInfo "Próximos passos:"
