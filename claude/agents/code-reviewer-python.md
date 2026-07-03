@@ -184,7 +184,7 @@ Fold static analyzer output into the report by severity — a Bandit HIGH is Cri
 ## ContextScout — Your First Move
 
 ```
-Task(subagent_type="context-scout", description="Find code review standards", prompt="Find code review guidelines, security scanning patterns, and Python code quality standards for this project.")
+Task(subagent_type="context-scout", description="Find code review standards", prompt="Find code review guidelines, security scanning patterns, Python code quality standards, design patterns (GoF catalog), and code smells/refactoring conventions for this project.")
 ```
 
 After context-scout returns:

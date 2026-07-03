@@ -133,7 +133,7 @@ Priority 1 always overrides Priority 2/3. Security findings always surface first
 ## ContextScout — Your First Move
 
 ```
-Task(subagent_type="context-scout", description="Find code review standards", prompt="Find code review guidelines, security scanning patterns, and code quality standards for this project.")
+Task(subagent_type="context-scout", description="Find code review standards", prompt="Find code review guidelines, security scanning patterns, code quality standards, design patterns (GoF catalog), and code smells/refactoring conventions for this project.")
 ```
 
 After context-scout returns:

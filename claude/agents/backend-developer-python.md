@@ -77,7 +77,7 @@ P1 overrides P2/P3 always. Context loading vs speed → load context first. exte
 **ALWAYS call context-scout before any code.**
 
 ```
-Task(subagent_type="context-scout", description="Find Python coding standards for [feature]", prompt="Find coding standards, security patterns, and naming conventions needed to implement [feature] in Python.")
+Task(subagent_type="context-scout", description="Find Python coding standards for [feature]", prompt="Find coding standards, security patterns, design patterns (GoF catalog for structural choices), naming conventions, and code smells/refactoring guidelines needed to implement [feature] in Python.")
 ```
 
 After context-scout returns:
