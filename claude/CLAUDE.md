@@ -72,9 +72,35 @@ Pre-Merge Verification  (Master: 3 checks — grep [ ] + qa-report file + code-r
 
 ---
 
+## Active Project (multi-project umbrella)
+
+Some installs are an **umbrella** git repo whose sub-directories are themselves separate git repos (each with its own remote), e.g. `sistema-de-licenciamento/{teco,gerLic,serverLic}`. The single `.claude/` lives at the umbrella root and the session runs from there. Story numbers repeat across sub-projects (STORY-032 exists in both teco and gerLic), so Master MUST know which sub-project is active and anchor every path + git op to it.
+
+**Resolve this FIRST each turn, before anything else, with ONE bash call:**
+
+```bash
+AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"
+```
+
+- `$P` = **active project root** (path/git prefix): `.` in single-project installs, `gerLic` in an umbrella.
+- `$M` = per-project exec-mode file; `$Q` = per-project batch queue.
+
+**Choosing the active project:**
+
+1. User names a sub-project in the prompt ("no gerLic", "gerLic STORY-035") → `echo gerLic > .claude/.active-project`, then re-run the snippet.
+2. Else use the persisted `.claude/.active-project` (empty → single-project).
+3. Else, if the working dir has NO sub-project git repos → single-project, `$P=.` (nothing changes; literal `artifacts/...` paths below are already correct).
+4. Else (umbrella, none named/persisted) → ASK "Qual sub-projeto? (teco / gerLic / ...)". Do NOT guess — the wrong project corrupts paths and state. Set it deterministically with `/project <name>` (see `commands/sdlc/project.md`).
+
+**THE ANCHORING RULE:** every `artifacts/...` path in this file is shorthand for **`$P/artifacts/...`**, and every `git` / `ls` / `cat` on project content runs under **`$P`** (`git -C "$P" ...`). Per-project state (`$M`, `$Q`) means concurrent work on teco and gerLic never collides. In single-project installs `$P=.`, `$M=.claude/.exec-mode`, `$Q=.claude/.batch-queue.json` — identical to before.
+
+> This ONE bash call (resolving `$P/$M/$Q`) is a **step-0 preamble** and does not count against the 2-call State Detection budget.
+
+---
+
 ## Execution Modes
 
-Master operates in one of three modes. Mode is set by the user's **first prompt of the session** AND persisted in `.claude/.exec-mode` for subsequent turns.
+Master operates in one of three modes. Mode is set by the user's **first prompt of the session** AND persisted **per active sub-project** in `$M` (see Active Project) for subsequent turns.
 
 | Mode | GATE-PM | GATE-SA | GATE-AR | GATE-MR | GATE-NEXT | Trigger phrases |
 |------|---------|---------|---------|---------|-----------|-----------------|
@@ -88,18 +114,18 @@ Master operates in one of three modes. Mode is set by the user's **first prompt 
 
 Master is stateless between turns. To preserve mode across the session:
 
-1. **First turn**: scan prompt → detect trigger → write mode to `.claude/.exec-mode` (single line: `default` | `auto-gate` | `batch-auto`).
-2. **Subsequent turns**: `bash: cat .claude/.exec-mode 2>/dev/null` BEFORE any other action. If file exists, that's your mode.
-3. **User says "voltar ao manual" / "stop auto" / "manual mode"**: `rm .claude/.exec-mode` and operate as Default.
+1. **First turn**: scan prompt → detect trigger → write mode to `$M` (single line: `default` | `auto-gate` | `batch-auto`).
+2. **Subsequent turns**: `bash: cat "$M" 2>/dev/null` BEFORE any other action. If file exists, that's your mode.
+3. **User says "voltar ao manual" / "stop auto" / "manual mode"**: `rm "$M"` and operate as Default.
 
-> **`/mode` command**: trigger phrases above are inferred from natural language and can misfire. `/mode [default|auto-gate|batch-auto|status]` (see `commands/sdlc/mode.md`) sets or checks `.claude/.exec-mode` deterministically — prefer it when the switch has real consequences (e.g. before a batch-auto run, or to drop back to manual mid-session).
+> **`/mode` command**: trigger phrases above are inferred from natural language and can misfire. `/mode [default|auto-gate|batch-auto|status]` (see `commands/sdlc/mode.md`) sets or checks the active project's exec-mode (`$M`) deterministically — prefer it when the switch has real consequences (e.g. before a batch-auto run, or to drop back to manual mid-session). Sibling command `/project <name>` sets the active sub-project.
 
 Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX`. No pipeline explanation, no re-verification.
 
 ### Batch-Auto specifics
 
-- **Story queue**: written to `.claude/.batch-queue.json` at start. Format: `{"queue": ["STORY-001", "STORY-002"], "current": 0, "completed": [], "failed": []}`.
-- **Queue source**: (a) story IDs in user prompt, OR (b) `ls artifacts/stories/STORY-*.md` minus already-merged stories (check via `git log --grep STORY-`).
+- **Story queue**: written to `$Q` at start. Format: `{"queue": ["STORY-001", "STORY-002"], "current": 0, "completed": [], "failed": []}`.
+- **Queue source**: (a) story IDs in user prompt, OR (b) `ls $P/artifacts/stories/STORY-*.md` minus already-merged stories (check via `git -C "$P" log --grep STORY-`).
 - **Execution loop**: pick `queue[current]` → run pipeline → on success move to `completed` → increment `current` → next. On failure: append to `failed`, STOP, report.
 - **Stop conditions** (non-overridable, even in batch-auto):
   - Any agent returns BLOCKED, error, or refuses task.
@@ -131,6 +157,8 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 ## State Detection
 
 Run on every request (including "continue"). **Hard budget: max 2 bash calls per detection.**
+
+> Paths/git below follow **THE ANCHORING RULE**: `artifacts/...` means `$P/artifacts/...` and every `git ...` runs as `git -C "$P" ...` (resolve `$P` in the step-0 preamble first). In single-project installs `$P=.`, so the literal commands are already correct.
 
 ```
 If user mentioned a SPECIFIC story id ("STORY-021", "STORY-theme-003"):
@@ -187,7 +215,12 @@ If user gave a vague request ("continue", "build X"):
 
 ### 1. Mode Check (always first)
 
-`bash: cat .claude/.exec-mode 2>/dev/null` → sets mode for this turn.
+Resolve the active project + per-project state first (step-0 preamble), then read the mode:
+
+```bash
+AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"
+cat "$M" 2>/dev/null   # → sets mode for this turn
+```
 
 ### 2. Classify
 
@@ -236,13 +269,13 @@ If the first line is neither `STORY-XXX-DONE` nor `STORY-XXX-BLOCKED` → ASK us
 
 ```bash
 # Check 1: no unchecked items in checkpoint
-grep -E '^- \[ \]' artifacts/stories/STORY-XXX-checkpoint.md
+grep -E '^- \[ \]' "$P"/artifacts/stories/STORY-XXX-checkpoint.md
 
 # Check 2: QA report file exists
-ls artifacts/stories/STORY-XXX-qa-report*.md 2>/dev/null
+ls "$P"/artifacts/stories/STORY-XXX-qa-report*.md 2>/dev/null
 
 # Check 3: Code Review report file exists
-ls artifacts/stories/STORY-XXX-code-review*.md 2>/dev/null
+ls "$P"/artifacts/stories/STORY-XXX-code-review*.md 2>/dev/null
 ```
 
 **Decision matrix:**
@@ -267,7 +300,7 @@ If any subagent / skill returns `BLOCKED`, error, or refuses:
 1. STOP the pipeline. Do NOT auto-retry.
 2. Show user the failure message verbatim (no rewriting).
 3. **Default / Auto-Gate**: ask `"Agent X returned: [error]. Options: (a) retry (b) skip story (c) abort"`.
-4. **Batch-Auto**: append story to `.claude/.batch-queue.json failed[]`, output ONE line `[STORY-XXX] FAILED: [reason]`, STOP queue, output final report.
+4. **Batch-Auto**: append story to the active project's queue `$Q` (`failed[]`), output ONE line `[STORY-XXX] FAILED: [reason]`, STOP queue, output final report.
 
 If `gh pr merge` fails (conflict / CI red):
 

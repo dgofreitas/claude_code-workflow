@@ -38,6 +38,7 @@ readonly CLAUDE_REQUIRED_ITEMS=(
     "hooks"
     "skills"
     "model-profiles"
+    "templates"
     "CLAUDE.md"
     "RTK.md"
     "settings.json"
@@ -263,6 +264,28 @@ installRtk() {
     fi
 }
 
+installBoard() {
+    local targetDir="$1"      # <project>/.claude
+    local projectRoot="$2"
+    local src="${targetDir}/templates/story-board.base"
+    local dest="${projectRoot}/story-board.base"
+
+    logStep "Instalando o board Obsidian (story-board.base)"
+
+    if [[ ! -f "${src}" ]]; then
+        logInfo "Template do board não encontrado (${src}) — pulando"
+        return 0
+    fi
+
+    if [[ -f "${dest}" ]]; then
+        logInfo "Board já existe (mantido): ${dest}"
+    else
+        cp "${src}" "${dest}"
+        logSuccess "Board instalado: ${dest}"
+        logInfo "  Abra a raiz do projeto como vault no Obsidian (≥1.9) e abra 'story-board.base' — Bases é núcleo, sem plugin"
+    fi
+}
+
 removeExistingInstallation() {
     local targetDir="$1"
     logStep "Removendo instalação existente em: ${targetDir}"
@@ -317,18 +340,17 @@ updateGitignore() {
 
     logStep "Atualizando .gitignore"
 
-    if [[ -f "${gitignoreFile}" ]]; then
-        if grep -q ".claude/node_modules" "${gitignoreFile}" 2>/dev/null; then
-            logInfo ".gitignore já contém entrada para .claude/node_modules"
-            return 0
-        fi
-        echo "" >> "${gitignoreFile}"
-        echo "# Claude Code workflow" >> "${gitignoreFile}"
-        echo ".claude/node_modules/" >> "${gitignoreFile}"
-    else
-        echo "# Claude Code workflow" > "${gitignoreFile}"
-        echo ".claude/node_modules/" >> "${gitignoreFile}"
+    [[ -f "${gitignoreFile}" ]] || : > "${gitignoreFile}"
+
+    if ! grep -qxF "# Claude Code workflow" "${gitignoreFile}" 2>/dev/null; then
+        printf '\n# Claude Code workflow\n' >> "${gitignoreFile}"
     fi
+    grep -qxF ".claude/node_modules/" "${gitignoreFile}" 2>/dev/null || echo ".claude/node_modules/" >> "${gitignoreFile}"
+    grep -qxF ".obsidian/" "${gitignoreFile}" 2>/dev/null || echo ".obsidian/" >> "${gitignoreFile}"
+    # Estado efêmero por-projeto (nunca deve ser commitado)
+    grep -qxF ".claude/.active-project" "${gitignoreFile}" 2>/dev/null || echo ".claude/.active-project" >> "${gitignoreFile}"
+    grep -qxF ".claude/.exec-mode*" "${gitignoreFile}" 2>/dev/null || echo ".claude/.exec-mode*" >> "${gitignoreFile}"
+    grep -qxF ".claude/.batch-queue*.json" "${gitignoreFile}" 2>/dev/null || echo ".claude/.batch-queue*.json" >> "${gitignoreFile}"
 
     logSuccess ".gitignore atualizado"
 }
@@ -531,6 +553,7 @@ installLocal() {
 
     copyWorkflowFiles "${targetDir}"
     installRtk "${targetDir}"
+    installBoard "${targetDir}" "${projectRoot}"
     updateGitignore "${projectRoot}"
     configureTavilyMCP "${targetDir}"
 

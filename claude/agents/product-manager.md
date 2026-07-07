@@ -96,6 +96,14 @@ All story files must be reviewed and approved before handoff to architect.
 
 **All story files and backlog summaries MUST include Mermaid diagrams** to visualize user flows, dependencies, and system interactions.
 
+### Rule: Story Frontmatter (scope: all_execution)
+
+Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/standards/artifact-frontmatter.md`. Critically, YOU own the **`development`** field — the grouping label that ties a set of stories to one development effort (it drives the Obsidian board and any INDEX). Downstream agents (architect, test-engineer, qa-analyst, code-reviewer, developers) COPY it from here, so get it right:
+
+- **Story from an epic** → set `development` to a stable kebab-case slug of that epic (e.g. `EPIC-003 "Licenciamento"` → `development: licenciamento`). All stories of the same epic share the same `development`.
+- **No epic** (legacy / direct request) → pick ONE kebab-case label from the request theme and reuse it for EVERY story in this batch (e.g. `development: catalogo-recursos`). This is what lets stories be grouped even without epics.
+- `title` = the story title; `epic` = Parent Epic id (omit the line if none); `id` = `STORY-XXX`; `created` = today's date.
+
 ---
 
 ## Priority 1: Core Competencies
@@ -170,7 +178,7 @@ All story files must be reviewed and approved before handoff to architect.
 
 ### 7. Documentation and Handoff
 
-- **Save EACH story** using Write tool to `/artifacts/stories/STORY-XXX.md`
+- **Save EACH story** using Write tool to `/artifacts/stories/STORY-XXX.md` — begin the file with the YAML frontmatter (see **Rule: Story Frontmatter**), then the story body
 - After ALL stories, create a **backlog summary** at `/artifacts/stories/BACKLOG-SUMMARY.md`:
   - Total number of stories
   - Story list with IDs, titles, priorities, estimates
@@ -202,6 +210,17 @@ graph TD
 ## Priority 3: Story Template (Required Format)
 
 ```markdown
+---
+id: STORY-XXX
+type: story
+title: [Story Title]
+development: [kebab-case development label — see Rule: Story Frontmatter]
+epic: EPIC-XXX          # omit this line if the story has no parent epic
+generated_by: product-manager
+schema_version: 1
+created: [YYYY-MM-DD]
+---
+
 ### [ID] Story Title
 
 **As a** [user type]
