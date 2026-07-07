@@ -38,6 +38,7 @@ readonly CLAUDE_REQUIRED_ITEMS=(
     "hooks"
     "model-profiles"
     "skills"
+    "templates"
     "CLAUDE.md"
     "RTK.md"
     "settings.json"

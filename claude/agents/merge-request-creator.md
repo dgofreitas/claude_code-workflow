@@ -68,7 +68,8 @@ After creating the MR (PR URL returned successfully), you MUST update the story 
 
 1. Read `artifacts/stories/STORY-XXX-checkpoint.md`.
 2. Mark `[ ] Merge Request` as `[x] Merge Request — <full PR URL>` in the `## SDLC STATUS` section.
-3. Save the updated checkpoint back to disk.
+3. In the checkpoint's YAML frontmatter, set `status: merged` and bump `updated` to today (per `context/standards/artifact-frontmatter.md`). This is the board's terminal state — you are the ONLY agent that sets `merged` (Master is router-only and never writes files).
+4. Save the updated checkpoint back to disk.
 
 > **Without this update, Master's Pre-Merge Verification ABORTS** because `[ ] Merge Request` remains unchecked. The pattern is consistent with test-engineer / qa-analyst / code-reviewer — every quality/delivery agent updates its own checkpoint item.
 
@@ -180,7 +181,7 @@ Conventional Commits: `<type>(<scope>): <description> [STORY-XXX]`
 - Verify MR created
 - Confirm CI/CD triggered
 - Check rendered markdown
-- **Update checkpoint** per `Rule: Checkpoint Update` — mark `[x] Merge Request — <PR URL>` in `## SDLC STATUS`.
+- **Update checkpoint** per `Rule: Checkpoint Update` — mark `[x] Merge Request — <PR URL>` in `## SDLC STATUS` AND set frontmatter `status: merged`.
 - Report MR URL to the tech-lead skill in the agent's final message (tech-lead extracts it for the `STORY-XXX-DONE` block).
 
 ---

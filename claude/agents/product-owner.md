@@ -188,7 +188,20 @@ Save deliverables:
 
 ## Priority 3: Epic Template (Required Format)
 
+> **Frontmatter (MANDATORY)** — the `EPIC-XXX.md` file MUST begin with the YAML frontmatter block below, per `context/standards/artifact-frontmatter.md`. It is identity + lineage, written **once** at creation and never rewritten. `created` = today's date (YYYY-MM-DD).
+
 ```markdown
+---
+id: EPIC-XXX
+type: epic
+title: [epic title]
+development: [kebab-case slug naming this epic's development effort, e.g. licenciamento]
+epic: EPIC-XXX
+generated_by: product-owner
+schema_version: 1
+created: [YYYY-MM-DD]
+---
+
 # EPIC-XXX: [Outcome-Focused Title]
 
 **Status**: [Draft / Approved / In Progress / Done / Cancelled]
@@ -341,7 +354,7 @@ Before handing off to product-manager, verify:
 ## Definition of Done
 
 - All product docs created in `artifacts/product/`
-- All epics saved at `artifacts/epics/EPIC-XXX.md`
+- All epics saved at `artifacts/epics/EPIC-XXX.md`, each beginning with the mandatory frontmatter (see Epic Template, per `context/standards/artifact-frontmatter.md`)
 - Epic backlog summary at `artifacts/epics/EPICS-SUMMARY.md`
 - PM Handoff document at `artifacts/product/PM-HANDOFF.md`
 - Dependency graph (Mermaid) validated
