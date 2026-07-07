@@ -127,6 +127,20 @@ merge-request-creator runs AFTER tech-lead's GATE 4. The first 4 checks below ve
 
 > **If any artifact-file check fails** — STOP. Do NOT create the MR. Report to the tech-lead skill: "Pre-MR validation failed: <which check>". tech-lead will re-delegate the missing agent.
 
+### 2.1 Push & Verify (scope: pre_mr) — MANDATORY
+
+**Known failure mode**: `git push` silently fails or is skipped, but MR creation (`glab mr create`/`gh pr create`) succeeds anyway because the API call itself doesn't require the branch to exist locally-verified — it can return a valid-looking MR/PR object referencing a branch ref that never actually landed. This produces a "phantom" MR: looks done, `git ls-remote` shows nothing, and `glab mr merge` later fails with a misleading "Merge conflicts exist" (it's not a conflict — the branch just isn't there).
+
+Before running the MR Creation command (section 5):
+
+```bash
+git push -u origin <branch>                              # push for real
+git ls-remote --heads origin <branch>                      # MUST print a line — empty output = push did not land
+```
+
+- Empty `ls-remote` output → push failed or was silently skipped. Retry the push once (2-strike rule). If it fails again → STOP, report "Push to origin failed for <branch>" to tech-lead. Do NOT proceed to create the MR against a non-existent branch.
+- Only after `ls-remote` confirms the branch exists remotely, proceed to section 5.
+
 ### 3. MR Title
 
 Conventional Commits: `<type>(<scope>): <description> [STORY-XXX]`
