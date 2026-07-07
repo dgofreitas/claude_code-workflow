@@ -45,6 +45,7 @@ readonly CLAUDE_REQUIRED_ITEMS=(
 )
 
 readonly RTK_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh"
+readonly RTK_GLOBAL_BIN_DIR="${HOME}/.local/bin"
 
 COUNT_AGENTS=0
 COUNT_COMMANDS=0
@@ -110,6 +111,8 @@ printHelp() {
     echo "Sem --dest: instala em <cwd>/.claude/ (interativo confirma o caminho)."
     echo "Sem --provider: pergunta interativamente qual provedor usar neste projeto."
     echo "RTK é sempre baixado direto de github.com/rtk-ai/rtk na instalação — nunca vendorizado neste repo."
+    echo "RTK é instalado globalmente em ~/.local/bin (compartilhado entre projetos, já costuma estar no PATH),"
+    echo "com um link simbólico em <projeto>/.claude/bin/rtk. --rtk-version afeta essa instalação global."
     echo ""
     echo "Variáveis de ambiente:"
     echo "  API_KEY_TAVILY        Chave da API Tavily (evita prompt interativo)"
@@ -152,9 +155,9 @@ checkPrerequisites() {
         fi
     fi
 
-    # RTK no PATH (opcional — o instalador baixa a versão atual em .claude/bin/rtk de qualquer forma)
+    # RTK no PATH (opcional — o instalador baixa a versão atual em ~/.local/bin de qualquer forma)
     if ! command -v rtk > /dev/null 2>&1; then
-        logInfo "RTK não encontrado no PATH global — será baixado direto do GitHub (rtk-ai/rtk) em .claude/bin/rtk"
+        logInfo "RTK não encontrado no PATH — será baixado direto do GitHub (rtk-ai/rtk) em ${RTK_GLOBAL_BIN_DIR}"
     else
         logSuccess "RTK (global): $(rtk --version 2>/dev/null || echo "instalado")"
     fi
@@ -211,32 +214,52 @@ copyWorkflowFiles() {
 
 installRtk() {
     local targetDir="$1"
-    local binDir="${targetDir}/bin"
+    local projectBinDir="${targetDir}/bin"
+    local globalBinDir="${RTK_GLOBAL_BIN_DIR}"
 
     logStep "Baixando RTK (rtk-ai/rtk) direto da fonte..."
 
     if ! command -v curl > /dev/null 2>&1; then
         logWarn "curl não encontrado — não é possível baixar o RTK automaticamente"
-        logInfo "  Instale manualmente: RTK_INSTALL_DIR=\"${binDir}\" curl -fsSL ${RTK_INSTALL_SCRIPT_URL} | sh"
+        logInfo "  Instale manualmente: RTK_INSTALL_DIR=\"${globalBinDir}\" curl -fsSL ${RTK_INSTALL_SCRIPT_URL} | sh"
         return 0
     fi
 
-    mkdir -p "${binDir}"
+    mkdir -p "${globalBinDir}"
 
+    # Instala SEMPRE em ~/.local/bin (padrão do instalador upstream, já costuma estar no
+    # PATH do usuário) em vez de <projeto>/.claude/bin — instalar dentro do projeto quebrava
+    # a resolução de `rtk` como comando de shell (nada adiciona .claude/bin ao PATH da sessão
+    # que a ferramenta Bash do Claude Code realmente usa). Um link simbólico no projeto
+    # preserva o caminho fixo que rtk-guard.js espera e a checagem de integridade abaixo.
     local installOutput
     if [[ -n "${RTK_VERSION}" ]]; then
-        logInfo "  Versão fixada: ${RTK_VERSION}"
-        installOutput=$(RTK_INSTALL_DIR="${binDir}" RTK_VERSION="${RTK_VERSION}" curl -fsSL "${RTK_INSTALL_SCRIPT_URL}" 2>&1 | RTK_INSTALL_DIR="${binDir}" RTK_VERSION="${RTK_VERSION}" sh 2>&1) || true
+        logInfo "  Versão fixada: ${RTK_VERSION} (instalação global em ${globalBinDir}, compartilhada entre projetos)"
+        installOutput=$(RTK_INSTALL_DIR="${globalBinDir}" RTK_VERSION="${RTK_VERSION}" curl -fsSL "${RTK_INSTALL_SCRIPT_URL}" 2>&1 | RTK_INSTALL_DIR="${globalBinDir}" RTK_VERSION="${RTK_VERSION}" sh 2>&1) || true
     else
-        installOutput=$(curl -fsSL "${RTK_INSTALL_SCRIPT_URL}" 2>&1 | RTK_INSTALL_DIR="${binDir}" sh 2>&1) || true
+        installOutput=$(curl -fsSL "${RTK_INSTALL_SCRIPT_URL}" 2>&1 | RTK_INSTALL_DIR="${globalBinDir}" sh 2>&1) || true
     fi
 
-    if [[ -x "${binDir}/rtk" ]]; then
-        logSuccess "RTK instalado: $("${binDir}/rtk" --version 2>/dev/null || echo "${binDir}/rtk")"
+    if [[ -x "${globalBinDir}/rtk" ]]; then
+        logSuccess "RTK instalado (global): $("${globalBinDir}/rtk" --version 2>/dev/null || echo "${globalBinDir}/rtk")"
+
+        mkdir -p "${projectBinDir}"
+        ln -sf "${globalBinDir}/rtk" "${projectBinDir}/rtk"
+        logInfo "  Link do projeto: ${projectBinDir}/rtk -> ${globalBinDir}/rtk"
+
+        case ":${PATH}:" in
+            *":${globalBinDir}:"*)
+                logSuccess "  ${globalBinDir} já está no PATH — 'rtk' funciona direto no shell"
+                ;;
+            *)
+                logWarn "  ${globalBinDir} não está no PATH desta sessão de shell"
+                logInfo "    Adicione ao seu shell profile (~/.bashrc ou ~/.zshrc): export PATH=\"${globalBinDir}:\$PATH\""
+                ;;
+        esac
     else
         logWarn "Falha ao baixar o RTK automaticamente — a instalação continua sem ele"
         [[ "${VERBOSE}" == "true" ]] && logInfo "  Saída do instalador: ${installOutput}"
-        logInfo "  Para tentar manualmente depois: RTK_INSTALL_DIR=\"${binDir}\" curl -fsSL ${RTK_INSTALL_SCRIPT_URL} | sh"
+        logInfo "  Para tentar manualmente depois: RTK_INSTALL_DIR=\"${globalBinDir}\" curl -fsSL ${RTK_INSTALL_SCRIPT_URL} | sh"
     fi
 }
 
@@ -659,8 +682,15 @@ main() {
     logInfo "Para começar: claude"
     logInfo ""
     logInfo "Próximos passos:"
-    logInfo "  1. Certifique-se de que 'rtk' está no PATH ou use:"
-    logInfo "     export PATH=\"\$PWD/.claude/bin:\$PATH\""
+    case ":${PATH}:" in
+        *":${RTK_GLOBAL_BIN_DIR}:"*)
+            logInfo "  1. 'rtk' já está no PATH (${RTK_GLOBAL_BIN_DIR})"
+            ;;
+        *)
+            logWarn "  1. Adicione ${RTK_GLOBAL_BIN_DIR} ao PATH antes de abrir uma nova sessão de shell:"
+            logInfo "     export PATH=\"${RTK_GLOBAL_BIN_DIR}:\$PATH\"   # adicione também no ~/.bashrc ou ~/.zshrc"
+            ;;
+    esac
     logInfo "  2. Reinicie o Claude Code para ativar hooks (RTK + Caveman)"
     logInfo "  3. Teste RTK: rtk gain"
     logInfo "  4. Teste Caveman: digite /caveman no chat"
