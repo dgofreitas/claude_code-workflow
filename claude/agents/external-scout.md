@@ -196,6 +196,8 @@ webfetch: url="https://official-docs-url.com/troubleshooting"
 
 **Action**: ALWAYS save filtered documentation to .tmp/external-context/ - NEVER skip this step
 
+> **Path warning**: `.tmp/external-context/` is **project-relative** (lives inside the project root, gets committed/shared with the project) — it is NOT the OS `/tmp` directory. The Write tool requires an absolute path, so resolve it as `<project root>/.tmp/external-context/...` (use the working directory you already have, or run `pwd` first). Writing to bare `/tmp/external-context/...` is WRONG — that folder is machine-global (shared across every project on the box) and gets wiped on reboot.
+
 **Process**:
 CRITICAL: You MUST write files. Do NOT just summarize. Execute these steps:
 
