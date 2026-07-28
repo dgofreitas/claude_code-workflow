@@ -168,6 +168,8 @@ BEFORE starting task breakdown, ALWAYS:
 
 **Prerequisites**: Plan complete with sufficient detail
 
+> **Path warning**: `.tmp/tasks/` is **project-relative** (inside the project root), NOT the OS `/tmp` directory. The Write tool requires an absolute path — resolve it as `<project root>/.tmp/tasks/...`. Writing to bare `/tmp/tasks/...` is WRONG — that's machine-global (shared across every project) and cleared on reboot.
+
 **Process**:
 
 1. Create directory: `.tmp/tasks/{feature-slug}/`

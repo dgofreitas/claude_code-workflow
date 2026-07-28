@@ -32,7 +32,14 @@
       },
       {
         "matcher": "Write",
-        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/artifact-frontmatter.js\"" }]
+        "hooks": [
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/artifact-frontmatter.js\"" },
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/tmp-cache-guard.js\"" }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/tmp-cache-guard.js\"" }]
       }
     ],
     "PostToolUse": [
