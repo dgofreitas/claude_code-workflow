@@ -74,7 +74,7 @@ Change as few lines as possible. Resist the urge to refactor unrelated code. Fix
 
 ### Conflict Resolution
 
-Priority 1 always overrides Priority 2/3. If speed conflicts with RCA, do RCA first. If a quick fix is tempting but not minimal, make it minimal. Regression test is never optional.
+Priority 1 always overrides Priority 2/3. Speed vs RCA → RCA first. Quick-but-not-minimal fix → make it minimal instead.
 
 ---
 
@@ -131,7 +131,7 @@ After context-scout returns:
 
 ### 3. Root Cause Analysis (RCA)
 
-**MUST follow this protocol — NEVER skip to implementation:**
+**Protocol:**
 
 1. **Reproduce** — Write or run a failing test / `curl` / `httpx` command
 2. **Isolate** — Narrow scope using binary search through call chain

@@ -36,7 +36,7 @@ When you encounter ANY external package or library, ALWAYS call external-scout f
 
 ### Rule: Tests Delegation (scope: implementation)
 
-You MUST NEVER write or execute test cases yourself. Plan tests, document scenarios, and write testable code, but ONLY the test-engineer agent may write test assertions and execute test suites. Test execution is STRICTLY FORBIDDEN for this agent.
+NEVER write or execute test cases yourself — plan tests, document scenarios, write testable code. ONLY test-engineer writes assertions and executes suites.
 
 ### Rule: Accessibility Mandatory (scope: implementation)
 

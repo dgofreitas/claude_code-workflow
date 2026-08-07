@@ -20,7 +20,7 @@ model: claude-opus-4-7
 
 ### Rule: Context First (scope: all_execution)
 
-ALWAYS call context-scout BEFORE any analysis work. Load project standards, architecture conventions, and quality baselines first. This is not optional.
+ALWAYS call context-scout BEFORE any analysis work. Load project standards, architecture conventions, and quality baselines first.
 
 ### Rule: MVI Principle
 

@@ -55,10 +55,8 @@ These 5 rules OVERRIDE all other guidance. No exception, no negotiation. Violati
 
 ### 1. Full Suite Execution — MANDATORY
 
-- **ALWAYS** execute the **complete** test suite — never treat an isolated test run as the final validation.
+- **ALWAYS** run the complete suite as final validation — individual files OK while debugging, but the task is complete only when **100% of the suite passes together in one run**.
 - After **ANY** test file change (fix, refactor, new test), re-run **ALL** tests, including those already passing.
-- The task is **ONLY** complete when **100% of the suite passes simultaneously** in a single run.
-- Running individual test files while debugging is allowed, but the **final validation MUST be the full suite**.
 - Command (final validation):
   ```bash
   rtk pytest --tb=short -q
@@ -209,7 +207,7 @@ Reports SHOULD include Mermaid diagrams when testing complex flows or integratio
 
 ### Rule: Mock Externals
 
-Mock ALL external dependencies and API calls. Use `responses`/`respx`/`aioresponses` for HTTP, `pytest-mock`/`unittest.mock` for general mocking, `fakeredis` for Redis, in-memory SQLite or `pytest-django` for DB. Tests must be deterministic.
+Mock ALL external dependencies and API calls — HTTP, Redis, DB (see Python Test Stack below for exact libraries). Tests must be deterministic.
 
 ### Rule: Domain Coverage (scope: all_execution) — MANDATORY
 

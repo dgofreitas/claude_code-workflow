@@ -27,12 +27,12 @@ description: |
 
 ## 🛑 What NOT to Do (Anti-Patterns)
 
-1. **NEVER use `rtk playwright test` for debug.** That wrapper is for CI test-suite output filtering (90%+ token savings on PASS logs). Interactive debug needs the MCP `browser_*` tools, not the test runner.
+1. **NEVER use `rtk playwright test` for debug.** That wrapper is for CI test-suite output filtering (90%+ token savings on PASS logs) — not interactive debug.
 2. **NEVER read `~/.local/share/rtk/tee/*.log`** or any raw rtk tee file — the `read` tool hangs forever on these and freezes the pipeline (same rule as `test-execution`).
 3. **NEVER navigate without `--isolated` semantics in a dirty profile.** The MCP server config uses `--isolated` for a clean profile per session; do not assume cookies/localStorage from a previous run persist. Set them explicitly via `browser_evaluate` / `browser_type` if reproduction depends on state.
-4. **NEVER screenshot-blind.** A screenshot alone rarely shows the root cause. Always pair `browser_take_screenshot` with `browser_snapshot` (a11y/DOM tree) and `browser_console_messages` + `browser_network_requests`.
-5. **NEVER skip reproduction.** RCA before fix is non-negotiable: reproduce the bug in the live browser first, then hypothesize. Do not patch from a stack trace alone when a UI surface is involved.
-6. **NEVER run the dev server yourself.** Assume the app is already running at a known URL (passed in the delegation prompt). If no URL is given, ASK for it. Starting servers is the developer's job, not the debugger's.
+4. **NEVER screenshot-blind.** Always pair `browser_take_screenshot` with `browser_snapshot` (a11y/DOM tree) and `browser_console_messages` + `browser_network_requests`.
+5. **NEVER skip reproduction.** Reproduce in the live browser first, then hypothesize — do not patch from a stack trace alone when a UI surface is involved.
+6. **NEVER run the dev server yourself.** Assume the app is already running at a known URL (passed in the delegation prompt). If no URL is given, ASK for it.
 7. **NEVER pipe MCP tool output** — these are structured tool results, not shell streams.
 
 ---

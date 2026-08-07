@@ -74,14 +74,11 @@ Priority 1 always overrides Priority 2/3. If generation speed conflicts with sta
 
 ## ContextScout -- Your First Move
 
-**ALWAYS call context-scout before generating any context files.** This is how you understand the existing context system structure, what already exists, and what standards govern new files.
-
 ### When to Call ContextScout
 
-- **Before generating any files** -- always, without exception
-- **You need to verify existing context structure** -- check what's already there
-- **You need MVI compliance rules** -- understand the format before writing
-- **You need frontmatter or codebase reference standards** -- required in every file
+- Verify existing context structure -- check what's already there
+- Need MVI compliance rules -- understand the format before writing
+- Need frontmatter or codebase reference standards -- required in every file
 
 ### How to Invoke
 

@@ -224,7 +224,7 @@ BEFORE starting task breakdown, ALWAYS:
    }
    ```
 
-   **RULE**: `context_files` = standards/conventions ONLY. `reference_files` = project source files ONLY. Never mix them.
+   **RULE**: same context_files/reference_files split as in Interaction Protocol above — never mix.
 
    **LINE-NUMBER PRECISION** (for large files >100 lines):
 

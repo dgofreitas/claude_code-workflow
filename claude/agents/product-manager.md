@@ -140,12 +140,10 @@ Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/st
   5. Map cross-story dependencies
 - **If SINGLE feature/bug/spike**: proceed with one story
 
-**Decomposition Heuristics:**
+**Decomposition Heuristics** (beyond the split thresholds in **Rule: One Story Per Epic**):
 
-- Each epic = at least one story
 - Related epics MAY be grouped ONLY if same domain AND total ACs ≤ 8
 - A story should be completable in 1-2 sprints (≤ 21 story points)
-- If a single epic has more than 8 scenarios, split into multiple stories
 
 ### 3. Story Definition (repeat for EACH story)
 

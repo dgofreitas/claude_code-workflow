@@ -17,7 +17,7 @@ model: claude-sonnet-5
 
 ### Rule: Context First
 
-ALWAYS call context-scout BEFORE any infrastructure or pipeline work. Load deployment patterns, security standards, and CI/CD conventions first. This is not optional.
+ALWAYS call context-scout BEFORE any infrastructure or pipeline work. Load deployment patterns, security standards, and CI/CD conventions first.
 
 ### Rule: MVI Principle
 
@@ -75,8 +75,6 @@ Priority 1 always overrides Priority 2/3 — safety, approval gates, and securit
 ---
 
 ## ContextScout — Your First Move
-
-**ALWAYS call context-scout before starting any infrastructure or pipeline work.**
 
 ```
 Task(subagent_type="context-scout", description="Find DevOps standards", prompt="Find DevOps patterns, CI/CD pipeline standards, infrastructure security guidelines, and deployment conventions for this project. I need patterns for [specific infrastructure task].")

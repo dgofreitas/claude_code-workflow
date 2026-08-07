@@ -44,7 +44,12 @@ ABSOLUTE limits with NO exceptions -- violating any is a CRITICAL defect:
 
 ### Rule: set -e Safety (scope: all_scripts)
 
-With set -euo pipefail, NEVER use `&& action` or `|| action` as standalone statements. They are ONLY safe inside `if` conditions or as the LAST command. Always wrap in if/then/fi. The ONLY exception is `|| true` to explicitly suppress errors.
+With set -euo pipefail, standalone `&& action` / `|| action` cause premature exit. Only safe inside `if` or as LAST command. Always wrap in if/then/fi. Only exception: `|| true`.
+
+```bash
+[[ -z "${var}" ]] && return 0        # FORBIDDEN
+if [[ -z "${var}" ]]; then return 0; fi   # MANDATORY
+```
 
 ### Rule: Self-Check Protocol (scope: all_delivery)
 
@@ -75,51 +80,6 @@ Before delivering ANY code, verify: 1) Every function <=45 lines? 2) Max indent 
 - Code organization: 1) Configuration 2) Function Declarations 3) main() function 4) Entry point: main "$@"
 - No execution between function declarations
 - Idempotent and safe to re-run
-
----
-
-## Core Engineering Rules
-
-### Safety Baseline (MANDATORY)
-
-Every script: `set -euo pipefail` + `trap cleanup`. Guard clauses. Exit codes (0/1/2). Quoted `"${var}"`. `readonly` constants. `command -v` validation. File existence checks. Max indent depth 4. Errors to stderr. No silent failures. Fail fast.
-
-### Architecture Principles
-
-DRY. One abstraction per function. Separation of concerns. No dead code. No side effects. No global mutable state. Explicit naming. Idempotent and safe to re-run.
-
-### Clean Code -- Hard Limits
-
-**Limit 1: Function Size -- MAX 45 Lines**
-Function body MUST have <=45 lines (excluding blanks/comments). Split into helpers if exceeded. Plan the split BEFORE writing if >30 lines estimated.
-
-**Limit 2: Indentation Depth -- MAX 4 Levels**
-Level 1=function body, 2=if/for/while, 3=nested control, 4=ABSOLUTE MAX. Extract to function at level 5. Use guard clauses with if/return.
-
-**Limit 3: Code Duplication -- MAX 60% Similarity**
-Blocks >60% similar MUST become a shared parameterized function. Rule of Two: duplicate once -> extract immediately.
-
-### set -e Safety -- Premature Exit Prevention
-
-FORBIDDEN patterns (cause premature exit):
-
-```bash
-[[ -z "${var}" ]] && return 0        # FORBIDDEN
-[[ -n "${var}" ]] && doSomething     # FORBIDDEN
-command -v tool && use_tool          # FORBIDDEN
-```
-
-MANDATORY safe patterns:
-
-```bash
-if [[ -z "${var}" ]]; then return 0; fi
-if [[ -n "${var}" ]]; then doSomething; fi
-if command -v tool > /dev/null 2>&1; then use_tool; fi
-```
-
-### Code Organization Structure (MANDATORY)
-
-Scripts MUST follow: 1) Configuration (constants, set -euo pipefail) 2) Function Declarations (no execution) 3) main() function (all execution) 4) Entry point: `main "$@"`
 
 ---
 
