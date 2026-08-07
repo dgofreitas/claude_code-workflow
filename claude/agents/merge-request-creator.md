@@ -99,21 +99,25 @@ After creating the MR (PR URL returned successfully), you MUST update the story 
 
    ```bash
    git branch --show-current
+   git status --porcelain
    git log --oneline main..HEAD
    git diff --stat main..HEAD
    git diff main..HEAD --shortstat
    git merge-tree $(git merge-base main HEAD) main HEAD
    ```
 
+   `git status --porcelain` = only working-tree check here (`git diff main..HEAD` = committed history only). Non-empty = would be silently dropped from MR.
+
 3. **Agent Reports**: code-reviewer, qa-analyst, backend-developer, frontend-developer, test agents
 4. **CI/CD Status** (if available)
 
 ### 2. Pre-MR Validation
 
-merge-request-creator runs AFTER tech-lead's GATE 4. The first 4 checks below verify tech-lead's invariants did hold (defense in depth — if any fails, tech-lead missed something and you should STOP).
+merge-request-creator runs AFTER tech-lead's GATE 4. Four bolded artifact/checkpoint checks = defense in depth (tech-lead already checked, verify again). **Working tree clean = not defense in depth** — tech-lead only checks files exist (`ls`), never commit state. You're the only gate for that.
 
 | Check | Source | Status |
 |-------|--------|--------|
+| **Working tree clean (nothing uncommitted/untracked)** | `git status --porcelain` returns empty | PASS / FAIL |
 | Acceptance criteria met | PM Story | PASS / FAIL |
 | Tests passing | `npm run test` (Node) / `pytest` (Python) / `ctest` (C) — NEVER `yarn test` / `npm test` (AGENTS.md) | PASS / FAIL |
 | Coverage >= 90% | Coverage report (test-engineer test-report.md) | PASS / FAIL |
@@ -127,6 +131,8 @@ merge-request-creator runs AFTER tech-lead's GATE 4. The first 4 checks below ve
 | No secrets/debug code | Grep scan | PASS / FAIL |
 
 > **If any artifact-file check fails** — STOP. Do NOT create the MR. Report to the tech-lead skill: "Pre-MR validation failed: <which check>". tech-lead will re-delegate the missing agent.
+>
+> **If "Working tree clean" fails** — last gate before push, risk of outright loss. Do NOT commit it yourself (not your files, not your commit message). Report: "Pre-MR validation failed: uncommitted files found" + raw `git status --porcelain` output. tech-lead maps path → owning agent, re-delegates commit.
 
 ### 2.1 Push & Verify (scope: pre_mr) — MANDATORY
 

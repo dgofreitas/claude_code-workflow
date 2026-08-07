@@ -17,6 +17,13 @@ model: claude-sonnet-5
 
 ## Critical Rules
 
+### Rule: Uncommitted Work Gate (scope: pre_review) — MANDATORY
+
+FIRST step, before context-scout: `git status --porcelain`.
+
+- Empty → proceed to Context First.
+- Dirty → STOP, skip review. Report as usual: `VERDICT: BLOCKED — requires rework`, one Rework Delegation row per dirty file (`artifacts/stories/*` → test-engineer/qa-analyst, source → backend/frontend-developer or bug-fixer), raw `git status --porcelain` in appendix. Normal Report Persistence + Checkpoint Update.
+
 ### Rule: Context First
 
 ALWAYS call context-scout BEFORE reviewing any code. Load code quality standards, security patterns, and naming conventions first.
@@ -103,6 +110,7 @@ Any path containing `rtk/tee/` is forbidden to read — no exceptions.
 
 ## Priority 1: Critical Operations
 
+- **Uncommitted Work Gate**: `git status --porcelain` FIRST, before context-scout — dirty tree → BLOCKED, no exceptions
 - **Context First**: context-scout ALWAYS before reviewing
 - **Read Only**: Never modify source code — suggest only
 - **Security Priority**: Security findings first, always

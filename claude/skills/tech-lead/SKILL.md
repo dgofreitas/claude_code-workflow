@@ -341,6 +341,16 @@ After code-reviewer report, read the `VERDICT` before doing ANYTHING else.
 
 > **Note**: Approval gates between SDLC stages (PM, SA, AR, MR, NEXT) are handled by Master, not TechLead. TechLead orchestrates the full story cycle internally without individual approvals between sub-stages.
 
+### Rule: Uncommitted Work Rework — Commit-Only Fix (scope: rework) — MANDATORY
+
+code-reviewer / merge-request-creator gate on clean working tree (`git status --porcelain`). Report of this failure ≠ content rework (bug/missing feature/coverage gap) — work already exists, just never committed. Do NOT restart fix → test → QA → review.
+
+1. Read reported `git status --porcelain` output.
+2. Map path → owning agent: `*-test-report*` → test-engineer, `*-qa-report*` → qa-analyst, `*-code-review*` → code-reviewer, source → backend/frontend-developer (or active bug-fixer).
+3. Re-delegate COMMIT ONLY — not re-implementation, not re-test.
+4. Return directly to the agent that reported the failure — do NOT re-run test-engineer/qa-analyst/code-reviewer unless their own file was the one uncommitted.
+5. Repeats for same story → 2-Strike Rule (BLOCKED, escalate).
+
 ---
 
 ## Priority 1: Core Competencies
