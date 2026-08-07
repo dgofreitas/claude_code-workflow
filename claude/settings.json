@@ -40,6 +40,18 @@
       {
         "matcher": "Edit",
         "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/tmp-cache-guard.js\"" }]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/tmp-cache-guard.js\"" }]
+      },
+      {
+        "matcher": "Glob",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/tmp-cache-guard.js\"" }]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/tmp-cache-guard.js\"" }]
       }
     ],
     "PostToolUse": [
