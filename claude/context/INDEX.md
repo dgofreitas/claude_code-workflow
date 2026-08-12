@@ -52,6 +52,7 @@
 - `stacks/nodejs.md` | tags: nodejs, backend, structure, mandatory | summary: Mandatory project structure for new Node.js services.
 - `stacks/nodejs-domain-structure.md` | tags: nodejs, backend, domain, dispatchers, mongoose, shared, advanced | summary: Advanced domain-driven backend — dispatchers, Mongoose plugins, cross-domain coordination.
 - `stacks/python.md` | tags: python, backend, structure, mandatory, fastapi, django | summary: Mandatory project structure for new Python backend services (FastAPI/Flask layered vs Django app-based).
+- `stacks/c.md` | tags: c, backend, structure, mandatory, cmake, ctest, unity | summary: Mandatory project structure for new C services/libraries (CMake + CTest, include/ vs src/, ownership and error-code conventions).
 - `stacks/react.md` | tags: react, patterns, nextjs, frontend | summary: React/Next.js patterns and best practices.
 - `stacks/react-domain-structure.md` | tags: react, frontend, context, hooks, pwa, offline, vite | summary: Context-per-domain + useXxx hooks + PWA offline-first patterns.
 - `stacks/frontend.md` | tags: frontend, delegation, when-to-use | summary: When to delegate UI tasks to FrontendDeveloper.

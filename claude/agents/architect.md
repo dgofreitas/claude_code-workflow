@@ -241,7 +241,7 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 
 **Python:** backend-developer-python · test-engineer-python · code-reviewer-python · bug-fixer-python
 
-**C:** backend-developer-c · test-engineer-c · code-reviewer-c · bug-fixer-c (not yet implemented)
+**C:** backend-developer-c · test-engineer-c · code-reviewer-c · bug-fixer-c
 
 **Code analysis (all languages):** code-analyzer (generic, see footnote above)
 
