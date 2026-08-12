@@ -2,7 +2,7 @@
 name: merge-request-creator
 description: "Creates merge-ready MRs/PRs with context, traceability, quality evidence"
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, task-manager)
-model: claude-haiku-4-5-20251001
+model: claude-haiku-4-5
 ---
 
 # MergeRequestCreator

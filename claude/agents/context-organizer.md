@@ -2,7 +2,7 @@
 name: context-organizer
 description: "Organizes and generates context files (domain, processes, standards, templates) for optimal knowledge management."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, task-manager)
-model: claude-haiku-4-5-20251001
+model: claude-haiku-4-5
 ---
 
 # Context Organizer

@@ -2,7 +2,7 @@
 name: code-analyzer
 description: "Codebase analysis specialist for architecture, patterns, and technical debt detection."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-opus-4-7
+model: claude-opus-4-8
 ---
 
 # Code Analyzer -- Codebase Intelligence Specialist

@@ -2,7 +2,7 @@
 name: product-owner
 description: "Strategic product vision owner. Defines product vision, personas, OKRs, epics, roadmap, and non-functional requirements. Upstream of ProductManager."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent
-model: claude-opus-4-7
+model: claude-opus-4-8
 ---
 
 # Product Owner -- Strategic Vision Architect
