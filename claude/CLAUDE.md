@@ -35,7 +35,7 @@ architect         → [GATE-AR]
    ↓
 tech-lead (skill) → runs internal cycle (Impl → Test → QA → Review → MR)
    ↓                returns STORY-XXX-DONE block (MR URL + paths + coverage)
-Pre-Merge Verification  (Master: 3 checks — grep [ ] + qa-report file + code-review file)
+Pre-Merge Verification  (Master: 4 checks — grep [ ] + qa-report file + code-review file + branch pushed)
    ↓
 [GATE-MR]        → Master: gh pr merge + delete branch
    ↓
@@ -68,7 +68,7 @@ Pre-Merge Verification  (Master: 3 checks — grep [ ] + qa-report file + code-r
 6. **Analyze written artifacts** — stories, plans, reports tell you where to go next
 7. **Always orchestrate and delegate** — you are the brain, not the hands
 8. **When in doubt** — suggest the most likely agent or ask the user
-9. **ALWAYS run Pre-Merge Verification before GATE-MR** — even in auto-gate / batch-auto modes. Three checks (1 grep + 2 ls). All three must pass: checkpoint has zero `[ ]`, qa-report file exists, code-review file exists. Any failure = ABORT merge and re-invoke the tech-lead skill. See section "6.1 Pre-Merge Verification". This is the SECOND line of defense and is non-negotiable.
+9. **ALWAYS run Pre-Merge Verification before GATE-MR** — even in auto-gate / batch-auto modes. Four checks (1 grep + 2 ls + 1 git). All four must pass: checkpoint has zero `[ ]`, qa-report file exists, code-review file exists, branch fully pushed (nothing uncommitted, nothing ahead of remote). Any failure = ABORT merge and re-invoke the tech-lead skill. See section "6.1 Pre-Merge Verification". This is the SECOND line of defense and is non-negotiable.
 
 ---
 
@@ -265,7 +265,7 @@ If the first line is neither `STORY-XXX-DONE` nor `STORY-XXX-BLOCKED` → ASK us
 
 ### 6.1 Pre-Merge Verification (MANDATORY for GATE-MR, all modes)
 
-**Before** approving or auto-approving GATE-MR, Master MUST run **THREE checks** — even when tech-lead claims success. All three must pass.
+**Before** approving or auto-approving GATE-MR, Master MUST run **FOUR checks** — even when tech-lead claims success. All four must pass.
 
 ```bash
 # Check 1: no unchecked items in checkpoint
@@ -276,20 +276,28 @@ ls "$P"/artifacts/stories/STORY-XXX-qa-report*.md 2>/dev/null
 
 # Check 3: Code Review report file exists
 ls "$P"/artifacts/stories/STORY-XXX-code-review*.md 2>/dev/null
+
+# Check 4: branch fully pushed — nothing uncommitted, nothing ahead of remote
+git -C "$P" status --porcelain
+git -C "$P" rev-list "@{u}..HEAD" --count 2>/dev/null
 ```
 
 **Decision matrix:**
 
 | Check 1 (grep) | Check 2 (qa file) | Check 3 (review file) | Action |
 |----------------|-------------------|------------------------|--------|
-| empty | exists | exists | ✅ proceed to GATE-MR |
+| empty | exists | exists | ✅ proceed to Check 4 |
 | any output | — | — | ❌ ABORT — unchecked items: re-invoke tech-lead skill |
 | empty | missing | — | ❌ ABORT — `[x] QA` lied (no artifact): re-invoke tech-lead skill with "checkpoint marked QA done but qa-report.md missing" |
 | empty | exists | missing | ❌ ABORT — `[x] CODE REVIEW` lied (no artifact): re-invoke tech-lead skill |
 
+**Check 4 decision**: `git status --porcelain` output must be empty AND `rev-list @{u}..HEAD --count` must be `0`. Any output on either → ❌ ABORT — do NOT merge. `gh pr merge` operates on the **remote** branch; any commit made after merge-request-creator's last push (e.g. a checkpoint fix TechLead makes after returning to Master) is invisible to it and gets silently left out of the merge. Re-invoke the tech-lead skill: `"Uncommitted or unpushed changes on <branch> — push before merging"` — tech-lead re-delegates to merge-request-creator's `2.1 Push & Verify` step (or commits first via `Rule: Uncommitted Work Rework` if Check 4's first half is also dirty).
+
+> **Check 4 is now belt-and-suspenders, not the only line of defense**: the `git-merge-guard.js` hook denies the actual `gh pr merge` Bash call at the tool-call level when dirty/unpushed — Check 4 exists to catch it earlier, with a clearer diagnostic, before Master even attempts the merge.
+
 **Special case** (Check 1 only): if the ONLY unchecked item is `- [ ] Merge Request` → merge-request-creator forgot to mark MR after creation (its `Rule: Checkpoint Update` failed). Re-invoke the tech-lead skill with: `Mark [x] Merge Request in checkpoint, MR is at <URL>` — tech-lead will either mark it directly or re-delegate to merge-request-creator.
 
-**Why three checks**: Check 1 catches most cases. Checks 2-3 catch the rare scenario where tech-lead's Artifact Verification Gate failed and `[x]` was marked without the file existing. This is **defense in depth** — each check covers what the others miss.
+**Why four checks**: Check 1 catches most cases. Checks 2-3 catch the rare scenario where tech-lead's Artifact Verification Gate failed and `[x]` was marked without the file existing. Check 4 catches the scenario where everything above passes (files exist, checkpoint clean) but the file that satisfies them was never pushed — `ls`/`grep` only see the local filesystem, never git-tracked or pushed state. This is **defense in depth** — each check covers what the others miss.
 
 > This verification is **NON-NEGOTIABLE** in all execution modes (default, auto-gate, batch-auto). Auto modes do not skip safety checks — they only skip human approval prompts.
 
@@ -347,7 +355,7 @@ Per turn:
 
 - Detection: max 2 bash calls. `cat checkpoint.md | head -50` is the ONLY allowed `cat`. ZERO `glob`. ZERO story content reads.
 - Routing decision: 0 reads beyond checkpoint header sections (50 lines max).
-- Pre-Merge Verification (GATE-MR): up to 3 extra bash calls (1 grep + 2 ls) — these are the EXCEPTION.
+- Pre-Merge Verification (GATE-MR): up to 4 extra bash calls (1 grep + 2 ls + 1 git) — these are the EXCEPTION.
 - Delegation prompt to subagent: ≤ 5 lines.
 - Gate output to user: 1 line in auto modes, 3 lines max in default mode.
 

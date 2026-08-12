@@ -133,6 +133,8 @@ merge-request-creator runs AFTER tech-lead's GATE 4. Four bolded artifact/checkp
 > **If any artifact-file check fails** — STOP. Do NOT create the MR. Report to the tech-lead skill: "Pre-MR validation failed: <which check>". tech-lead will re-delegate the missing agent.
 >
 > **If "Working tree clean" fails** — last gate before push, risk of outright loss. Do NOT commit it yourself (not your files, not your commit message). Report: "Pre-MR validation failed: uncommitted files found" + raw `git status --porcelain` output. tech-lead maps path → owning agent, re-delegates commit.
+>
+> **This check now has a code-enforced backstop**: the `git-merge-guard.js` hook denies `gh pr create`/`gh pr merge` outright when the branch is dirty or has unpushed commits, regardless of whether this table was actually run. If you get a tool-call denial with that reason instead of a normal error, it means this validation step was skipped — `git push` (and commit first if needed), then retry.
 
 ### 2.1 Push & Verify (scope: pre_mr) — MANDATORY
 
