@@ -48,6 +48,9 @@ readonly CLAUDE_REQUIRED_ITEMS=(
 readonly RTK_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh"
 readonly RTK_GLOBAL_BIN_DIR="${HOME}/.local/bin"
 
+readonly PLAYWRIGHT_MCP_PACKAGE="@playwright/mcp@latest"
+readonly PLAYWRIGHT_BROWSER="chromium"   # deve bater com --browser em claude/settings.json mcpServers.playwright
+
 COUNT_AGENTS=0
 COUNT_COMMANDS=0
 COUNT_SKILLS=0
@@ -114,6 +117,8 @@ printHelp() {
     echo "RTK é sempre baixado direto de github.com/rtk-ai/rtk na instalação — nunca vendorizado neste repo."
     echo "RTK é instalado globalmente em ~/.local/bin (compartilhado entre projetos, já costuma estar no PATH),"
     echo "com um link simbólico em <projeto>/.claude/bin/rtk. --rtk-version afeta essa instalação global."
+    echo "Playwright MCP: o navegador Chromium é baixado na instalação (best-effort, não bloqueia se falhar)."
+    echo "Se falhar ou for pulado, rode manualmente: npx -y playwright install chromium"
     echo ""
     echo "Variáveis de ambiente:"
     echo "  API_KEY_TAVILY        Chave da API Tavily (evita prompt interativo)"
@@ -161,6 +166,14 @@ checkPrerequisites() {
         logInfo "RTK não encontrado no PATH — será baixado direto do GitHub (rtk-ai/rtk) em ${RTK_GLOBAL_BIN_DIR}"
     else
         logSuccess "RTK (global): $(rtk --version 2>/dev/null || echo "instalado")"
+    fi
+
+    # npx (necessário para o instalador baixar o navegador Chromium do Playwright MCP)
+    if ! command -v npx > /dev/null 2>&1; then
+        warnings+=("npx")
+        logWarn "npx não encontrado — o navegador do Playwright MCP não será pré-instalado"
+    else
+        logInfo "npx encontrado — navegador Chromium do Playwright MCP será baixado na instalação"
     fi
 
     # Git (recomendado)
@@ -261,6 +274,31 @@ installRtk() {
         logWarn "Falha ao baixar o RTK automaticamente — a instalação continua sem ele"
         [[ "${VERBOSE}" == "true" ]] && logInfo "  Saída do instalador: ${installOutput}"
         logInfo "  Para tentar manualmente depois: RTK_INSTALL_DIR=\"${globalBinDir}\" curl -fsSL ${RTK_INSTALL_SCRIPT_URL} | sh"
+    fi
+}
+
+installPlaywrightMcp() {
+    logStep "Preparando o Playwright MCP (baixa o navegador ${PLAYWRIGHT_BROWSER})..."
+
+    if ! command -v npx > /dev/null 2>&1; then
+        logWarn "npx não encontrado — não é possível preparar o Playwright MCP automaticamente"
+        logInfo "  Instale manualmente depois: npx -y playwright install ${PLAYWRIGHT_BROWSER}"
+        return 0
+    fi
+
+    # Aquece o cache npx do pacote @playwright/mcp (best-effort, não bloqueia a instalação)
+    npx -y "${PLAYWRIGHT_MCP_PACKAGE}" --version > /dev/null 2>&1 || true
+
+    local installOutput
+    installOutput=$(npx -y playwright install "${PLAYWRIGHT_BROWSER}" 2>&1) || true
+
+    if [[ -d "${HOME}/.cache/ms-playwright" || -d "${HOME}/Library/Caches/ms-playwright" ]]; then
+        logSuccess "Navegador ${PLAYWRIGHT_BROWSER} do Playwright MCP instalado"
+    else
+        logWarn "Falha ao baixar o navegador do Playwright MCP automaticamente — a instalação continua sem ele"
+        [[ "${VERBOSE}" == "true" ]] && logInfo "  Saída: ${installOutput}"
+        logInfo "  Para tentar manualmente depois: npx -y playwright install ${PLAYWRIGHT_BROWSER}"
+        logInfo "  Dependências de sistema faltando (Linux)? npx -y playwright install --with-deps ${PLAYWRIGHT_BROWSER}"
     fi
 }
 
@@ -553,6 +591,7 @@ installLocal() {
 
     copyWorkflowFiles "${targetDir}"
     installRtk "${targetDir}"
+    installPlaywrightMcp
     installBoard "${targetDir}" "${projectRoot}"
     updateGitignore "${projectRoot}"
     configureTavilyMCP "${targetDir}"
@@ -614,6 +653,12 @@ verifyInstallation() {
         logSuccess "  Binário rtk: executável"
     else
         logWarn "  Binário rtk: não encontrado (download pode ter falhado — veja instruções manuais acima)"
+    fi
+
+    if [[ -d "${HOME}/.cache/ms-playwright" || -d "${HOME}/Library/Caches/ms-playwright" ]]; then
+        logSuccess "  Navegador Playwright MCP: instalado"
+    else
+        logWarn "  Navegador Playwright MCP: não encontrado (download pode ter falhado — veja instruções manuais acima)"
     fi
 
     if [[ ${errors} -eq 0 ]]; then
