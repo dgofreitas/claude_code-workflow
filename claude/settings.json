@@ -107,27 +107,18 @@
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Read(**/rtk/tee/**)",
-      "Write(**/*.env*)",
       "Edit(**/*.env*)",
-      "Write(**/*.key)",
       "Edit(**/*.key)",
-      "Write(**/*.secret)",
       "Edit(**/*.secret)",
-      "Write(node_modules/**)",
       "Edit(node_modules/**)",
-      "Write(.git/**)",
       "Edit(.git/**)"
     ],
     "allow": [
       "Edit(artifacts/stories/**)",
-      "Write(artifacts/stories/**)",
       "Edit(artifacts/product/**)",
-      "Write(artifacts/product/**)",
       "Edit(artifacts/epics/**)",
-      "Write(artifacts/epics/**)",
       "Edit(artifacts/architecture/**)",
-      "Write(artifacts/architecture/**)",
-      "Write(.claude/**)"
+      "Edit(.claude/**)"
     ]
   }
 }
