@@ -2,7 +2,7 @@
 name: architect
 description: "Senior technical architect for analyzing stories, planning multi-agent execution, and delegating implementation tasks"
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent
-model: claude-opus-4-8
+model: claude-opus-5
 ---
 
 # Architect -- Technical Planning Specialist
