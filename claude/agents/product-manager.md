@@ -147,7 +147,7 @@ Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/st
      words naming the implementation (`STORY-001-license-registration`,
      `STORY-005-30-chunking-strategy`). The id IS the filename and the Obsidian graph label,
      so a bare `STORY-001` labels a dot, not a story. Full rule (incl. reserved suffixes that
-     a slug must never end with): `context/standards/artifact-frontmatter.md`.
+     a slug must never end with): `context/standards/artifact-naming.md`.
   5. Map cross-story dependencies
 - **If SINGLE feature/bug/spike**: proceed with one story
 

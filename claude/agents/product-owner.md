@@ -136,7 +136,7 @@ Each epic must follow this enriched structure:
 
 - Epic ID — `EPIC-<development-slug>`, e.g. `EPIC-market-data-backfill` (never an opaque
   `EPIC-005`; the id is the filename and the Obsidian graph label). See
-  `context/standards/artifact-frontmatter.md`.
+  `context/standards/artifact-naming.md`.
 - Title (clear, outcome-focused)
 - Persona(s) targeted
 - Business value statement

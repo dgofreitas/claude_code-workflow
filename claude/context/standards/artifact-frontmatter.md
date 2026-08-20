@@ -9,6 +9,9 @@
 > This is what powers the Obsidian **Bases** board (`story-board.base`) and any generated
 > `INDEX.md`: a flat query over the frontmatter of every artifact.
 
+> Naming (`STORY-<seq>-<slug>`, `EPIC-<dev>`) and the wikilink lineage that feeds the Obsidian
+> graph live in `standards/artifact-naming.md`.
+
 ## Golden rules
 
 1. **Identity, not state.** Do NOT duplicate progress/status into story/report frontmatter.
@@ -17,41 +20,6 @@
 3. **Never invent fields.** Use only the fields below. Unknown keys break the board.
 4. **`docs/` is off-limits** for SDLC artifacts — it is real project documentation (Swagger/ADR).
    All frontmatter'd artifacts live under `artifacts/`.
-
-## Artifact naming (the `XXX` in `STORY-XXX`)
-
-`STORY-XXX` / `EPIC-XXX` in the agent instructions means the **whole id**, never just a
-number. The id is the filename, and the filename is the Obsidian graph label:
-`STORY-005-30` labels a dot, `STORY-005-30-chunking-strategy` labels a story.
-
-```
-artifacts/epics/EPIC-<development-slug>.md     EPIC-market-data-backfill
-artifacts/stories/STORY-<seq>-<slug>.md        STORY-005-30-chunking-strategy
-  derived artifacts append their suffix to the FULL id:
-     STORY-005-30-chunking-strategy-qa-report-r2.md
-```
-
-- **`<seq>`** — existing numbering, unchanged and FIRST, so the explorer keeps sorting by
-  epic/date. Epic-scoped stories keep the `NNN-NN` shape (`005-30`).
-- **`<slug>`** — 2–4 kebab-case words naming the implementation; the branch is exactly
-  `feat/<story-id>`.
-- **Fix outside a story** — `HOTFIX-<slug>` (production break) or `BUGFIX-<slug>` (defect found
-  in development). No `<seq>`: a fix is not backlog-ordered. It carries a checkpoint like any
-  story, and its derived artifacts append the usual suffixes.
-- **Epic id** = `EPIC-` + the epic's `development` slug. No opaque `EPIC-005`.
-
-> **Reserved suffixes.** A slug must NEVER end with a derived-artifact suffix (see the `type`
-> table) or with `-rN`: `STORY-005-41-code-review.md` reads as a *code-review of*
-> `STORY-005-41`. Rephrase it (`-code-review-flow`).
-
-> **Summaries link in the body.** `EPICS-SUMMARY-<dev>` / `BACKLOG-SUMMARY-<dev>` are the
-> map-of-content hubs — reference rows as `[[EPIC-x]]` / `[[STORY-x]]`, never as a markdown
-> path link. `[X](/docs/stories/X.md)` is absolute-from-vault-root, dies on any folder rename,
-> and resolves to nothing.
-
-Existing numeric-only ids stay valid — this applies to artifacts created from now on, and
-the two conventions coexist without a problem.
-
 ## Common fields (every artifact)
 
 ```yaml
@@ -96,7 +64,13 @@ artifacts/stories/   BACKLOG-SUMMARY-<dev>.md
 ```
 
 `artifacts/architecture/TECH-STACK.md` (`type: tech-stack`, system-architect) is project-wide,
-not per-development, so it keeps a bare name — it links out via `sources`.
+not per-development, so it keeps a bare name. Other files under `artifacts/architecture/` are
+`type: design` — the architect's API designs, data flows, folder structures and test strategies.
+Both link up with `epic:` (the epic whose scope they were written for).
+
+`type: note` is the escape hatch for a document that is genuinely not an SDLC artifact — an
+ad-hoc analysis, a working note. It is not a default: reach for it only when no other type
+fits, and expect it to have no lineage edge unless the note names a story or epic itself.
 
 `type` is the lowercased doc name: `vision`, `personas`, `okrs`, `roadmap`, `nfrs`,
 `glossary`, `handoff`, and `summary` for both summaries. Written by product-owner, except
@@ -160,60 +134,17 @@ The contract lives in code, not in every agent prompt (same move the repo made f
   instruction: architect, code-analyzer, ux-designer, test-engineer(-python), qa-analyst,
   code-reviewer(-python), and the implementation/bug-fixer agents (impl-report).
 
-## Lineage links (Obsidian graph)
-
-Obsidian only draws a graph edge / backlink from a `[[wikilink]]` — a plain `epic: EPIC-005`
-is inert text. So the `artifact-frontmatter.js` hook wraps the **lineage fields** on every
-`Write` under `artifacts/`, making the artifact tree navigable as a graph:
-
-```yaml
-story: "[[STORY-042]]"     # written by agents as `story: STORY-042` — the hook wraps it
-epic: "[[EPIC-licenciamento]]"
-parent: "[[EPIC-licenciamento]]"
-depends_on: ["[[STORY-041-license-model]]"]
-```
-
-**Agents keep writing plain ids.** Do NOT hand-write the brackets — the hook is the single
-place that owns this, exactly like the frontmatter injection itself.
-
-| | fields |
-|---|---|
-| **wrapped (entity ids)** | `story`, `epic`, `parent`, `parent_epic`, `depends_on`, `blocks`, `supersedes` |
-| **wrapped (doc names)** | `sources`, `epics`, `stories` — any filename-safe token, no `PREFIX-` needed |
-| **never wrapped** | `id`, `type`, `title`, `development`, `status`, `coverage`, `revision`, `layer`, `schema_version`, `created`, `updated`, `generated_by` |
-
-The never-wrapped set is what the Bases board filters/groups on and what agents grep — wrapping
-it would change behaviour. Wrapping the lineage set does not: the board shows `epic` as a
-display column only.
-
-Three guards keep the pass safe:
-
-1. **Id-shaped values only** (`STORY-*`, `EPIC-*`, `HOTFIX-*`, `SPIKE-*`, `BUG-*`, `TASK-*`).
-   A prose value (`epic: Backfill Automático de Dados`) is left alone rather than minted into
-   a ghost node — so an epic MUST be referenced by **id**, never by title.
-2. **Idempotent** — an already-wrapped value fails the id test, so the checkpoint's repeated
-   writes never double-wrap.
-3. **No self-links** — an epic carrying `epic: <its own id>` is skipped.
-
-The doc-name fields let the **product layer** join the graph — `PM-HANDOFF` is the hub closing
-the loop from the PO's decisions down to the epic.
-
-```yaml
-# artifacts/product/PM-HANDOFF-market-data-backfill.md
-type: handoff
-development: market-data-backfill
-epics: [EPIC-market-data-backfill]           # -> the epic it hands over
-sources: [VISION, PERSONAS, OKRS, NFRS]      # -> the PO decisions it derives from
-```
-
-Anything with a space, slash or colon stays prose (`epics: N/A` is untouched).
-
-> Consequence: `epic: EPIC-x` requires a file resolvable as `EPIC-x` — `EPIC-x.md`, or any
-> file carrying `aliases: [EPIC-x]`. An epic filed under a prose name with no alias produces
-> an unresolved node.
-
 ## Migration (older artifacts)
 
 Files without frontmatter are treated as `schema_version: 0`. Source-artifact agents prepend the
 block on the next legitimate write; derived artifacts get it from the hook. Do NOT bulk-rewrite
-historical artifacts — frontmatter is added only on the next write.
+historical artifacts on your own initiative — frontmatter is added only on the next write.
+
+The one exception is a **migration the user explicitly authorises**, to make an existing tree
+navigable in one pass. It is a deliberate, reviewable act, not a background sweep: work on a
+clean git tree, dry-run and show the diff first, and infer only what the files already state —
+an epic id from the epic's own H1, a `story:` link from the report's filename, a checkpoint
+`status` from whether its checklist still has `- [ ]` items (the same signal Pre-Merge
+Verification reads). Never invent state that no file records; a note with no natural parent
+stays an orphan, and a link to a story file that was never written stays unresolved. Both are
+findings, not defects to paper over.
