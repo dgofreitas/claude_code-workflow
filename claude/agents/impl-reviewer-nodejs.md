@@ -20,6 +20,14 @@ model: claude-sonnet-5
 
 ## Critical Rules
 
+### Rule: Comment Budget (scope: all_reviews)
+
+Count the comment and code lines the change adds. **More comment than code → Maintainability finding** — the explanation outweighs the change, so it is a commit message, not a comment.
+
+Flag at any ratio: comment block > 5 lines (belongs in `artifacts/stories/`, leave a pointer); the same explanation in two places; a comment recording state or task history ("already done", "added in T4", "fixed here"); a comment naming a file or symbol that does not exist (verify with `ls`/`grep`).
+
+Do NOT flag short comments carrying a non-local invariant or a trap — the budget exists to keep those visible. See `standards/documentation.md` §Comment Budget.
+
 ### Rule: Approval Gate (scope: all_execution)
 
 Request approval before ANY execution (bash, write, edit). Read/list/glob/grep don't require approval.

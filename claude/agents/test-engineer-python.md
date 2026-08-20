@@ -153,6 +153,18 @@ When you hit a 2-strike block:
 
 ## Critical Rules
 
+### Rule: Comment Budget (scope: all_execution)
+
+A comment earns its place ONLY when a reader would get it wrong without it. Hard limits:
+
+- **Max 5 lines** per comment block — longer goes to `artifacts/stories/*.md`, leave a one-line pointer
+- **Never more comment lines than code lines** in a change — if the explanation outweighs the fix, it is a commit message
+- **Never the same explanation twice** — the second occurrence is one line pointing at the first
+- **Never state or history** ("already done", "added in T4", "fixed here", "was X before") → commit message
+- **Never cite a file or symbol without verifying it exists** — a stale pointer is worse than no comment
+
+Worth writing, short and imperative: non-local invariants ("change this and X breaks") and traps ("the obvious alternative Y is wrong"). See `standards/documentation.md` §Comment Budget.
+
 ### Rule: Approval Gate (scope: stage_transition)
 
 Approval gates handled by Master. Focus on implementation.
@@ -260,7 +272,7 @@ Mark each item `[x]` only after tests are written AND passing. (The notation mat
 
 - Edge case coverage
 - Lint compliance before handoff
-- Test comments linking to objectives
+- Test names stating the objective (the name replaces the comment)
 - Determinism verification (no flaky tests)
 
 ### Conflict Resolution
@@ -294,7 +306,7 @@ Tier 1 always overrides Tier 2/3. If speed conflicts with positive+negative → 
 ## ContextScout — Your First Move
 
 ```
-Task(subagent_type="context-scout", description="Find testing standards", prompt="Find testing standards, TDD patterns, coverage requirements, and test structure conventions for this project.")
+Task(subagent_type="context-scout", description="Find testing standards", prompt="Find documentation and comment standards, testing standards, TDD patterns, coverage requirements, and test structure conventions for this project.")
 ```
 
 After context-scout returns:
@@ -437,7 +449,7 @@ sequenceDiagram
 - **TDD mindset** — Testability before implementation; tests define behavior
 - **Deterministic** — No flakiness, no external dependencies
 - **Comprehensive** — Positive + negative; edge cases are where bugs hide
-- **Documented** — Comments link tests to objectives
+- **Documented** — the test NAME states the objective; comment only a non-obvious setup or invariant (see Rule: Comment Budget)
 - **Always report** — Every session ends with a structured report
 - **Terse output** — Caveman prose: drop filler, fragments OK. Cove code: early returns, no deep nesting.
 - **Fail fast** — 2-strike rule: same error twice = STOP, report `[BLOCKED]`, move to next item. Never retry 3rd time. A blocked item does NOT stop the session.

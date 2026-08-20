@@ -1,4 +1,4 @@
-<!-- Context: standards/code-smells-refactoring | Priority: high | Version: 1.0 | Updated: 2026-07-02 -->
+<!-- Context: standards/code-smells-refactoring | Priority: high | Version: 1.1 | Updated: 2026-08-20 -->
 
 # Code Smells & Refactoring Catalog
 
@@ -59,7 +59,7 @@ Grouped by what they signal. Each has a **detection** (how you notice it) and a 
 | **Speculative Generality** | Abstract classes, hooks, or params introduced "for future needs" that never came | Inline Class / Collapse Hierarchy — YAGNI in reverse |
 | **Data Class** | Class with only fields + getters/setters and no behavior | Move Method — behavior that operates on this data belongs on this class |
 | **Lazy Class** | Class that does almost nothing; its purpose was never fulfilled | Inline Class — merge it back into its only caller |
-| **Comments** | Comment explains *what* the next block does, or apologizes for its complexity | The comment is a code smell. Extract Method with a name that says what the block does — the name replaces the comment. Keep comments only for *why*. |
+| **Comments** | Comment explains *what* the next block does, or apologizes for its complexity | The comment is a code smell. Extract Method with a name that says what the block does — the name replaces the comment. Keep comments only for *why*, and only within the budget (`standards/documentation.md` §Comment Budget) — volume of *why* is its own smell. |
 
 ### Couplers — things bound too tightly
 
@@ -129,3 +129,4 @@ Not: "this method should be somewhere else" or "envious code".
 - `standards/design-patterns.md` — many refactorings terminate in "introduce a pattern" (Replace Conditional with Polymorphism → Strategy or State; Extract Class → Strategy; etc.)
 - `standards/clean-code.md` — smell #17 (Comments) is enforced by the naming rules there; smells #1-4 (Bloaters) map to the function-size and nesting rules
 - `standards/code-quality.md` — review checklist should reference smells by name
+- `standards/documentation.md` — §Comment Budget: the volume limit and channel table that smell #17 defers to

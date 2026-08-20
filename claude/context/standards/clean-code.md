@@ -1,4 +1,4 @@
-<!-- Context: standards/clean-code | Priority: high | Version: 2.0 | Updated: 2026-07-02 -->
+<!-- Context: standards/clean-code | Priority: high | Version: 2.1 | Updated: 2026-08-20 -->
 
 # Clean Code — Local Quality Rules
 
@@ -13,6 +13,7 @@
 - **Boy Scout Rule** — leave every file you touched a little cleaner than you found it. A small rename, a magic number promoted to a constant, one extra guard clause. Not a refactoring session — one small improvement per touch.
 - **SRP at function level** — a function does one thing when you can name it without using "and" or a conjunction. `validateAndSave` is two things. Split.
 - **Comments are code smells** — see `standards/code-smells-refactoring.md` §Dispensables → Comments. If you feel the need to explain *what* the next block does, extract a method with that name instead. Comments explain *why* (a workaround, a constraint, a surprising invariant), never *what*.
+- **Comment budget** — *why* alone is not a licence to write prose. A comment earns its place only when a reader would get it wrong without it: max 5 lines per block, never more comment lines than code lines in a fix, never the same explanation twice, never state or task history. Everything else goes to the commit message or to `artifacts/stories/*.md`. Full rules and channel table: `standards/documentation.md` §Comment Budget.
 - **Names carry the type of thing they name** — collections plural (`users`, not `userList`), booleans read as predicates (`isActive`, `hasPermission`, `canRetry`), functions read as verbs (`calculateTotal`, not `total`).
 
 ## Core Principles
@@ -143,7 +144,7 @@ async function fetchData() {
 3. **Use consistent formatting** - Follow language-specific style guides (Prettier, ESLint, etc.)
 4. **Write tests first** - TDD helps design better APIs and catch issues early
 5. **Refactor regularly** - Improve code structure as you learn more about the domain
-6. **Comment why, not what** - Code shows what, comments explain why
+6. **Comment why, not what — and only when needed** - Code shows what; comments explain why, within the comment budget (Core Rules above).
 7. **Use type systems** - TypeScript, type hints, or static analysis tools
 8. **Favor composition** - Build complex behavior from simple, reusable pieces
 
@@ -192,3 +193,4 @@ async function fetchData() {
 - `standards/design-patterns.md` — the layer *above*: structural solutions when local cleanliness isn't enough
 - `standards/code-smells-refactoring.md` — how to spot when clean-code rules were violated in legacy code, and the named refactoring to fix it
 - `standards/code-quality.md` — review checklist that references these rules
+- `standards/documentation.md` — §Comment Budget: how much comment is too much, and which channel each kind of explanation belongs to
