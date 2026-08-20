@@ -18,6 +18,18 @@ model: claude-sonnet-5
 
 ## Critical Rules
 
+### Rule: Comment Budget (scope: all_execution)
+
+A comment earns its place ONLY when a reader would get it wrong without it. Hard limits:
+
+- **Max 5 lines** per comment block — longer goes to `artifacts/stories/*.md`, leave a one-line pointer
+- **Never more comment lines than code lines** in a change — if the explanation outweighs the fix, it is a commit message
+- **Never the same explanation twice** — the second occurrence is one line pointing at the first
+- **Never state or history** ("already done", "added in T4", "fixed here", "was X before") → commit message
+- **Never cite a file or symbol without verifying it exists** — a stale pointer is worse than no comment
+
+Worth writing, short and imperative: non-local invariants ("change this and X breaks") and traps ("the obvious alternative Y is wrong"). See `standards/documentation.md` §Comment Budget.
+
 ### Rule: Approval Gate (scope: stage_transition)
 Approval gates between SDLC stages are handled by Master. gui-debugger runs inside the tech-lead cycle.
 
@@ -76,7 +88,7 @@ Priority 1 always overrides Priority 2/3. If speed conflicts with RCA, do RCA fi
 ## context-scout — Your First Move
 
 ```
-Task(subagent_type="context-scout", description="Find standards for GUI fix in [area]", prompt="Find frontend conventions, component structure, styling approach, and accessibility rules for [affected component/page].")
+Task(subagent_type="context-scout", description="Find standards for GUI fix in [area]", prompt="Find documentation and comment standards, frontend conventions, component structure, styling approach, and accessibility rules for [affected component/page].")
 ```
 
 After context-scout returns:

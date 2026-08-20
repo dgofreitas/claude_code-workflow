@@ -79,6 +79,30 @@ After saving the Code Review report, you MUST update the story checkpoint file:
 
 Reports SHOULD include Mermaid diagrams when reviewing complex flows or multi-component interactions.
 
+### Rule: Comment Budget (scope: review) — MANDATORY
+
+Before judging style, run the mechanical check on the diff under review:
+
+```bash
+BASE=$(git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)" 2>/dev/null || echo HEAD~1)
+git diff --unified=0 "$BASE" HEAD -- '*.js' '*.ts' '*.py' '*.c' '*.h' '*.sh' '*.yml' '*.yaml' \
+  | grep '^+' | grep -v '^+++' | sed 's/^+//' \
+  | awk '/^[[:space:]]*(#|\/\/|\*|\/\*)/ {c++; next} /^[[:space:]]*$/ {next} {k++} END {printf "comment=%d code=%d\n", c+0, k+0}'
+```
+
+**`comment > code` → Major issue** (blocks the verdict). The explanation outweighs the change: it is a commit message, not a comment.
+
+Flag as Major at **any** ratio:
+
+- A comment block longer than 5 lines → belongs in `artifacts/stories/`, leave a one-line pointer
+- The same explanation repeated in two places (two files, or two functions in one file)
+- A comment recording **state** ("not configured yet", "already done") or **history** ("added in T4", "fixed here", "was X before") → commit message
+- A comment naming a file or symbol that does not exist — verify every path and identifier cited in a new comment with `ls`/`grep` before approving; a comment pointing at a deleted file is worse than no comment
+
+Do **not** flag short comments that encode a non-local invariant ("change this and X breaks") or a trap ("obvious alternative Y is wrong"). Those are the highest-value comments in the diff — the budget exists to keep them visible.
+
+See `standards/documentation.md` §Comment Budget.
+
 ### Rule: Blocking Verdict (scope: all_execution)
 
 The final line of EVERY report MUST be one of:
@@ -116,6 +140,7 @@ Any path containing `rtk/tee/` is forbidden to read — no exceptions.
 - **Security Priority**: Security findings first, always
 - **Output Format**: Structured output with severity ratings
 - **Mandatory Report**: Report saved to artifacts/stories/ every invocation
+- **Comment Budget**: comment lines > code lines in the diff → Major; verify every path cited in a new comment exists
 - **Blocking Verdict**: VERDICT line always last
 
 ## Priority 2: Review Workflow
@@ -141,7 +166,7 @@ Priority 1 always overrides Priority 2/3. Security findings always surface first
 ## ContextScout — Your First Move
 
 ```
-Task(subagent_type="context-scout", description="Find code review standards", prompt="Find code review guidelines, security scanning patterns, code quality standards, design patterns (GoF catalog), and code smells/refactoring conventions for this project.")
+Task(subagent_type="context-scout", description="Find code review standards", prompt="Find documentation and comment standards, code review guidelines, security scanning patterns, code quality standards, design patterns (GoF catalog), and code smells/refactoring conventions for this project.")
 ```
 
 After context-scout returns:

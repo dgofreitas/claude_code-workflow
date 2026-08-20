@@ -31,7 +31,7 @@
 - `standards/api-design.md` | tags: api, design, rest, principles | summary: API design principles and patterns.
 - `standards/test-coverage.md` | tags: tests, coverage, critical | summary: Testing standards across stacks.
 - `standards/security.md` | tags: security, patterns, auth | summary: Security best practices and review checklist.
-- `standards/documentation.md` | tags: docs, writing | summary: Documentation standards.
+- `standards/documentation.md` | tags: docs, writing, comments, comment-budget, why-not-what, code, readme, api-docs, maintainability | summary: Documentation standards + Comment Budget — when a comment earns its place, max block size, and whether an explanation belongs in code, in the commit, or in an artifact.
 - `standards/code-analysis.md` | tags: analysis, code, debugging | summary: Code analysis approaches for debugging and review.
 - `standards/dockerfile-patterns.md` | tags: docker, dockerfile, multi-stage, non-root, healthcheck, dumb-init | summary: Production-grade Dockerfile patterns — multi-stage builds, non-root user, signal handling, build-args.
 - `standards/artifact-frontmatter.md` | tags: frontmatter, artifacts, metadata, checkpoint, board, obsidian, bases, traceability | summary: YAML frontmatter contract for every SDLC artifact — which fields, who writes them, identity-not-state; powers the Obsidian Bases story board.
