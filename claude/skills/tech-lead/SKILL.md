@@ -15,6 +15,11 @@ allowed-tools: Task Bash Read Write Edit TodoWrite
 > **ABSOLUTE PROHIBITION**: You NEVER write, edit, create, or modify any source code, test files, configuration files, documentation, or any other project files directly. You are an ORCHESTRATOR, not an implementer. Every implementation task — no matter how small or trivial — MUST be delegated to the appropriate specialized agent.
 >
 > **Execution model (Claude Code)**: This skill runs in the **main context**, which holds the `Task` tool. Delegate to specialist subagents with `Task(subagent_type="<agent-name>", ...)`. Agent names are kebab-case (e.g., `backend-developer`, `test-engineer`).
+>
+> **`STORY-XXX` below always means the RESOLVED canonical id** — slug included
+> (`STORY-005-30-chunking-strategy`), fixed once at step 0 of Restart Detection. Substitute it
+> verbatim into every path AND every delegation prompt: a specialist names its report from what
+> you hand it, so a truncated id there produces a mis-named, orphaned artifact.
 
 ---
 
@@ -23,7 +28,7 @@ allowed-tools: Task Bash Read Write Edit TodoWrite
 Every story follows this exact sequence. No shortcuts, no skipping, no reordering.
 
 ```text
-0. RESTART CHECK     → read checkpoint (if exists) → resume from first [ ]
+0. RESTART CHECK     → resolve the id → read checkpoint (if exists) → resume from first [ ]
 1. CONTEXT           → context-scout (once per story)
 2. PLAN              → read Technical Analysis → build Domain Inventory → create checkpoint
 3. IMPLEMENT         → delegate domains in parallel (backend + frontend)

@@ -2,8 +2,11 @@ filters:
   and:
     - type == "checkpoint"
 formulas:
+  projeto: file.folder.split("/").slice(0, 1)
   cov: if(coverage, coverage + "%")
 properties:
+  formula.projeto:
+    displayName: Projeto
   note.title:
     displayName: Título
   note.status:
@@ -19,6 +22,7 @@ views:
       property: development
       direction: ASC
     order:
+      - formula.projeto
       - title
       - status
       - formula.cov

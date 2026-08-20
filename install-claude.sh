@@ -302,13 +302,40 @@ installPlaywrightMcp() {
     fi
 }
 
+# Guarda-chuva = a raiz tem sub-diretórios que são repos git próprios
+# (sistema-de-licenciamento/{teco,gerLic}). Mesma detecção que o Master faz em
+# runtime para resolver $P — ver "Active Project" no CLAUDE.md.
+hasSubProjectRepos() {
+    local root="$1" d
+    for d in "${root}"/*/; do
+        [[ -d "${d}.git" ]] && return 0
+    done
+    return 1
+}
+
 installBoard() {
     local targetDir="$1"      # <project>/.claude
     local projectRoot="$2"
-    local src="${targetDir}/templates/story-board.base"
-    local dest="${projectRoot}/story-board.base"
+    local src dest vault layout
 
     logStep "Instalando o board Obsidian (story-board.base)"
+
+    # O vault deve ser a pasta que contém SÓ markdown. Num projeto único isso é
+    # artifacts/ — abrir a raiz faria o Obsidian indexar node_modules/ e o grafo
+    # viraria ruído. Num guarda-chuva os artifacts moram em cada sub-projeto, então
+    # o vault é a raiz e o board carrega a coluna Projeto.
+    if hasSubProjectRepos "${projectRoot}"; then
+        layout="guarda-chuva"
+        src="${targetDir}/templates/story-board-umbrella.base"
+        dest="${projectRoot}/story-board.base"
+        vault="${projectRoot}"
+    else
+        layout="projeto único"
+        src="${targetDir}/templates/story-board.base"
+        mkdir -p "${projectRoot}/artifacts"
+        dest="${projectRoot}/artifacts/story-board.base"
+        vault="${projectRoot}/artifacts"
+    fi
 
     if [[ ! -f "${src}" ]]; then
         logInfo "Template do board não encontrado (${src}) — pulando"
@@ -319,8 +346,13 @@ installBoard() {
         logInfo "Board já existe (mantido): ${dest}"
     else
         cp "${src}" "${dest}"
-        logSuccess "Board instalado: ${dest}"
-        logInfo "  Abra a raiz do projeto como vault no Obsidian (≥1.9) e abra 'story-board.base' — Bases é núcleo, sem plugin"
+        logSuccess "Board instalado: ${dest}  [${layout}]"
+    fi
+
+    logInfo "  Abra '${vault}' como vault no Obsidian (≥1.9) — Bases é núcleo, sem plugin"
+    if [[ "${layout}" == "guarda-chuva" ]]; then
+        logInfo "  Nas configurações do vault, adicione node_modules em 'Arquivos excluídos'"
+        logInfo "  para o grafo não indexar o código dos sub-projetos"
     fi
 }
 

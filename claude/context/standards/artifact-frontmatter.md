@@ -35,6 +35,9 @@ artifacts/stories/STORY-<seq>-<slug>.md        STORY-005-30-chunking-strategy
   epic/date. Epic-scoped stories keep the `NNN-NN` shape (`005-30`).
 - **`<slug>`** — 2–4 kebab-case words naming the implementation; the branch is exactly
   `feat/<story-id>`.
+- **Fix outside a story** — `HOTFIX-<slug>` (production break) or `BUGFIX-<slug>` (defect found
+  in development). No `<seq>`: a fix is not backlog-ordered. It carries a checkpoint like any
+  story, and its derived artifacts append the usual suffixes.
 - **Epic id** = `EPIC-` + the epic's `development` slug. No opaque `EPIC-005`.
 
 > **Reserved suffixes.** A slug must NEVER end with a derived-artifact suffix (see the `type`
@@ -70,6 +73,7 @@ created: 2026-07-07        # immutable
 |------|------|------------|
 | `epic` | `EPIC-XXX.md` | product-owner |
 | `story` | `STORY-XXX.md` | product-manager |
+| `hotfix` / `bugfix` | `HOTFIX-<slug>.md` / `BUGFIX-<slug>.md` | tech-lead (skill) |
 | `technical-analysis` | `STORY-XXX-technical-analysis.md` | architect |
 | `code-analysis` | `STORY-XXX-code-analysis.md` | code-analyzer |
 | `ux-spec` | `STORY-XXX-ux-spec.md` | ux-designer |
