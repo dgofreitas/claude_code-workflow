@@ -28,7 +28,7 @@ artifacts/stories/HOTFIX-<slug>-checkpoint.md
 ```
 
 Use `HOTFIX-` for a production break and `BUGFIX-` for a defect found in development; the slug
-is 2–4 kebab-case words. Frontmatter carries `type: hotfix` (or `bugfix`) — see
+is 2–4 kebab-case words. Naming and frontmatter: `context/standards/artifact-naming.md` and
 `context/standards/artifact-frontmatter.md`. A fix that belongs to a story in flight keeps that
 story's id instead; do not open a second one.
 
