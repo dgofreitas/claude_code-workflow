@@ -84,7 +84,7 @@ All product docs MUST include Mermaid diagrams:
 
 ### Rule: Handoff to ProductManager (scope: all_execution)
 
-After epics are approved, produce a **PM Handoff Document** at `artifacts/product/PM-HANDOFF.md` that tells the product-manager exactly which epics to decompose into user stories, in what order, and with what constraints.
+After epics are approved, produce a **PM Handoff Document** at `artifacts/product/PM-HANDOFF-<dev>.md` that tells the product-manager exactly which epics to decompose into user stories, in what order, and with what constraints.
 
 ---
 
@@ -134,7 +134,9 @@ Each epic must follow this enriched structure:
 
 **Required fields per epic:**
 
-- Epic ID (`EPIC-XXX`)
+- Epic ID — `EPIC-<development-slug>`, e.g. `EPIC-market-data-backfill` (never an opaque
+  `EPIC-005`; the id is the filename and the Obsidian graph label). See
+  `context/standards/artifact-frontmatter.md`.
 - Title (clear, outcome-focused)
 - Persona(s) targeted
 - Business value statement
@@ -174,15 +176,29 @@ Save deliverables:
 
 | File | Purpose |
 |------|---------|
-| `artifacts/product/VISION.md` | Product vision, mission, strategy |
-| `artifacts/product/PERSONAS.md` | All user personas with JTBD |
-| `artifacts/product/OKRS.md` | Objectives and Key Results |
-| `artifacts/product/ROADMAP.md` | Release plan with Mermaid Gantt |
-| `artifacts/product/NFRS.md` | Non-functional requirements |
-| `artifacts/product/GLOSSARY.md` | Domain terms and definitions |
-| `artifacts/epics/EPIC-XXX.md` | One file per epic |
-| `artifacts/epics/EPICS-SUMMARY.md` | Backlog summary with dependency graph |
-| `artifacts/product/PM-HANDOFF.md` | Instructions for product-manager |
+| `artifacts/product/VISION-<dev>.md` | Product vision, mission, strategy |
+| `artifacts/product/PERSONAS-<dev>.md` | All user personas with JTBD |
+| `artifacts/product/OKRS-<dev>.md` | Objectives and Key Results |
+| `artifacts/product/ROADMAP-<dev>.md` | Release plan with Mermaid Gantt |
+| `artifacts/product/NFRS-<dev>.md` | Non-functional requirements |
+| `artifacts/product/GLOSSARY-<dev>.md` | Domain terms and definitions |
+| `artifacts/epics/EPIC-<dev>.md` | One file per epic |
+| `artifacts/epics/EPICS-SUMMARY-<dev>.md` | Backlog summary with dependency graph |
+| `artifacts/product/PM-HANDOFF-<dev>.md` | Instructions for product-manager |
+
+> **`<dev>` is this effort's `development` slug** — the SAME value you put in every
+> frontmatter, appended after the doc name (`VISION-theme.md`, `EPICS-SUMMARY-theme.md`).
+> Two efforts in one project each get their own full set; never overwrite another's.
+> A project with a single development may drop the `-<dev>` suffix.
+>
+> **Every file above starts with frontmatter** (`context/standards/artifact-frontmatter.md`):
+> `type` (`vision`, `personas`, `okrs`, `roadmap`, `nfrs`, `glossary`, `handoff`, `summary`),
+> `id` = the filename **including the slug**, plus `title`, `development`,
+> `generated_by: product-owner`, `schema_version: 1`, `created`. Without it these docs are
+> orphaned in the Obsidian graph — the PO's reasoning gets cut off from the epics it produced.
+>
+> In `EPICS-SUMMARY-<dev>.md`, reference each row as `[[EPIC-xxx]]` — a wikilink, never a
+> markdown path link.
 
 ---
 
@@ -192,7 +208,7 @@ Save deliverables:
 
 ```markdown
 ---
-id: EPIC-XXX
+id: EPIC-XXX            # EPIC- + the development slug, e.g. EPIC-market-data-backfill
 type: epic
 title: [epic title]
 development: [kebab-case slug naming this epic's development effort, e.g. licenciamento]
@@ -355,8 +371,8 @@ Before handing off to product-manager, verify:
 
 - All product docs created in `artifacts/product/`
 - All epics saved at `artifacts/epics/EPIC-XXX.md`, each beginning with the mandatory frontmatter (see Epic Template, per `context/standards/artifact-frontmatter.md`)
-- Epic backlog summary at `artifacts/epics/EPICS-SUMMARY.md`
-- PM Handoff document at `artifacts/product/PM-HANDOFF.md`
+- Epic backlog summary at `artifacts/epics/EPICS-SUMMARY-<dev>.md`
+- PM Handoff document at `artifacts/product/PM-HANDOFF-<dev>.md`
 - Dependency graph (Mermaid) validated
 - Roadmap approved by user
 - Non-functional requirements documented
@@ -366,9 +382,25 @@ Before handing off to product-manager, verify:
 
 ## Handoff to ProductManager — Mandatory Format
 
-After approval, write `artifacts/product/PM-HANDOFF.md`:
+After approval, write `artifacts/product/PM-HANDOFF-<dev>.md`.
+
+This file is the **hub** that connects your decisions to the epics: `epics` points down to what
+you are handing over, `sources` points back up to the product docs you derived it from. Both
+become links in the graph.
 
 ```markdown
+---
+id: PM-HANDOFF-<dev>           # = the filename, slug included
+type: handoff
+title: PM Handoff — [Project Name]
+development: <dev>             # the slug itself
+epics: [EPIC-<dev>]            # every epic handed over
+sources: [VISION-<dev>, PERSONAS-<dev>, OKRS-<dev>, ROADMAP-<dev>, NFRS-<dev>, GLOSSARY-<dev>]
+generated_by: product-owner
+schema_version: 1
+created: [YYYY-MM-DD]
+---
+
 # PM Handoff — [Project Name]
 
 ## Epics Ready for Story Decomposition
@@ -389,7 +421,7 @@ After approval, write `artifacts/product/PM-HANDOFF.md`:
 - MVP scope = Must Have epics only
 - Max story size: 8 story points
 - Every story must reference Persona defined in PERSONAS.md
-- Every story must link to its parent EPIC-XXX
+- Every story must link to its parent EPIC-XXX (frontmatter `epic:`)
 
 ## Out of Scope (do NOT create stories for)
 

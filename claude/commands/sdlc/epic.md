@@ -16,14 +16,14 @@ Invoke the `product-owner` subagent via the Task tool:
 ## product-owner will
 
 - Load business/technical context via context-scout
-- Define product vision and strategy (`artifacts/product/VISION.md`)
-- Define personas with JTBD (`artifacts/product/PERSONAS.md`)
-- Set OKRs (`artifacts/product/OKRS.md`)
+- Define product vision and strategy (`artifacts/product/VISION*.md`)
+- Define personas with JTBD (`artifacts/product/PERSONAS*.md`)
+- Set OKRs (`artifacts/product/OKRS*.md`)
 - Create enriched epics (`artifacts/epics/EPIC-XXX.md`)
-- Build release roadmap (`artifacts/product/ROADMAP.md`)
-- Document non-functional requirements (`artifacts/product/NFRS.md`)
-- Produce glossary (`artifacts/product/GLOSSARY.md`)
-- Generate PM handoff (`artifacts/product/PM-HANDOFF.md`)
+- Build release roadmap (`artifacts/product/ROADMAP*.md`)
+- Document non-functional requirements (`artifacts/product/NFRS*.md`)
+- Produce glossary (`artifacts/product/GLOSSARY*.md`)
+- Generate PM handoff (`artifacts/product/PM-HANDOFF-<dev>.md`)
 
 ## Output
 

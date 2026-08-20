@@ -92,6 +92,88 @@ function yamlStr(s) {
   return '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 }
 
+// --- Obsidian lineage links -------------------------------------------------
+// Obsidian only draws a graph edge / backlink from a `[[wikilink]]` — a plain
+// `epic: EPIC-005` is inert text. So we wrap ONLY the lineage fields, turning the
+// artifact tree into a navigable graph (EPIC <- STORY <- reports) for free.
+//
+// Deliberately NOT wrapped: id, type, status, development, coverage, title,
+// revision, layer, schema_version, created, updated, generated_by — those are what
+// the Bases board (`story-board.base`) filters and groups on, and what agents/greps
+// read. Wrapping them would change behaviour; wrapping these does not.
+const LINK_FIELDS = new Set(['story', 'epic', 'parent', 'parent_epic', 'depends_on', 'blocks', 'supersedes']);
+
+// Fields whose values are DOCUMENT names rather than entity ids — the product layer
+// (`sources: [VISION, PERSONAS]`) and the summary hubs (`epics:`, `stories:`). These have no
+// `PREFIX-` shape to test for, so any filename-safe token is linked. A value carrying a space,
+// a slash or a colon is prose (`N/A`, `TBD — see below`) and is left alone.
+const DOC_LINK_FIELDS = new Set(['sources', 'epics', 'stories']);
+const DOC_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+// Only bare entity ids get linked. Prose values (`epic: Backfill Automático...`,
+// `supersedes: X.md (2026-08-18, pre-rework)`) are left alone rather than minted
+// into ghost nodes, and an already-wrapped `[[...]]` fails this test too — which is
+// what makes the pass idempotent across the checkpoint's repeated writes.
+const ENTITY_ID_RE = /^(?:STORY|EPIC|HOTFIX|SPIKE|BUG|TASK)-[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+function isEntityId(v) {
+  return ENTITY_ID_RE.test(v);
+}
+
+function isDocName(v) {
+  return DOC_NAME_RE.test(v) && !v.startsWith('[[');
+}
+
+function wikilink(id) {
+  return yamlStr('[[' + id + ']]');
+}
+
+// Rewrites lineage fields inside the leading `---` block. The body is never touched.
+// Returns the input unchanged when there is nothing to link (caller uses that to no-op).
+function linkifyFrontmatter(text, selfId) {
+  if (!text.startsWith('---')) return text;
+  const end = text.indexOf('\n---', 3);
+  if (end === -1) return text;
+
+  const head = text.slice(3, end);
+  const rest = text.slice(end);
+
+  const out = head.split('\n').map((line) => {
+    const m = line.match(/^([A-Za-z0-9_]+):[ \t]*(.*)$/);
+    if (!m) return line;
+    const key = m[1];
+    const val = m[2].trim();
+    const isDoc = DOC_LINK_FIELDS.has(key);
+    if ((!LINK_FIELDS.has(key) && !isDoc) || !val) return line;
+    const ok = isDoc ? isDocName : isEntityId;
+
+    // Inline YAML flow list: `depends_on: [STORY-005-22, STORY-005-24]`.
+    // `[[X]]` also starts with '[' — the all-ids test below rejects it, so it is a no-op.
+    if (val.startsWith('[') && val.endsWith(']')) {
+      const items = val.slice(1, -1).split(',').map((x) => unquote(x.trim())).filter(Boolean);
+      if (!items.length || !items.every(ok)) return line;
+      return key + ': [' + items.map(wikilink).join(', ') + ']';
+    }
+
+    const bare = unquote(val);
+    if (!ok(bare)) return line;
+    // An epic carries `epic: <its own id>`; linking a file to itself is noise.
+    if (selfId && bare === selfId) return line;
+    return key + ': ' + wikilink(bare);
+  });
+
+  return '---' + out.join('\n') + rest;
+}
+
+function emit(ti, content) {
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      updatedInput: Object.assign({}, ti, { content: content }),
+    },
+  }));
+}
+
 function main() {
   const raw = readStdin();
   let input;
@@ -112,8 +194,16 @@ function main() {
   // Only markdown files inside an `artifacts/` tree.
   if (!/(^|\/)artifacts\//.test(filePath) || !filePath.endsWith('.md')) process.exit(0);
 
-  // Already has frontmatter → source artifact (epic/story/checkpoint) or hand-authored. Leave it.
-  if (content.startsWith('---')) { log('SKIP_HAS_FM', filePath); process.exit(0); }
+  // Already has frontmatter → source artifact (epic/story/checkpoint) or hand-authored.
+  // We never touch its fields (identity stays the author's), but we DO run the linkify
+  // pass so its lineage shows up in the Obsidian graph. No-op when nothing is linkable.
+  if (content.startsWith('---')) {
+    const linked = linkifyFrontmatter(content, path.basename(filePath, '.md'));
+    if (linked === content) { log('SKIP_HAS_FM', filePath); process.exit(0); }
+    log('LINKIFY', filePath);
+    emit(ti, linked);
+    return;
+  }
 
   const base = path.basename(filePath, '.md');
 
@@ -149,21 +239,20 @@ function main() {
   if (layer) lines.push('layer: ' + layer);
   if (story.title) lines.push('title: ' + yamlStr(story.title));
   if (story.development) lines.push('development: ' + story.development);
-  if (story.epic) lines.push('epic: ' + story.epic);
+  // The sibling story may already be linkified (`epic: "[[EPIC-x]]"`). unquote() stripped the
+  // quotes on read, and a bare `[[x]]` is a nested YAML flow sequence, not a string — so
+  // re-quote anything that came back wrapped. linkifyFrontmatter cannot repair it later
+  // because an already-wrapped value fails the id test.
+  if (story.epic) lines.push('epic: ' + (story.epic.startsWith('[[') ? yamlStr(story.epic) : story.epic));
   lines.push('generated_by: ' + generatedBy);
   lines.push('schema_version: 1');
   lines.push('created: ' + new Date().toISOString().slice(0, 10));
   lines.push('---', '');
 
-  const newContent = lines.join('\n') + '\n' + content;
+  const newContent = linkifyFrontmatter(lines.join('\n') + '\n' + content, base);
 
   log('INJECT', { filePath, type, id, revision, layer });
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      updatedInput: Object.assign({}, ti, { content: newContent }),
-    },
-  }));
+  emit(ti, newContent);
 }
 
 main();

@@ -15,19 +15,26 @@ model: claude-sonnet-5
 
 ## Upstream: ProductOwner Integration
 
-If `artifacts/product/PM-HANDOFF.md` exists, you MUST read it FIRST before decomposing anything. Then read ALL referenced epic files. The product-owner provides:
+Run `ls artifacts/product/PM-HANDOFF*.md` — the handoff is suffixed with the PO's
+`development` slug (`PM-HANDOFF-theme.md`), so never assume a bare `PM-HANDOFF.md`. If one
+exists, you MUST read it FIRST before decomposing anything; if several do, pick the one whose
+`development` matches the request and inherit that slug for every file you write. Then read ALL referenced epic files. The product-owner provides:
 
-- **Personas** at `artifacts/product/PERSONAS.md` — reference in every story
+> Paths below are shown without the `-<dev>` suffix. The handoff's `sources:` field names the
+> exact files for this development — follow it, or glob (`ls artifacts/product/PERSONAS*.md`).
+
+- **Personas** at `artifacts/product/PERSONAS*.md` — reference in every story
 - **Epics** at `artifacts/epics/EPIC-XXX.md` — decompose each into stories
-- **NFRs** at `artifacts/product/NFRS.md` — apply to all relevant stories
-- **Glossary** at `artifacts/product/GLOSSARY.md` — use correct domain terminology
-- **Roadmap** at `artifacts/product/ROADMAP.md` — respect release priorities
+- **NFRs** at `artifacts/product/NFRS*.md` — apply to all relevant stories
+- **Glossary** at `artifacts/product/GLOSSARY*.md` — use correct domain terminology
+- **Roadmap** at `artifacts/product/ROADMAP*.md` — respect release priorities
 
 **If no PO artifacts exist**: proceed with stories directly from user input (legacy mode).
 
 **If PO artifacts exist**:
 
-1. Read `PM-HANDOFF.md` — extract: epics list, priorities, persona mappings, sequencing
+1. Read the handoff found above — extract: `development` slug, epics list, priorities,
+   persona mappings, sequencing
 2. **Read each `artifacts/epics/EPIC-XXX.md`** — extract: title, description, scenarios (GIVEN/WHEN/THEN), dependencies, NFRs, acceptance criteria
 3. Order epics by: roadmap milestones > MoSCoW priority > WSJF score
 4. Decompose each epic into stories (see Decomposition Rules below)
@@ -102,7 +109,7 @@ Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/st
 
 - **Story from an epic** → set `development` to a stable kebab-case slug of that epic (e.g. `EPIC-003 "Licenciamento"` → `development: licenciamento`). All stories of the same epic share the same `development`.
 - **No epic** (legacy / direct request) → pick ONE kebab-case label from the request theme and reuse it for EVERY story in this batch (e.g. `development: catalogo-recursos`). This is what lets stories be grouped even without epics.
-- `title` = the story title; `epic` = Parent Epic id (omit the line if none); `id` = `STORY-XXX`; `created` = today's date.
+- `title` = the story title; `epic` = Parent Epic id (omit the line if none); `id` = the story id (see below); `created` = today's date.
 
 ---
 
@@ -136,7 +143,11 @@ Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/st
   1. List all identified epics/features
   2. Group related scenarios under their respective epic/feature
   3. Plan one story per epic or per logical feature group
-  4. Assign sequential IDs: `STORY-001`, `STORY-002`, etc.
+  4. Assign descriptive IDs: `STORY-<seq>-<slug>` — sequence FIRST, then 2-4 kebab-case
+     words naming the implementation (`STORY-001-license-registration`,
+     `STORY-005-30-chunking-strategy`). The id IS the filename and the Obsidian graph label,
+     so a bare `STORY-001` labels a dot, not a story. Full rule (incl. reserved suffixes that
+     a slug must never end with): `context/standards/artifact-frontmatter.md`.
   5. Map cross-story dependencies
 - **If SINGLE feature/bug/spike**: proceed with one story
 
@@ -177,11 +188,21 @@ Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/st
 ### 7. Documentation and Handoff
 
 - **Save EACH story** using Write tool to `/artifacts/stories/STORY-XXX.md` — begin the file with the YAML frontmatter (see **Rule: Story Frontmatter**), then the story body
-- After ALL stories, create a **backlog summary** at `/artifacts/stories/BACKLOG-SUMMARY.md`:
+- After ALL stories, create a **backlog summary** at
+  `/artifacts/stories/BACKLOG-SUMMARY-<dev>.md` — `<dev>` is the `development` slug you own, so
+  two efforts in one project never overwrite each other's backlog:
+  - Frontmatter: `type: summary`, `id: BACKLOG-SUMMARY-<dev>` (= the filename), `title`,
+    `development: <dev>`, `epics: [EPIC-<dev>]`, `generated_by: product-manager`,
+    `schema_version: 1`, `created`
   - Total number of stories
-  - Story list with IDs, titles, priorities, estimates
+  - Story list with IDs, titles, priorities, estimates — reference every story as a
+    **wikilink**: `| [[STORY-005-30-chunking-strategy]] | Chunking Strategy | Must | 5 |`
   - **Mermaid dependency graph**
   - Suggested implementation order
+
+> **Never link a story by path.** `[STORY-x](/artifacts/stories/STORY-x.md)` is
+> absolute-from-vault-root, dies on any folder rename, and resolves to nothing in Obsidian —
+> which silently turns the whole backlog into orphan nodes. Always `[[STORY-x]]`.
 
 **Mermaid Dependency Graph Example:**
 
@@ -209,11 +230,11 @@ graph TD
 
 ```markdown
 ---
-id: STORY-XXX
+id: STORY-XXX           # full descriptive id, e.g. STORY-005-30-chunking-strategy
 type: story
 title: [Story Title]
 development: [kebab-case development label — see Rule: Story Frontmatter]
-epic: EPIC-XXX          # omit this line if the story has no parent epic
+epic: EPIC-XXX          # e.g. EPIC-market-data-backfill — omit the line if no parent epic
 generated_by: product-manager
 schema_version: 1
 created: [YYYY-MM-DD]
@@ -284,7 +305,7 @@ created: [YYYY-MM-DD]
 - Acceptance criteria verified and aligned with business (3-8 per story)
 - Dependencies and risks documented (within and across stories)
 - **Each** story file saved at `/artifacts/stories/STORY-XXX.md`
-- Backlog summary saved at `/artifacts/stories/BACKLOG-SUMMARY.md` (when multiple stories)
+- Backlog summary saved at `/artifacts/stories/BACKLOG-SUMMARY-<dev>.md` (when multiple stories)
 - Stories approved and ready for **architect**
 - No single story exceeds 21 story points
 - No single story has more than 8 acceptance criteria

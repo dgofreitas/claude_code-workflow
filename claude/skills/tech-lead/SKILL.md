@@ -138,8 +138,16 @@ Reserve per-file delegations only when files belong to DIFFERENT agents (e.g., o
 
 Before starting work, check current state to detect mid-story restart:
 
-1. `git branch --show-current` — already on `feat/STORY-XXX`? → restart mode.
-2. `cat artifacts/stories/STORY-XXX-checkpoint.md 2>/dev/null` — **primary source of truth**.
+0. **Resolve the id.** Handed a partial id? Run `ls artifacts/stories/<partial>*.md`, strip
+   the report suffix (`-checkpoint`, `-test-report`, `-qa-report`, `-code-review`,
+   `-technical-analysis`, `-code-analysis`, `-ux-spec`, `-impl-report-*`, `-rN`) from each
+   match, dedupe. Exactly one base left → that is the id, slug included; build every path from
+   it. Zero, or more than one → STOP and ask Master: `STORY-005-3` reduces to ten stories and
+   guessing runs the pipeline on the wrong one. (Strip-and-dedupe, not "find the bare story
+   file" — hotfixes have a checkpoint and no story file.)
+1. `git branch --show-current` — already on `feat/<id>`? → restart mode. Branch minus `feat/`
+   IS the id (contract), so it needs no resolving.
+2. `cat artifacts/stories/<id>-checkpoint.md 2>/dev/null` — **primary source of truth**.
    - Checkpoint exists → run **Checkpoint Sanity Check** (below) → resume from first `[ ]` item. All `[x]` items are done — skip them.
    - Checkpoint missing → fallback: `git log --oneline -5` to infer progress → **create checkpoint immediately** (see Rule: Checkpoint Hard Gate) before delegating.
 
@@ -534,7 +542,8 @@ THEN update checkpoint: mark [x] CODE REVIEW with verdict (APPROVED or BLOCKED)
 
 > Branch creation and commits are executed by the **delegated specialist agents** as part of their delegation. TechLead orchestrates but never runs `git commit` itself.
 
-**Branch:** `git checkout -b feat/STORY-XXX-short-description`
+**Branch:** `git checkout -b feat/<story-id>` — the story id already carries the slug
+(`feat/STORY-005-30-chunking-strategy`), so branch and id match exactly.
 **Commit:** `git commit -m "feat(module): description\n\n- Change 1\n\nImplements: STORY-XXX"`
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `perf`, `style`, `chore`
 
@@ -554,7 +563,7 @@ When returning to Master, use ONE of these two structured formats. Master parses
 ```markdown
 STORY-XXX-DONE
 MR: <full PR URL>
-Branch: feat/STORY-XXX-<slug>
+Branch: feat/STORY-XXX
 Checkpoint: artifacts/stories/STORY-XXX-checkpoint.md
 QA report: artifacts/stories/STORY-XXX-qa-report.md (Status: PASSED)
 Review report: artifacts/stories/STORY-XXX-code-review.md (VERDICT: APPROVED)

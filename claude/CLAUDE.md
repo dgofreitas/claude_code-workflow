@@ -150,7 +150,7 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 
 > **GATE-SA**: only for **greenfield projects** (no build files AND no `artifacts/architecture/TECH-STACK.md`). Existing projects skip system-architect and GATE-SA entirely.
 
-> **Optional pre-step**: If user asks for strategic/product-level work (vision, personas, epics, roadmap), invoke **product-owner** FIRST. PO outputs feed product-manager via `artifacts/product/PM-HANDOFF.md`. There is no GATE-PO — product-owner output flows directly to product-manager.
+> **Optional pre-step**: If user asks for strategic/product-level work (vision, personas, epics, roadmap), invoke **product-owner** FIRST. PO outputs feed product-manager via `artifacts/product/PM-HANDOFF-<dev>.md`. There is no GATE-PO — product-owner output flows directly to product-manager.
 
 ---
 
@@ -161,16 +161,29 @@ Run on every request (including "continue"). **Hard budget: max 2 bash calls per
 > Paths/git below follow **THE ANCHORING RULE**: `artifacts/...` means `$P/artifacts/...` and every `git ...` runs as `git -C "$P" ...` (resolve `$P` in the step-0 preamble first). In single-project installs `$P=.`, so the literal commands are already correct.
 
 ```
-If user mentioned a SPECIFIC story id ("STORY-021", "STORY-theme-003"):
+If user mentioned a SPECIFIC story id ("STORY-021", "STORY-005-30"):
   1. bash: ls artifacts/stories/STORY-XXX*.md 2>/dev/null                          → story exists? plan exists?
-  2. bash: cat artifacts/stories/STORY-XXX-checkpoint.md 2>/dev/null | head -50    → routing via SDLC STATUS + QUALITY AND DELIVERY
+  2. bash: cat artifacts/stories/<RESOLVED-ID>-checkpoint.md 2>/dev/null | head -50 → routing via SDLC STATUS + QUALITY AND DELIVERY
 
 If user gave a vague request ("continue", "build X"):
   1. bash: git branch --show-current                                           → on feature branch? which story?
-  2a. (if on feat/STORY-XXX) bash: cat artifacts/stories/STORY-XXX-checkpoint.md 2>/dev/null | head -50
+  2a. (if on feat/<id>) bash: cat artifacts/stories/<id>-checkpoint.md 2>/dev/null | head -50
   2b. (if NOT on feature branch) bash: ls artifacts/stories/                       → filenames only, route from there
 ```
 
+> **RESOLVE THE ID FIRST.** Ids carry a slug (`STORY-005-30-chunking-strategy`), but the user
+> types the short form (`STORY-005-30`). Step 1's `ls` output IS the canonical id — never
+> re-build a path from what the user typed.
+>
+> To get it: strip the report suffix (`-checkpoint`, `-technical-analysis`, `-code-analysis`,
+> `-ux-spec`, `-test-report`, `-qa-report`, `-code-review`, `-impl-report-*`, `-rN`) from every
+> match, then dedupe. **Exactly one** distinct base remains → that is the id, slug included.
+> Strip-and-dedupe rather than looking for the bare story file: hotfixes and older stories
+> legitimately have a checkpoint and no `STORY-XXX.md`.
+> **Zero or more than one → ASK, never guess** — `STORY-005-3` reduces to ten different
+> stories, and picking one silently runs the whole pipeline on the wrong story.
+> On a feature branch the id is the branch minus `feat/` — exact by contract, no resolving.
+>
 > **`cat checkpoint.md | head -50` is the ONLY allowed `cat`** — reads SDLC STATUS + QUALITY AND DELIVERY. NEVER `cat` story content, technical analysis, or any other file. NEVER `glob`.
 >
 > **NEVER read story content during detection.** Content reading is the delegated agent's job.

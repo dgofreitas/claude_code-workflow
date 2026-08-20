@@ -34,7 +34,7 @@
 - `standards/documentation.md` | tags: docs, writing | summary: Documentation standards.
 - `standards/code-analysis.md` | tags: analysis, code, debugging | summary: Code analysis approaches for debugging and review.
 - `standards/dockerfile-patterns.md` | tags: docker, dockerfile, multi-stage, non-root, healthcheck, dumb-init | summary: Production-grade Dockerfile patterns — multi-stage builds, non-root user, signal handling, build-args.
-- `standards/artifact-frontmatter.md` | tags: frontmatter, artifacts, metadata, checkpoint, board, obsidian, bases, traceability | summary: YAML frontmatter contract for every SDLC artifact — identity-not-state; powers the Obsidian Bases story board.
+- `standards/artifact-frontmatter.md` | tags: frontmatter, artifacts, metadata, checkpoint, board, obsidian, bases, graph, wikilink, lineage, traceability | summary: YAML frontmatter contract for every SDLC artifact — identity-not-state; powers the Obsidian Bases story board and the lineage graph (hook wraps epic/story/parent as wikilinks).
 
 ## workflows/ — Processes to follow
 

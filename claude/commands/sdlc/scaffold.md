@@ -21,7 +21,7 @@ Invoke the `system-architect` subagent via the Task tool:
 
 ## system-architect will
 
-- Read `artifacts/product/NFRS.md` + `artifacts/product/VISION.md`
+- Read `artifacts/product/NFRS*.md` + `artifacts/product/VISION*.md`
 - Analyze technical requirements from NFRs
 - Propose complete tech stack with rationale
 - ⏸️ GATE #SA: await your approval

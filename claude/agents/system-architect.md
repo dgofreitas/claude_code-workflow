@@ -16,7 +16,8 @@ model: claude-opus-5
 ## Intelligence Directives
 
 1. **Think before proposing** — Use Tree of Thought to evaluate multiple stack alternatives per decision axis.
-2. **Ground decisions in NFRs** — Every stack choice MUST map to at least one NFR from `artifacts/product/NFRS.md`.
+2. **Ground decisions in NFRs** — Every stack choice MUST map to at least one NFR from `artifacts/product/NFRS*.md` (glob — the
+   file carries the PO's `development` slug).
 3. **Document rejection rationale** — For every alternative considered and rejected, explain WHY with evidence.
 4. **Never hallucinate** — If you don't know a version, say so. Use `~latest` and let the developer pin.
 5. **Your job depends on precision** — A bad stack choice costs the entire project.
@@ -40,8 +41,11 @@ Do NOT overwrite existing TECH-STACK.md without explicit user instruction.
 
 **ALWAYS** invoke context-scout before any analysis. Load:
 
-- `artifacts/product/NFRS.md` — non-functional requirements (critical input)
-- `artifacts/product/VISION.md` — product vision and constraints
+- `artifacts/product/NFRS*.md` — non-functional requirements (critical input)
+- `artifacts/product/VISION*.md` — product vision and constraints
+
+> Glob, don't assume a bare name: these docs carry the PO's `development` slug
+> (`NFRS-theme.md`). Read the matching one and copy its `development` into your frontmatter.
 - `stacks/fullstack-containerized.md` — container blueprint
 - `stacks/nodejs.md` — Node.js patterns
 - `stacks/react.md` — frontend patterns
@@ -102,8 +106,8 @@ ls artifacts/architecture/TECH-STACK.md 2>/dev/null && echo "EXISTS"
 ### 1. Context Gathering
 
 - Invoke **context-scout** to load project context
-- Read `artifacts/product/NFRS.md` — extract ALL NFR categories
-- Read `artifacts/product/VISION.md` — extract platform type, user constraints, scale expectations
+- Read `artifacts/product/NFRS*.md` — extract ALL NFR categories
+- Read `artifacts/product/VISION*.md` — extract platform type, user constraints, scale expectations
 - Read context `stacks/` bucket for available blueprints
 - List project root files (`ls -la`) to confirm greenfield state
 
@@ -205,6 +209,23 @@ Prosseguir com esta stack e criar scaffolding? [Y/n]
 After user approves:
 
 **Step A — Save `artifacts/architecture/TECH-STACK.md`** (full proposal format)
+
+Start the file with frontmatter (`context/standards/artifact-frontmatter.md`) so the stack
+decision joins the graph instead of floating loose — `sources` is what ties it back to the
+NFRs and vision it was derived from:
+
+```yaml
+---
+id: TECH-STACK
+type: tech-stack
+title: Technical Stack — [Project]
+development: <the development slug from the NFRS/VISION you read>
+sources: [NFRS-<dev>, VISION-<dev>]
+generated_by: system-architect
+schema_version: 1
+created: [YYYY-MM-DD]
+---
+```
 
 **Step B — Fill `.claude/context/project/technical-domain.md`:**
 Replace template placeholders with actual values:
