@@ -84,6 +84,26 @@ AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"
 
 `$P` = active project root — `.` in single-project installs, e.g. `gerLic` in an umbrella. **Every `artifacts/...` path in this skill is shorthand for `$P/artifacts/...`; every git/test command runs under `$P` (`git -C "$P" ...` or `cd "$P"` first); and every path you pass to a subagent is `$P`-prefixed** (so the artifact-frontmatter hook resolves the sibling story correctly, and the report lands in the right sub-project repo). Master sets `.claude/.active-project` from the user's request — if it is unset in an umbrella, STOP and ask Master which sub-project (story numbers repeat across sub-projects). In single-project installs `$P=.`, so the literal paths below are already correct.
 
+**Worktree refinement — run this at step 0, immediately after resolving the id:**
+
+```bash
+AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"
+WT=$(git -C "$P" worktree list 2>/dev/null | grep -E "\[[^]]*STORY-XXX(-[^]]*)?\]" | awk '{print $1}' | head -1)
+W=".claude/.active-worktree${AP:+.$AP}"
+if [ -n "$WT" ]; then P="$WT"; printf '%s\n' "$WT" > "$W"; else rm -f "$W"; fi
+```
+
+A story branch may be checked out in a `git worktree` rather than in the sub-project directory. That
+tree holds the code, the artifacts and the git state — so it, not the sub-project directory, is `$P`
+for the entire story. Everything downstream (Domain Inventory paths, delegation prompts, the
+checkpoint, every report) follows from this one assignment.
+
+`$W` is session state under `.claude/`, not project content, and it exists for **`git-merge-guard.js`
+alone**: that hook guards `gh pr create`/`gh pr merge` but never sees a story id, so it cannot derive
+the tree by itself. Write-or-remove it on every story start — then the only way it goes stale is an
+abandoned story, and the hook already drops a path that no longer exists. Master removes it at
+GATE-MR after `git worktree remove`.
+
 ### Rule: Single Context Scout
 
 Invoke **context-scout ONCE at story start**, not before each delegation. The context files returned are valid for the entire story execution. Re-invoke ONLY if you delegate to a domain not covered by the initial context (e.g., new language detected mid-story).
@@ -150,8 +170,11 @@ Before starting work, check current state to detect mid-story restart:
    it. Zero, or more than one → STOP and ask Master: `STORY-005-3` reduces to ten stories and
    guessing runs the pipeline on the wrong one. (Strip-and-dedupe, not "find the bare story
    file" — hotfixes have a checkpoint and no story file.)
-1. `git branch --show-current` — already on `feat/<id>`? → restart mode. Branch minus `feat/`
-   IS the id (contract), so it needs no resolving.
+1. `git -C "$P" worktree list` — does ANY tree hold `feat/<id>` (or `fix/<id>`)? → restart mode, and
+   that tree becomes `$P` (see `Rule: Active Project Anchor`). Branch minus its `feat/`/`fix/` prefix
+   IS the id (contract), so it needs no resolving. Use `worktree list`, not `branch --show-current`:
+   the latter only reports the tree you happen to be anchored to, so a story already in progress in a
+   worktree reads as "not started" and the whole pipeline restarts from scratch on the wrong tree.
 2. `cat artifacts/stories/<id>-checkpoint.md 2>/dev/null` — **primary source of truth**.
    - Checkpoint exists → run **Checkpoint Sanity Check** (below) → resume from first `[ ]` item. All `[x]` items are done — skip them.
    - Checkpoint missing → fallback: `git log --oneline -5` to infer progress → **create checkpoint immediately** (see Rule: Checkpoint Hard Gate) before delegating.
@@ -437,7 +460,7 @@ code-reviewer / merge-request-creator gate on clean working tree (`git status --
 TodoWrite:
 [PLAN]   1. Read PM story + technical analysis
 [PLAN]   2. Build Domain Inventory (Shared / Backend / Frontend)
-[PLAN]   3. Create branch feat/STORY-XXX
+[PLAN]   3. Resolve the story tree ($P): reuse the worktree holding the branch, else create feat/STORY-XXX
 
 [SHARED] 4. backend-developer: shared constants/utilities
 [BACK]   5. backend-developer: models/schemas
@@ -547,8 +570,21 @@ THEN update checkpoint: mark [x] CODE REVIEW with verdict (APPROVED or BLOCKED)
 
 > Branch creation and commits are executed by the **delegated specialist agents** as part of their delegation. TechLead orchestrates but never runs `git commit` itself.
 
-**Branch:** `git checkout -b feat/<story-id>` — the story id already carries the slug
-(`feat/STORY-005-30-chunking-strategy`), so branch and id match exactly.
+**Branch:** the story id already carries the slug (`feat/STORY-005-30-chunking-strategy`), so branch
+and id match exactly. **Look for an existing tree before creating anything** — `git checkout -b`
+fails with `fatal: a branch named 'feat/X' already exists` once the branch exists, and the obvious
+recovery `git checkout feat/X` fails too (`already used by worktree at ...`), leaving no way forward:
+
+```bash
+WT=$(git -C "$P" worktree list | grep -E "\[[^]]*STORY-XXX(-[^]]*)?\]" | awk '{print $1}' | head -1)
+if [ -n "$WT" ]; then P="$WT"; else git -C "$P" checkout -b feat/STORY-XXX; fi
+```
+
+A non-empty `$WT` means the branch already has a tree — the sub-project checkout itself, or a
+worktree someone created by hand. Either way **that tree is `$P` for the rest of the story**: hand
+every delegated agent `$P`-prefixed paths so code, tests, reports and commits all land in the one
+tree the MR is built from.
+
 **Commit:** `git commit -m "feat(module): description\n\n- Change 1\n\nImplements: STORY-XXX"`
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `perf`, `style`, `chore`
 
