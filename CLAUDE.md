@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-This repo is **not a runnable app**. It is the source of truth for a multi-agent SDLC workflow that installs into `<project>/.claude/` via a self-contained shell installer. The deliverable is `claude-workflow-installer.sh` (a base64-encoded tarball).
+This repo is **not a runnable app**. It is the source of truth for a multi-agent SDLC workflow that installs into `<project>/.claude/` via a self-contained shell installer. The deliverable is `claude-workflow-installer.sh` (a base64-encoded tarball) — **built, never committed**. It is gitignored, so a fresh clone has no installer at all: run `bash build-claude-installer.sh` first. Editing anything under `claude/` changes nothing anywhere until that build runs.
 
 There is **no automated test suite**. Testing means installing into a real project and exercising the workflow: `claude` → invoke Master (the main session, driven by the installed `CLAUDE.md`).
 
