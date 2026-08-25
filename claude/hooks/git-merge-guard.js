@@ -31,15 +31,33 @@ function readStdin() {
 
 // Same $P resolution Master's own step-0 preamble uses — without it, an umbrella
 // install would check the wrong git repo (umbrella root instead of the sub-project).
+//
+// A story branch may be checked out in a git worktree instead of the sub-project
+// directory, and only that tree's dirt and unpushed commits are what `gh pr` publishes.
+// This hook never sees a story id, so unlike Master it cannot derive the tree itself —
+// the tech-lead skill writes `.active-worktree` at story start and removes it when no
+// worktree is in play. A path left behind by an abandoned story fails the existence
+// check below and falls through to the sub-project checkout.
 function resolveProjectDir() {
   const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  let activeProject = '';
   try {
-    const activeProject = fs.readFileSync(path.join(projectDir, '.claude', '.active-project'), 'utf8').trim();
-    if (activeProject) return path.join(projectDir, activeProject);
+    activeProject = fs.readFileSync(path.join(projectDir, '.claude', '.active-project'), 'utf8').trim();
   } catch {
     // no umbrella / no active project file — single-project install
   }
-  return projectDir;
+
+  try {
+    const suffix = activeProject ? '.' + activeProject : '';
+    const wt = fs.readFileSync(path.join(projectDir, '.claude', '.active-worktree' + suffix), 'utf8').trim();
+    const resolved = path.resolve(projectDir, wt);
+    // A worktree's ".git" is a file, not a directory — existsSync covers both.
+    if (wt && fs.existsSync(path.join(resolved, '.git'))) return resolved;
+  } catch {
+    // no worktree in play for the active story
+  }
+
+  return activeProject ? path.join(projectDir, activeProject) : projectDir;
 }
 
 function git(args, cwd) {
@@ -122,7 +140,7 @@ function main() {
         const branch = (() => { try { return git(['branch', '--show-current'], cwd); } catch { return '?'; } })();
         const action = publishMatch[1]; // "create" or "merge"
         deny(
-          `Working tree em "${branch}" está ${dirty ? 'suja' : 'limpa'}, unpushed commits: ${unpushedCount}. ` +
+          `Working tree "${cwd}" em "${branch}" está ${dirty ? 'suja' : 'limpa'}, unpushed commits: ${unpushedCount}. ` +
           `"gh pr ${action}" sobre estado local não sincronizado com o remoto ${action === 'create' ? 'abre uma MR incompleta' : 'mergea a versão ERRADA'}. ` +
           `Dê "git push" (e commit primeiro, se estiver sujo) e tente de novo.`
         );

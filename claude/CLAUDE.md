@@ -64,7 +64,7 @@ Pre-Merge Verification  (Master: 4 checks — grep [ ] + qa-report file + code-r
 2. **NEVER write or edit files** — delegate to the right specialist
 3. **NEVER implement** — read-only access to understand state
 4. **NEVER call SDLC-internal agents directly** — test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer (by language) are the tech-lead skill's responsibility. Master ONLY routes to: product-owner, product-manager, system-architect, architect, the tech-lead skill, doc-writer, context-scout, external-scout.
-5. **Read to orient** — use `cat checkpoint.md | head -50`, `ls artifacts/stories/`, `git status`, `git branch --show-current`. NEVER `glob` (banned in Context Budget). NEVER `cat` story content.
+5. **Read to orient** — use `cat checkpoint.md | head -50`, `ls artifacts/stories/`, `git status`, `git worktree list` (names every tree AND its branch — prefer it over `git branch --show-current`, which only ever sees the tree Master is anchored to). NEVER `glob` (banned in Context Budget). NEVER `cat` story content.
 6. **Analyze written artifacts** — stories, plans, reports tell you where to go next
 7. **Always orchestrate and delegate** — you are the brain, not the hands
 8. **When in doubt** — suggest the most likely agent or ask the user
@@ -79,11 +79,12 @@ Some installs are an **umbrella** git repo whose sub-directories are themselves 
 **Resolve this FIRST each turn, before anything else, with ONE bash call:**
 
 ```bash
-AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"
+AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"; W=".claude/.active-worktree${AP:+.$AP}"
 ```
 
-- `$P` = **active project root** (path/git prefix): `.` in single-project installs, `gerLic` in an umbrella.
-- `$M` = per-project exec-mode file; `$Q` = per-project batch queue.
+- `$P` = **active working tree** (path/git prefix): `.` in single-project installs, `gerLic` in an umbrella. Refined to the story's worktree once the id is known — see below.
+- `$M` = per-project exec-mode file; `$Q` = per-project batch queue. Both stay keyed to the sub-project **name**, never to the tree — mode and queue survive worktree churn.
+- `$W` = per-project pointer to the story's worktree. **Master never reads it** (it re-derives `$P` every turn); it exists so `git-merge-guard.js`, which never sees a story id, can guard the right tree. The tech-lead skill writes it at story start; Master deletes it at GATE-MR.
 
 **Choosing the active project:**
 
@@ -92,7 +93,25 @@ AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mo
 3. Else, if the working dir has NO sub-project git repos → single-project, `$P=.` (nothing changes; literal `artifacts/...` paths below are already correct).
 4. Else (umbrella, none named/persisted) → ASK "Qual sub-projeto? (teco / gerLic / ...)". Do NOT guess — the wrong project corrupts paths and state. Set it deterministically with `/project <name>` (see `commands/sdlc/project.md`).
 
+**Worktree refinement (as soon as the story id is resolved):**
+
+`$P` is the **working tree**, not merely the sub-project directory. A story's branch may be checked out in a `git worktree` instead of the sub-project checkout — code, artifacts and git state all live there, and reading the sub-project checkout instead silently audits a different tree. Refine `$P` with:
+
+```bash
+WT=$(git -C "$P" worktree list 2>/dev/null | grep -E "\[[^]]*STORY-XXX(-[^]]*)?\]" | awk '{print $1}' | head -1); P="${WT:-$P}"
+```
+
+- Matches the story id **inside the branch name**, so `feat/`, `fix/` and a trailing slug all resolve (`[feat/STORY-063-pacote-unico]` → hit for `STORY-063`).
+- Detached and `prunable` worktrees print no `[branch]`, so they are skipped.
+- No worktree, or the branch is checked out nowhere → `$WT` empty → `$P` unchanged.
+- The sub-project checkout is itself a worktree, so a story branch checked out *there* resolves to it — same answer as before, by the same rule.
+- Requires the **resolved** id (slug included). Never run it with the user's short form.
+
+> Fold this into the State Detection call that already uses the resolved id (step 2) — it adds **no** bash call.
+
 **THE ANCHORING RULE:** every `artifacts/...` path in this file is shorthand for **`$P/artifacts/...`**, and every `git` / `ls` / `cat` on project content runs under **`$P`** (`git -C "$P" ...`). Per-project state (`$M`, `$Q`) means concurrent work on teco and gerLic never collides. In single-project installs `$P=.`, `$M=.claude/.exec-mode`, `$Q=.claude/.batch-queue.json` — identical to before.
+
+> **`$P` is derived, never persisted.** Master is stateless between turns and re-derives it every turn from `.active-project` + the story's branch. There is no "active worktree" for Master to remember, so there is nothing to go stale.
 
 > This ONE bash call (resolving `$P/$M/$Q`) is a **step-0 preamble** and does not count against the 2-call State Detection budget.
 
@@ -146,7 +165,22 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 | GATE-MR | tech-lead skill (MR created) | MR link + test coverage | "Aprovar MR e fazer merge? [Y/n]" |
 | GATE-NEXT | Merge complete | Branch deleted, story closed | "Próxima story? [Y/n]" |
 
-> **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — 3 checks). All three must pass. (2) THEN on approval (manual or auto) → `gh pr merge <MR_URL> --merge` → `git branch -d <feature-branch>` → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
+> **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — four checks). All four must pass. (2) THEN on approval (manual or auto) → `gh pr merge <MR_URL> --merge` → **release the tree, then delete the branch** → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
+>
+> **Releasing the tree**: `git branch -d` fails outright while any worktree holds the branch
+> (`error: cannot delete branch 'feat/X' used by worktree at ...`). Run both commands from the
+> **sub-project checkout** `$SP="${AP:-.}"` — never from `$P`, which may be the tree being removed:
+>
+> ```bash
+> SP="${AP:-.}"
+> [ "$P" != "$SP" ] && git -C "$SP" worktree remove "$P"   # only when $P was refined to a worktree
+> git -C "$SP" branch -d <feature-branch>
+> rm -f "$W"                                               # story is closed — drop the hook's pointer
+> ```
+>
+> `worktree remove` refuses a dirty tree. **Never pass `--force`** — a dirty tree after a green
+> Check 4 means something was written after the merge, and forcing discards it unrecoverably. Report
+> the refusal and stop.
 
 > **GATE-SA**: only for **greenfield projects** (no build files AND no `artifacts/architecture/TECH-STACK.md`). Existing projects skip system-architect and GATE-SA entirely.
 
@@ -163,13 +197,20 @@ Run on every request (including "continue"). **Hard budget: max 2 bash calls per
 ```
 If user mentioned a SPECIFIC story id ("STORY-021", "STORY-005-30"):
   1. bash: ls artifacts/stories/STORY-XXX*.md 2>/dev/null                          → story exists? plan exists?
-  2. bash: cat artifacts/stories/<RESOLVED-ID>-checkpoint.md 2>/dev/null | head -50 → routing via SDLC STATUS + QUALITY AND DELIVERY
+  2. bash: WT=$(git -C "$P" worktree list 2>/dev/null | grep -E "\[[^]]*<RESOLVED-ID>(-[^]]*)?\]" | awk '{print $1}' | head -1); P="${WT:-$P}"
+           cat "$P"/artifacts/stories/<RESOLVED-ID>-checkpoint.md 2>/dev/null | head -50
+                                                                                   → refines $P to the story's tree AND routes via SDLC STATUS + QUALITY AND DELIVERY
 
 If user gave a vague request ("continue", "build X"):
-  1. bash: git branch --show-current                                           → on feature branch? which story?
-  2a. (if on feat/<id>) bash: cat artifacts/stories/<id>-checkpoint.md 2>/dev/null | head -50
-  2b. (if NOT on feature branch) bash: ls artifacts/stories/                       → filenames only, route from there
+  1. bash: git -C "$P" worktree list                                           → EVERY tree + its branch in one call: the sub-project's branch AND any story worktree
+  2a. (if some tree is on feat/<id> or fix/<id>) bash: P=<that tree's path>; cat "$P"/artifacts/stories/<id>-checkpoint.md 2>/dev/null | head -50
+  2b. (if no story branch on any tree) bash: ls artifacts/stories/                 → filenames only, route from there
 ```
+
+> **Step 1 of the vague path is `worktree list`, not `branch --show-current`.** Same cost, strictly
+> more information: `branch --show-current` only ever reports the tree Master happens to be anchored
+> to, so a story whose branch lives in a worktree reads as "no story in progress" and Master routes
+> to the wrong stage.
 
 > **RESOLVE THE ID FIRST.** Ids carry a slug (`STORY-005-30-chunking-strategy`), but the user
 > types the short form (`STORY-005-30`). Step 1's `ls` output IS the canonical id — never
@@ -182,7 +223,9 @@ If user gave a vague request ("continue", "build X"):
 > legitimately have a checkpoint and no `STORY-XXX.md`.
 > **Zero or more than one → ASK, never guess** — `STORY-005-3` reduces to ten different
 > stories, and picking one silently runs the whole pipeline on the wrong story.
-> On a feature branch the id is the branch minus `feat/` — exact by contract, no resolving.
+> On a feature branch the id is the branch minus its `feat/`/`fix/` prefix — exact by contract, no
+> resolving. That branch may be checked out in any tree of the repo, not necessarily the one Master
+> is anchored to; `git worktree list` names both the branch and the tree that holds it.
 >
 > **`cat checkpoint.md | head -50` is the ONLY allowed `cat`** — reads SDLC STATUS + QUALITY AND DELIVERY. NEVER `cat` story content, technical analysis, or any other file. NEVER `glob`.
 >
@@ -231,7 +274,7 @@ If user gave a vague request ("continue", "build X"):
 Resolve the active project + per-project state first (step-0 preamble), then read the mode:
 
 ```bash
-AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"
+AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"; W=".claude/.active-worktree${AP:+.$AP}"
 cat "$M" 2>/dev/null   # → sets mode for this turn
 ```
 
@@ -279,6 +322,11 @@ If the first line is neither `STORY-XXX-DONE` nor `STORY-XXX-BLOCKED` → ASK us
 ### 6.1 Pre-Merge Verification (MANDATORY for GATE-MR, all modes)
 
 **Before** approving or auto-approving GATE-MR, Master MUST run **FOUR checks** — even when tech-lead claims success. All four must pass.
+
+> **`$P` must already be worktree-refined** (see Active Project). All four checks read `$P`, so an
+> unrefined `$P` audits the sub-project checkout while the branch, the artifacts and the dirt all sit
+> in the worktree — the checks then pass or fail on a tree nobody is merging. That is the one way
+> defense-in-depth turns into four failures with a single cause.
 
 ```bash
 # Check 1: no unchecked items in checkpoint
