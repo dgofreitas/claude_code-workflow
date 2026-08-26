@@ -89,8 +89,7 @@ AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"
 ```bash
 AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"
 WT=$(git -C "$P" worktree list 2>/dev/null | grep -E "\[[^]]*STORY-XXX(-[^]]*)?\]" | awk '{print $1}' | head -1)
-W=".claude/.active-worktree${AP:+.$AP}"
-if [ -n "$WT" ]; then P="$WT"; printf '%s\n' "$WT" > "$W"; else rm -f "$W"; fi
+P="${WT:-$P}"
 ```
 
 A story branch may be checked out in a `git worktree` rather than in the sub-project directory. That
@@ -98,11 +97,8 @@ tree holds the code, the artifacts and the git state — so it, not the sub-proj
 for the entire story. Everything downstream (Domain Inventory paths, delegation prompts, the
 checkpoint, every report) follows from this one assignment.
 
-`$W` is session state under `.claude/`, not project content, and it exists for **`git-merge-guard.js`
-alone**: that hook guards `gh pr create`/`gh pr merge` but never sees a story id, so it cannot derive
-the tree by itself. Write-or-remove it on every story start — then the only way it goes stale is an
-abandoned story, and the hook already drops a path that no longer exists. Master removes it at
-GATE-MR after `git worktree remove`.
+Nothing is persisted: `$P` is re-derived from the story's branch on every invocation, so it cannot go
+stale and there is no state for a missed step to leave behind.
 
 ### Rule: Single Context Scout
 

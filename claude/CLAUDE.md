@@ -79,12 +79,11 @@ Some installs are an **umbrella** git repo whose sub-directories are themselves 
 **Resolve this FIRST each turn, before anything else, with ONE bash call:**
 
 ```bash
-AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"; W=".claude/.active-worktree${AP:+.$AP}"
+AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"
 ```
 
 - `$P` = **active working tree** (path/git prefix): `.` in single-project installs, `gerLic` in an umbrella. Refined to the story's worktree once the id is known — see below.
 - `$M` = per-project exec-mode file; `$Q` = per-project batch queue. Both stay keyed to the sub-project **name**, never to the tree — mode and queue survive worktree churn.
-- `$W` = per-project pointer to the story's worktree. **Master never reads it** (it re-derives `$P` every turn); it exists so `git-merge-guard.js`, which never sees a story id, can guard the right tree. The tech-lead skill writes it at story start; Master deletes it at GATE-MR.
 
 **Choosing the active project:**
 
@@ -165,7 +164,13 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 | GATE-MR | tech-lead skill (MR created) | MR link + test coverage | "Aprovar MR e fazer merge? [Y/n]" |
 | GATE-NEXT | Merge complete | Branch deleted, story closed | "Próxima story? [Y/n]" |
 
-> **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — four checks). All four must pass. (2) THEN on approval (manual or auto) → `gh pr merge <MR_URL> --merge` → **release the tree, then delete the branch** → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
+> **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — four checks). All four must pass. (2) THEN on approval (manual or auto) → merge **naming the branch**, `gh pr merge <feature-branch> --merge` (GitLab: `glab mr merge <feature-branch>`) → **release the tree, then delete the branch** → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
+>
+> **Name the branch, not the MR URL.** `git-merge-guard.js` re-checks the publish boundary in code,
+> and it only receives the command string — a URL identifies a PR to the forge but tells the guard
+> nothing about which local working tree to inspect, and a story's tree may be a worktree. Given no
+> branch it refuses outright rather than guess. `gh`/`glab` accept the branch as the PR selector, so
+> naming it costs nothing.
 >
 > **Releasing the tree**: `git branch -d` fails outright while any worktree holds the branch
 > (`error: cannot delete branch 'feat/X' used by worktree at ...`). Run both commands from the
@@ -175,7 +180,6 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 > SP="${AP:-.}"
 > [ "$P" != "$SP" ] && git -C "$SP" worktree remove "$P"   # only when $P was refined to a worktree
 > git -C "$SP" branch -d <feature-branch>
-> rm -f "$W"                                               # story is closed — drop the hook's pointer
 > ```
 >
 > `worktree remove` refuses a dirty tree. **Never pass `--force`** — a dirty tree after a green
@@ -274,7 +278,7 @@ If user gave a vague request ("continue", "build X"):
 Resolve the active project + per-project state first (step-0 preamble), then read the mode:
 
 ```bash
-AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"; W=".claude/.active-worktree${AP:+.$AP}"
+AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"
 cat "$M" 2>/dev/null   # → sets mode for this turn
 ```
 
@@ -354,7 +358,7 @@ git -C "$P" rev-list "@{u}..HEAD" --count 2>/dev/null
 
 **Check 4 decision**: `git status --porcelain` output must be empty AND `rev-list @{u}..HEAD --count` must be `0`. Any output on either → ❌ ABORT — do NOT merge. `gh pr merge` operates on the **remote** branch; any commit made after merge-request-creator's last push (e.g. a checkpoint fix TechLead makes after returning to Master) is invisible to it and gets silently left out of the merge. Re-invoke the tech-lead skill: `"Uncommitted or unpushed changes on <branch> — push before merging"` — tech-lead re-delegates to merge-request-creator's `2.1 Push & Verify` step (or commits first via `Rule: Uncommitted Work Rework` if Check 4's first half is also dirty).
 
-> **Check 4 is now belt-and-suspenders, not the only line of defense**: the `git-merge-guard.js` hook denies the actual `gh pr merge` Bash call at the tool-call level when dirty/unpushed — Check 4 exists to catch it earlier, with a clearer diagnostic, before Master even attempts the merge.
+> **Check 4 is now belt-and-suspenders, not the only line of defense**: the `git-merge-guard.js` hook denies the actual `gh pr merge` / `glab mr merge` Bash call at the tool-call level when the named branch is dirty or unpushed — Check 4 exists to catch it earlier, with a clearer diagnostic, before Master even attempts the merge. The two are independent: Check 4 is Master following a prompt, the hook is code that runs whether or not Master did.
 
 **Special case** (Check 1 only): if the ONLY unchecked item is `- [ ] Merge Request` → merge-request-creator forgot to mark MR after creation (its `Rule: Checkpoint Update` failed). Re-invoke the tech-lead skill with: `Mark [x] Merge Request in checkpoint, MR is at <URL>` — tech-lead will either mark it directly or re-delegate to merge-request-creator.
 
