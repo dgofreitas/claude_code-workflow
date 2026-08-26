@@ -53,7 +53,9 @@ Never write a claim the code does not support. When compressing, only reuse word
 
 ### Rule: Report Every Removal (scope: all_execution)
 
-Every deleted or compressed block is recorded **with its full original text** in the report. The report is the rescue path — it is what makes the deletion safe.
+Every deleted or compressed block is returned **with its full original text** in your response to the caller — that is what lets a human see what went, without opening the diff.
+
+Write the report **file** only when the caller explicitly asks for one. It is off by default: the command refuses to run on a dirty tree, so `git diff` already holds every removal and `git checkout .` undoes all of them. Writing the file unasked duplicates the diff and costs a Write per run.
 
 ---
 
@@ -63,25 +65,33 @@ Every deleted or compressed block is recorded **with its full original text** in
 - **Never Remove a Semantic Comment**: directives, shebangs, licences, pragmas, public API docs
 - **When In Doubt, Keep**: shorten instead of deleting
 - **Never Invent**: no claim beyond what the original said
-- **Report Every Removal**: full original text preserved in the report
+- **Report Every Removal**: full original text returned to the caller; report file only when asked
 
 ## Priority 2: Classification
 
+The caller opens the prompt with `LEVEL: safe | default | strict`. **No level named → `default`.** The level never changes what a class *is* — only how far you go once you have classified it.
+
 Judge every comment block against `standards/documentation.md` §Comment Budget:
 
-| Class | Signal | Action |
-|-------|--------|--------|
-| **Invariant** | "change this and X breaks", X is not in this file | **KEEP** — compress to ≤2 lines, preserve the pointer |
-| **Trap** | an obvious-looking alternative that is wrong | **KEEP** — compress to 1 line |
-| **Public API doc** | `@param`/`@returns`/docstring on an exported symbol | **KEEP** as is |
-| **Semantic** | directive, shebang, licence, pragma, TODO/FIXME/HACK | **KEEP** untouched |
-| **Task history** | "added in T4", "fixed here", "STORY-0XX introduced", "fallout" | **DELETE** → belongs in the commit |
-| **State** | "not configured yet", "already done", "was X before" | **DELETE** → goes stale silently |
-| **Investigation log** | "we tested Y and it also failed", "the spike showed" | **DELETE** → belongs in the artifact |
-| **Design rationale** | why this design, alternatives weighed | **COMPRESS** to a 1-line pointer at the artifact if one is already cited; otherwise keep ≤5 lines |
-| **Restates the code** | describes what the next line does | **DELETE** |
-| **Stale** | names a file/symbol that does not exist | **FIX** the reference if it clearly moved; else **DELETE** |
-| **Duplicate** | same explanation already present elsewhere | Keep the first; others become a 1-line pointer |
+| Class | Signal | `safe` | `default` | `strict` |
+|-------|--------|--------|-----------|----------|
+| **Invariant** | "change this and X breaks", X is not in this file | KEEP as is | KEEP — compress to ≤2 lines, preserve the pointer | same as `default` |
+| **Trap** | an obvious-looking alternative that is wrong | KEEP as is | KEEP — compress to 1 line | same as `default` |
+| **Public API doc** | `@param`/`@returns`/docstring on an exported symbol | KEEP as is | KEEP as is | KEEP as is |
+| **Semantic** | directive, shebang, licence, pragma, TODO/FIXME/HACK | KEEP untouched | KEEP untouched | KEEP untouched |
+| **Task history** | "added in T4", "fixed here", "STORY-0XX introduced", "fallout" | **DELETE** | **DELETE** | **DELETE** |
+| **State** | "not configured yet", "already done", "was X before" | **DELETE** | **DELETE** | **DELETE** |
+| **Investigation log** | "we tested Y and it also failed", "the spike showed" | **DELETE** | **DELETE** | **DELETE** |
+| **Stale** | names a file/symbol that does not exist | **FIX** if it clearly moved; else **DELETE** | same | same |
+| **Duplicate** | same explanation already present elsewhere | Keep the first; others become a 1-line pointer | same | same |
+| **Artifact residue** | decision ids (`D5`, `F-3`, `T4`), "comportamento atual", comparisons to another product | **DELETE** | **DELETE** | **DELETE** |
+| **Design rationale** | why this design, alternatives weighed | KEEP as is | **COMPRESS** to a 1-line pointer at the artifact if one is already cited; else keep ≤5 lines | **COMPRESS** to a 1-line pointer |
+| **Restates the code** | describes what the next line does | KEEP | **DELETE** | **DELETE** |
+| Numeric limits (block ≤5 lines, comment ≤ code) | — | not enforced | not enforced | **enforced** — cut to fit |
+
+The five DELETE classes are identical at every level: they are the ones where removal is objectively safe, because the content is either false over time (state, history) or lives somewhere better by contract (log, residue) or is already dead (stale, duplicate). Everything a level changes sits above them, in judgment territory.
+
+`safe` exists for files where the comments **are** the deliverable — an operator-facing `.conf`, a `%config(noreplace)` template, an `env.example`. There, comment volume is the point and the numeric limits do not transfer; only residue removal does.
 
 **Verify before deleting as Stale**: every path with `ls`, every symbol with `grep -rn`. Never assume.
 
@@ -121,7 +131,9 @@ Read `standards/documentation.md` §Comment Budget before classifying anything. 
 
 ## Sanitization Report Format
 
-Save to `artifacts/comment-sanitization-<scope>-<date>.md`. Caveman style — terse.
+Use this shape for the removal table you return to the caller. Write it to
+`artifacts/comment-sanitization-<scope>-<date>.md` **only when the caller asked for a report file**.
+Caveman style — terse.
 
 ```markdown
 # Comment Sanitization — <scope> (<date>)

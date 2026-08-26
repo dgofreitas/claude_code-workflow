@@ -1,6 +1,6 @@
 ---
 description: Apply the Comment Budget to existing files — triage by density, then delete narration and keep invariants, without touching a single code line
-argument-hint: [file | folder | .ext | all] [--apply] [--limit N]
+argument-hint: [file | folder | .ext | all] [--apply] [--limit N] [--level safe|default|strict] [--report]
 ---
 
 # /sanitize-comments — Comment Cleanup
@@ -21,8 +21,23 @@ Parse `$ARGUMENTS`:
 | `all` / empty | the whole repo |
 | `--apply` | perform the edits (default is report-only) |
 | `--limit N` | only the N densest files (default 15 — keeps one run reviewable) |
+| `--level safe\|default\|strict` | how aggressive to be — overrides the per-file default below |
+| `--report` | also save the sanitization report to `artifacts/`. Off by default |
 
 Always exclude: `.git/`, `node_modules/`, `vendor/`, `dist/`, `build/`, `coverage/`, `.nyc_output/`, and anything matched by `.gitignore`.
+
+## Level
+
+Two kinds of file need opposite treatment, so the level defaults per file and `--level` overrides:
+
+| File class | Extensions | Default level |
+|------------|-----------|---------------|
+| **code** | `.js .jsx .ts .tsx .py .sh .bash .c .h .go .rb .java` | `default` |
+| **operator config** | `.conf .env* .ini .toml .json5 .properties`, `Dockerfile`, `*.template`, `*.yml`/`*.yaml` | `safe` |
+
+In an operator-facing config the comments **are** the deliverable — a `%config(noreplace)` template is read by whoever fills it in. The budget's line and ratio limits do not transfer there; only "no story residue" does. Applying `default` to one of those would demand deleting the documentation that makes the file usable.
+
+Level semantics are defined once, in `comment-sanitizer.md` §Priority 2. Pass the resolved level to the agent — never restate the table here.
 
 ## Step 1 — Clean Tree Gate (MANDATORY)
 
@@ -38,15 +53,21 @@ Run this in the main context — it is cheap and its numbers drive everything af
 
 ```bash
 git ls-files -- $SCOPE | grep -Ev '(^|/)(node_modules|vendor|dist|build|coverage|\.nyc_output)/' | while read -r f; do
-  case "$f" in *.js|*.ts|*.jsx|*.tsx|*.py|*.sh|*.bash|*.c|*.h|*.go|*.rb|*.java|*.yml|*.yaml) ;; *) continue ;; esac
+  case "$f" in
+    *.js|*.ts|*.jsx|*.tsx|*.py|*.sh|*.bash|*.c|*.h|*.go|*.rb|*.java) lvl=default ;;
+    *.conf|*.env|*.env.*|*.ini|*.toml|*.json5|*.properties|*.template|*.yml|*.yaml|Dockerfile|*/Dockerfile) lvl=safe ;;
+    *) continue ;;
+  esac
   tot=$(grep -c '' "$f"); blank=$(grep -c '^[[:space:]]*$' "$f")
   cmt=$(grep -cE '^[[:space:]]*(#|//|\*|/\*)' "$f")
   code=$((tot-blank-cmt)); [ "$code" -le 0 ] && continue
-  awk -v c="$cmt" -v k="$code" -v f="$f" 'BEGIN{printf "%.1f\t%d\t%d\t%s\n", 100*c/(c+k), c, k, f}'
+  awk -v c="$cmt" -v k="$code" -v f="$f" -v l="${LEVEL:-$lvl}" 'BEGIN{printf "%.1f\t%d\t%d\t%s\t%s\n", 100*c/(c+k), c, k, l, f}'
 done | sort -rn | head -${LIMIT:-15}
 ```
 
-Then report, **before touching anything**: total files in scope, aggregate comment/code ratio, and the ranked table (density %, comment lines, code lines, path).
+Then report, **before touching anything**: total files in scope, aggregate comment/code ratio, and the ranked table (density %, comment lines, code lines, level, path).
+
+> Density ranks the queue; it does not judge. A `safe` file at 70% is normal — read the level column before reacting to the percentage.
 
 Also surface the three mechanically-certain findings — they need no judgment:
 
@@ -72,11 +93,13 @@ Also surface the three mechanically-certain findings — they need no judgment:
 
 ## Step 4 — Delegate
 
-Delegate to **comment-sanitizer**, in batches of at most 5 files per call so each agent holds full file context:
+Delegate to **comment-sanitizer**, in batches of at most 5 files per call so each agent holds full file context. **Batch by level** — one call never mixes `safe` and `default` files, since the level is a per-call instruction:
 
 ```
-Task(subagent_type="comment-sanitizer", description="Sanitize comments in <batch>", prompt="Apply standards/documentation.md §Comment Budget to these files: <paths>. Full-line comment blocks only — never a trailing comment, never a code line. Verify each file with the Never Touch Code diff check and revert any file that fails. Return the per-file table of removals with original text.")
+Task(subagent_type="comment-sanitizer", description="Sanitize comments in <batch>", prompt="LEVEL: <safe|default|strict>. Apply standards/documentation.md §Comment Budget to these files: <paths>. Full-line comment blocks only — never a trailing comment, never a code line. Verify each file with the Never Touch Code diff check and revert any file that fails. Return the per-file table of removals with original text. Do NOT write a report file.")
 ```
+
+Drop the last sentence when the user passed `--report`.
 
 Batches are independent — issue them in parallel. One failing batch never blocks the others.
 
@@ -92,16 +115,19 @@ git diff -U0 | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -vE '^[+-][[:sp
 
 Then, if the project has them, run the cheap guards: `npm run lint`, `npm run test`, `bash -n` on changed shell files, `python -m py_compile` on changed Python.
 
-## Step 6 — Report
+## Step 6 — Close out
 
-Save the consolidated report to `artifacts/comment-sanitization-<scope>-<date>.md`, merging every batch. **This report is the only record of deleted text** — it is what makes the deletion reversible, so it is never skipped.
+Always print to the user: files touched, comment lines before → after, any `FAILED` file, and `git diff --stat`.
 
-Close with: files touched, comment lines before → after, any `FAILED` file, and `git diff --stat`.
+**Only with `--report`**, also save the consolidated report to `artifacts/comment-sanitization-<scope>-<date>.md`, merging every batch.
+
+> The report is not the rescue path — git is. Step 1 refuses to run on a dirty tree precisely so that `git diff` shows every removal and `git checkout .` undoes all of them. The file is worth asking for when the run will be committed before anyone reviews it; otherwise it duplicates the diff.
 
 ## Safety notes
 
 - Report-only by default; `--apply` is always an explicit second run.
 - Requires a clean tree, so `git checkout .` reverts the entire operation.
+- Operator-facing config defaults to `safe` — never let a density number push a `.conf` into `default`.
 - The agent never touches directives, shebangs, licence headers, or public API docs — deleting an `eslint-disable` or `# shellcheck disable=` would change behavior.
 - Borderline comments are shortened, never deleted: a lost invariant costs more than a verbose comment.
 - This command never fixes unrelated problems it notices — it reports them.
