@@ -78,7 +78,7 @@ Before judging style, run the mechanical check on the diff under review:
 
 ```bash
 BASE=$(git merge-base HEAD "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)" 2>/dev/null || echo HEAD~1)
-git diff --unified=0 "$BASE" HEAD -- '*.js' '*.ts' '*.py' '*.c' '*.h' '*.sh' '*.yml' '*.yaml' \
+git diff --unified=0 "$BASE" HEAD -- '*.js' '*.ts' '*.py' '*.c' '*.h' '*.sh' '*.go' '*.rb' '*.java' \
   | grep '^+' | grep -v '^+++' | sed 's/^+//' \
   | awk '/^[[:space:]]*(#|\/\/|\*|\/\*)/ {c++; next} /^[[:space:]]*$/ {next} {k++} END {printf "comment=%d code=%d\n", c+0, k+0}'
 ```
@@ -91,6 +91,8 @@ Flag as Major at **any** ratio:
 - The same explanation repeated in two places (two files, or two functions in one file)
 - A comment recording **state** ("not configured yet", "already done") or **history** ("added in T4", "fixed here", "was X before") → commit message
 - A comment naming a file or symbol that does not exist — verify every path and identifier cited in a new comment with `ls`/`grep` before approving; a comment pointing at a deleted file is worse than no comment
+
+**Operator-facing config is judged differently.** `.conf`, `.env*`, `.ini`, `.toml`, `.json5`, `.properties`, `Dockerfile`, `*.template`, `*.yml`/`*.yaml`: the ratio check above deliberately skips them, and the 5-line limit does not apply. In a file whose reader is the operator filling it in, the comments **are** the deliverable — demanding 1:1 there would strip the documentation that makes it usable. Flag exactly one thing in those files: **story residue** — decision ids (`D5`, `F-3`, `T4`), "comportamento atual/current behavior" framing, and comparisons to another product. Those go stale silently and mean nothing to the operator.
 
 Do **not** flag short comments that encode a non-local invariant ("change this and X breaks") or a trap ("obvious alternative Y is wrong"). Those are the highest-value comments in the diff — the budget exists to keep them visible.
 
