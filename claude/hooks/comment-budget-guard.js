@@ -23,8 +23,21 @@ const path = require('path');
 
 const MAX_BLOCK_LINES = 5;
 
+// The file header is a different genre from a block sitting inside the code: it says
+// what the file is and why it exists, and is read once, on opening. The budget already
+// exempts a JSDoc with @param for the same reason — that exemption is just keyed on
+// syntax, so a header in plain prose fell through it. Bounded on both ends so it cannot
+// become a hiding place: only the FIRST block, only near the top, only up to 25 lines.
+const MAX_HEADER_LINES = 25;
+
 const CODE_EXT = /\.(js|jsx|mjs|cjs|ts|tsx|py|c|h|cc|cpp|hpp|go|rb|java|sh|bash)$/i;
 const COMMENT_LINE = /^\s*(#|\/\/|\*|\/\*)/;
+const SHEBANG = /^#!/;
+
+// May legally sit above a file header without making the block that follows an inline
+// one. Anything outside this list is real code, and a comment block after real code is
+// inline by definition — no matter how few lines in it is.
+const PREAMBLE = /^\s*$|^#!|^\s*['"]use strict['"];?\s*$|^\s*#\s*-\*-|^\s*from __future__/;
 
 // Blocks that are long by contract, not by bloat. Deleting or truncating any of these
 // changes behavior or strips required documentation, so length is not a defect here.
@@ -46,14 +59,21 @@ function deny(reason) {
 
 // Runs of consecutive full-line comments longer than the budget. Trailing comments are
 // invisible here by design — they live on code lines, which this budget does not govern.
-function offendingBlocks(text) {
+// `allowHeader` is false for Edit: it carries only the replacement text, so there is no
+// file position to reason about and every block in it must be treated as inline.
+function offendingBlocks(text, allowHeader) {
   const lines = String(text).split('\n');
   const found = [];
   let start = -1;
   let block = [];
+  let seenCode = false;
 
   const flush = () => {
-    if (block.length > MAX_BLOCK_LINES && !EXEMPT.test(block.join('\n'))) {
+    if (!block.length) { start = -1; return; }
+    const isHeader = allowHeader && !seenCode;
+
+    const exempt = (isHeader && block.length <= MAX_HEADER_LINES) || EXEMPT.test(block.join('\n'));
+    if (block.length > MAX_BLOCK_LINES && !exempt) {
       found.push({ line: start + 1, len: block.length, first: block[0].trim().slice(0, 60) });
     }
     start = -1;
@@ -61,11 +81,14 @@ function offendingBlocks(text) {
   };
 
   lines.forEach((line, i) => {
+    // A shebang is not prose — counting it inflated every header by one line.
+    if (i === 0 && SHEBANG.test(line)) return;
     if (COMMENT_LINE.test(line)) {
       if (start === -1) start = i;
       block.push(line);
     } else {
-      flush();
+      flush(); // judged before this line counts, so the block sees only what preceded it
+      if (!PREAMBLE.test(line)) seenCode = true;
     }
   });
   flush();
@@ -90,7 +113,7 @@ function main() {
   const body = input.tool_name === 'Write' ? ti.content : ti.new_string;
   if (typeof body !== 'string') process.exit(0);
 
-  const blocks = offendingBlocks(body);
+  const blocks = offendingBlocks(body, input.tool_name === 'Write');
   if (!blocks.length) process.exit(0);
 
   const where = input.tool_name === 'Write' ? (b) => `linha ${b.line}` : () => 'no trecho editado';
