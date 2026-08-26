@@ -6,11 +6,11 @@
 // (see: STORY-005-32 incident, gh pr merge landed a stale remote state because
 // commits made after merge-request-creator's push were never re-pushed).
 //
-// Guard 1 — `gh pr create` / `gh pr merge`: DENY if the current branch has
-// uncommitted changes or commits not yet on its upstream. Denial reason is
-// self-healing — agent can push and retry, no human needed. Applies to `create`
-// too, not just `merge`: an MR opened against unpushed local state is already
-// wrong the moment it's created, catching it here is cheaper than at merge time.
+// Guard 1 — `gh pr create|merge` / `glab mr create|merge`: DENY if the branch being
+// published has uncommitted changes in its working tree or commits not yet on its
+// upstream. Denial reason is self-healing — agent can push and retry, no human
+// needed. Applies to `create` too, not just `merge`: an MR opened against unpushed
+// local state is already wrong the moment it's created.
 //
 // Guard 2 — `git push` targeting main/master directly (explicit or bare push while
 // main/master is checked out): ASK (forces human confirmation) regardless of
@@ -31,37 +31,25 @@ function readStdin() {
 
 // Same $P resolution Master's own step-0 preamble uses — without it, an umbrella
 // install would check the wrong git repo (umbrella root instead of the sub-project).
-//
-// A story branch may be checked out in a git worktree instead of the sub-project
-// directory, and only that tree's dirt and unpushed commits are what `gh pr` publishes.
-// This hook never sees a story id, so unlike Master it cannot derive the tree itself —
-// the tech-lead skill writes `.active-worktree` at story start and removes it when no
-// worktree is in play. A path left behind by an abandoned story fails the existence
-// check below and falls through to the sub-project checkout.
-function resolveProjectDir() {
+// Only the REPO matters here, not which of its working trees: branch refs and the
+// worktree list are shared across every tree, so any of them answers both.
+function resolveRepoDir() {
   const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  let activeProject = '';
   try {
-    activeProject = fs.readFileSync(path.join(projectDir, '.claude', '.active-project'), 'utf8').trim();
+    const activeProject = fs.readFileSync(path.join(projectDir, '.claude', '.active-project'), 'utf8').trim();
+    if (activeProject) return path.join(projectDir, activeProject);
   } catch {
     // no umbrella / no active project file — single-project install
   }
-
-  try {
-    const suffix = activeProject ? '.' + activeProject : '';
-    const wt = fs.readFileSync(path.join(projectDir, '.claude', '.active-worktree' + suffix), 'utf8').trim();
-    const resolved = path.resolve(projectDir, wt);
-    // A worktree's ".git" is a file, not a directory — existsSync covers both.
-    if (wt && fs.existsSync(path.join(resolved, '.git'))) return resolved;
-  } catch {
-    // no worktree in play for the active story
-  }
-
-  return activeProject ? path.join(projectDir, activeProject) : projectDir;
+  return projectDir;
 }
 
+// stderr is discarded: a hook writing to stderr pollutes the transcript, and every
+// call site already treats a throw as the error signal.
 function git(args, cwd) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', timeout: 10000 }).trim();
+  return execFileSync('git', args, {
+    cwd, encoding: 'utf8', timeout: 10000, stdio: ['ignore', 'pipe', 'ignore'],
+  }).trim();
 }
 
 function deny(reason) {
@@ -84,12 +72,119 @@ function ask(reason) {
   }));
 }
 
-const PUBLISH_RE = /\bgh\s+pr\s+(create|merge)\b/;
+const PUBLISH_RE = /\b(?:gh\s+pr|glab\s+mr)\s+(create|merge)\b/;
 const PUSH_RE = /\bgit\s+push\b/;
 
-// Crude whitespace tokenization (not a full shell parser) — deliberately avoids a
-// naive substring/regex match on "main"/"master", which would false-positive on
-// branch names like "fix-main-bug" or "feat/main-page-redesign".
+// gh and glab spellings of "branch I am publishing FROM" and "branch I am merging INTO".
+// The target must be excluded explicitly: every real command names one (`--base main`),
+// so matching tokens against the ref list alone would always find two branches.
+const SOURCE_FLAGS = { '--head': 1, '-H': 1, '--source-branch': 1 };
+const TARGET_FLAGS = { '--base': 1, '-B': 1, '--target-branch': 1 };
+
+// Crude whitespace tokenization — not a full shell parser.
+function tokenize(command) {
+  return command.split(/\s+/).map((t) => t.replace(/^['"]|['"]$/g, ''));
+}
+
+function flagValue(tokens, flags) {
+  for (let i = 0; i < tokens.length; i++) {
+    const eq = tokens[i].indexOf('=');
+    const name = eq > -1 ? tokens[i].slice(0, eq) : tokens[i];
+    if (!flags[name]) continue;
+    return eq > -1 ? tokens[i].slice(eq + 1) : tokens[i + 1];
+  }
+  return undefined;
+}
+
+// The branch being published. An explicit source flag wins outright; otherwise fall back
+// to gh/glab's positional `merge <branch>`, recognised by matching a token against refs
+// that actually exist. Returns null when nothing matches or several do — the caller must
+// then refuse, since guarding the wrong branch is indistinguishable from not guarding.
+function detectBranch(tokens, branches) {
+  const explicit = flagValue(tokens, SOURCE_FLAGS);
+  if (explicit) return branches.has(explicit) ? explicit : null;
+
+  const target = flagValue(tokens, TARGET_FLAGS);
+  const hits = new Set(tokens.filter((t) => t !== target && branches.has(t)));
+  return hits.size === 1 ? [...hits][0] : null;
+}
+
+// The working tree holding `branch`, or null when it is checked out nowhere (then there
+// is no tree that could be dirty, and only the unpushed check applies). Records are
+// blank-line separated; a prunable entry points at a directory that no longer exists.
+function treeForBranch(branch, repoDir) {
+  let out;
+  try { out = git(['worktree', 'list', '--porcelain'], repoDir); } catch { return null; }
+
+  let tree = null, ref = null, prunable = false;
+  for (const line of (out + '\n\n').split('\n')) {
+    if (line.startsWith('worktree ')) { tree = line.slice(9); ref = null; prunable = false; }
+    else if (line.startsWith('branch ')) ref = line.slice(7);
+    else if (line.startsWith('prunable')) prunable = true;
+    else if (line === '' && tree) {
+      if (!prunable && ref === 'refs/heads/' + branch) return tree;
+      tree = null;
+    }
+  }
+  return null;
+}
+
+function guardPublish(command, action, repoDir) {
+  // A repo we cannot read refs from is an infra failure, not a violation — fail open,
+  // exactly like the outer catch. Without this the branch simply looks undetectable and
+  // every publish gets denied for the wrong reason.
+  let branches;
+  try {
+    branches = new Set(
+      git(['for-each-ref', '--format=%(refname:short)', 'refs/heads/'], repoDir).split('\n').filter(Boolean)
+    );
+  } catch {
+    return;
+  }
+
+  const tokens = tokenize(command);
+  const explicit = flagValue(tokens, SOURCE_FLAGS);
+  if (explicit && !branches.has(explicit)) {
+    deny(
+      `Branch "${explicit}" não existe localmente neste repositório. Publicar a partir dela criaria uma MR ` +
+      `fantasma: a API aceita o nome e devolve uma MR válida apontando para um ref que nunca existiu. ` +
+      `Confira o nome da branch (e se ela é deste sub-projeto).`
+    );
+    return;
+  }
+
+  const branch = detectBranch(tokens, branches);
+  if (!branch) {
+    deny(
+      'Comando de publicação precisa nomear a branch: `gh pr create --head <branch>`, `gh pr merge <branch>`, ' +
+      '`glab mr create --source-branch <branch>` ou `glab mr merge <branch>`. Sem isso não dá para saber qual ' +
+      'árvore de trabalho checar — e uma story pode estar numa worktree, não no checkout do sub-projeto. ' +
+      'Repita o comando nomeando a branch.'
+    );
+    return;
+  }
+
+  const tree = treeForBranch(branch, repoDir);
+  const dirty = tree ? git(['status', '--porcelain'], tree) : '';
+  let unpushed = '0';
+  try {
+    unpushed = git(['rev-list', `${branch}@{upstream}..${branch}`, '--count'], repoDir);
+  } catch {
+    unpushed = '1'; // no upstream configured — can't prove it's pushed, treat as unpushed
+  }
+
+  if (dirty || unpushed !== '0') {
+    deny(
+      `Branch "${branch}"${tree ? ` (árvore ${tree})` : ' (checkout em nenhuma árvore)'}: ` +
+      `${dirty ? 'working tree suja' : 'working tree limpa'}, unpushed commits: ${unpushed}. ` +
+      `Publicar estado local não sincronizado com o remoto ${action === 'create' ? 'abre uma MR incompleta' : 'mergea a versão ERRADA'}. ` +
+      `Dê "git push" (e commit primeiro, se estiver sujo) e tente de novo.`
+    );
+  }
+}
+
+// Deliberately avoids a naive substring match on "main"/"master", which would
+// false-positive on branch names like "fix-main-bug" or "feat/main-page-redesign".
 function pushTargetsMainOrMaster(command, cwd) {
   const tokens = command.split(/\s+/).map((t) => t.replace(/^['"]|['"]$/g, ''));
   const pushIdx = tokens.findIndex((t, i) => t === 'push' && tokens[i - 1] === 'git');
@@ -123,29 +218,12 @@ function main() {
   }
 
   const command = input.tool_input.command;
-  const cwd = resolveProjectDir();
+  const repoDir = resolveRepoDir();
 
   const publishMatch = command.match(PUBLISH_RE);
   if (publishMatch) {
     try {
-      const dirty = git(['status', '--porcelain'], cwd);
-      let unpushedCount = '0';
-      try {
-        unpushedCount = git(['rev-list', '@{u}..HEAD', '--count'], cwd);
-      } catch {
-        unpushedCount = '1'; // no upstream configured — can't prove it's pushed, treat as unpushed
-      }
-
-      if (dirty || unpushedCount !== '0') {
-        const branch = (() => { try { return git(['branch', '--show-current'], cwd); } catch { return '?'; } })();
-        const action = publishMatch[1]; // "create" or "merge"
-        deny(
-          `Working tree "${cwd}" em "${branch}" está ${dirty ? 'suja' : 'limpa'}, unpushed commits: ${unpushedCount}. ` +
-          `"gh pr ${action}" sobre estado local não sincronizado com o remoto ${action === 'create' ? 'abre uma MR incompleta' : 'mergea a versão ERRADA'}. ` +
-          `Dê "git push" (e commit primeiro, se estiver sujo) e tente de novo.`
-        );
-        return;
-      }
+      guardPublish(command, publishMatch[1], repoDir);
     } catch {
       process.exit(0); // git/fs failure — fail open, never block on infra error
     }
@@ -154,7 +232,7 @@ function main() {
 
   if (PUSH_RE.test(command)) {
     try {
-      if (pushTargetsMainOrMaster(command, cwd)) {
+      if (pushTargetsMainOrMaster(command, repoDir)) {
         ask(
           'Push direto para a branch default (main/master) ignora revisão de PR. Confirme que isso é intencional ' +
           '(ex.: recovery de estado quebrado) — se for trabalho normal de story, prefira abrir/atualizar um PR.'

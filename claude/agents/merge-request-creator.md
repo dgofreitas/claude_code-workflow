@@ -134,7 +134,7 @@ merge-request-creator runs AFTER tech-lead's GATE 4. Four bolded artifact/checkp
 >
 > **If "Working tree clean" fails** — last gate before push, risk of outright loss. Do NOT commit it yourself (not your files, not your commit message). Report: "Pre-MR validation failed: uncommitted files found" + raw `git status --porcelain` output. tech-lead maps path → owning agent, re-delegates commit.
 >
-> **This check now has a code-enforced backstop**: the `git-merge-guard.js` hook denies `gh pr create`/`gh pr merge` outright when the branch is dirty or has unpushed commits, regardless of whether this table was actually run. If you get a tool-call denial with that reason instead of a normal error, it means this validation step was skipped — `git push` (and commit first if needed), then retry.
+> **This check now has a code-enforced backstop**: the `git-merge-guard.js` hook denies `gh pr create|merge` and `glab mr create|merge` outright when the named branch is dirty or has unpushed commits, regardless of whether this table was actually run. It inspects the working tree that actually holds that branch, which may be a worktree rather than the sub-project checkout. If you get a tool-call denial with that reason instead of a normal error, it means this validation step was skipped — `git push` (and commit first if needed), then retry.
 
 ### 2.1 Push & Verify (scope: pre_mr) — MANDATORY
 
@@ -180,9 +180,16 @@ Conventional Commits: `<type>(<scope>): <description> [STORY-XXX]`
 
 ### 5. MR Creation
 
-**GitLab:** `glab mr create --title "<title>" --description "<desc>" --target-branch main --labels "<labels>"`
+**GitLab:** `glab mr create --source-branch <branch> --title "<title>" --description "<desc>" --target-branch main --labels "<labels>"`
 
-**GitHub:** `gh pr create --title "<title>" --body "<desc>" --base main --label "<labels>"`
+**GitHub:** `gh pr create --head <branch> --title "<title>" --body "<desc>" --base main --label "<labels>"`
+
+> **`--source-branch` / `--head` are mandatory, not optional polish.** Both tools infer the source
+> branch from the current checkout when it is omitted — which is the wrong branch whenever the story
+> lives in a git worktree, and gives `git-merge-guard.js` nothing to work with either: the hook sees
+> only the command string, so an unnamed branch means it cannot tell which working tree to inspect
+> and **denies the command outright** rather than guess. If you get that denial, re-run naming the
+> branch.
 
 ### 6. Post-Creation
 
