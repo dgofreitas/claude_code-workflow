@@ -38,6 +38,7 @@ readonly CLAUDE_REQUIRED_ITEMS=(
     "hooks"
     "skills"
     "model-profiles"
+    "scripts"
     "templates"
     "CLAUDE.md"
     "RTK.md"
@@ -222,6 +223,14 @@ copyWorkflowFiles() {
             logWarn "  Item ignorado (não encontrado na fonte): ${item}"
         fi
     done
+
+    # O bit de execução sobrevive a git e tar, mas não a um umask hostil nem a
+    # um destino em filesystem sem permissão POSIX; os comandos que chamam
+    # scripts/ abortam se eles não forem executáveis.
+    if [[ -d "${targetDir}/scripts" ]]; then
+        find "${targetDir}/scripts" -type f -name '*.sh' -exec chmod +x {} +
+        logInfo "  Executáveis: scripts/*.sh"
+    fi
 
     logSuccess "Arquivos copiados com sucesso"
 }
