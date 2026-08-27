@@ -37,6 +37,7 @@ readonly CLAUDE_REQUIRED_ITEMS=(
     "context"
     "hooks"
     "model-profiles"
+    "scripts"
     "skills"
     "templates"
     "CLAUDE.md"
