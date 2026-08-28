@@ -147,7 +147,7 @@ After context-scout returns:
 - Follow Ruff, Black/isort, project conventions
 - async/await when framework supports it (FastAPI, Starlette) — no blocking calls in async handlers
 - **MANDATORY: Delegate all test creation + execution to test-engineer**
-- Document complex logic inline (docstrings, type hints)
+- Public API surface gets docstrings and type hints. Complex logic does NOT get a narrative comment: the explanation goes to the story artifact and the history to the commit. Inline, write only the non-local invariant or the trap — ≤5 lines, imperative (Rule: Comment Budget).
 
 ### Step 5: Validation
 

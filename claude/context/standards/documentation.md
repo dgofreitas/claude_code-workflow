@@ -9,7 +9,7 @@
 **Document** (✅ DO):
 
 - WHY decisions were made
-- Complex algorithms/logic
+- Complex algorithms/logic — the explanation goes to the artifact or the API docs, not into a narrative comment
 - Public APIs, setup, common use cases
 
 **Don't Document** (❌ DON'T):
@@ -89,8 +89,8 @@ function calculateTotal(price, taxRate) {
 
 ### ✅ DO
 
-- **WHY** decisions were made
-- Complex algorithms/logic
+- **WHY** decisions were made — in the commit (what was broken) or the artifact (why this design)
+- Complex algorithms/logic — in the artifact or the API docs. Inline, only the invariant or the trap survives (§Comment Budget)
 - Non-obvious behavior
 - Public APIs
 - Setup/installation

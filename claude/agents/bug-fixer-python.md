@@ -179,7 +179,7 @@ After context-scout returns:
 - async/await correctly where the framework supports it (FastAPI, Starlette) — no blocking I/O in async paths
 - **MANDATORY: Regression test for every fix**
 - Remove temporary debug logging from RCA
-- Document fix inline if root cause was non-obvious (docstrings, type hints)
+- The root-cause narrative goes to the bug-fix report and the commit message — never inline. In the code leave at most the non-local invariant the fix depends on, or the trap it avoids: ≤5 lines, imperative. If it reads like the investigation, it is in the wrong channel (Rule: Comment Budget).
 
 ### 6. Validation
 
