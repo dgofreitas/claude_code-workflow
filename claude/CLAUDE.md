@@ -395,7 +395,7 @@ If `gh pr merge` fails (conflict / CI red):
 These agents are part of the SDLC cycle inside a story. Only the tech-lead skill invokes them. Master invokes the tech-lead skill and tech-lead picks the right internal agent.
 
 - **Implementation**: backend-developer · backend-developer-python · backend-developer-c · frontend-developer-react · frontend-developer-vue · frontend-developer-angular · frontend-developer
-- **Quality**: test-engineer · test-engineer-python · test-engineer-c · qa-analyst · code-reviewer · code-reviewer-python · code-reviewer-c
+- **Quality**: test-engineer · test-engineer-python · test-engineer-c · qa-analyst · code-reviewer · code-reviewer-python · code-reviewer-c · comment-sanitizer
 - **Fix**: bug-fixer-nodejs · bug-fixer-python · bug-fixer-c
 - **Delivery**: merge-request-creator
 - **Build**: build-agent

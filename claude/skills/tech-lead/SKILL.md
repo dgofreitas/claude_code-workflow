@@ -41,6 +41,7 @@ Every story follows this exact sequence. No shortcuts, no skipping, no reorderin
 6. REVIEW            → code-reviewer → saves code-review.md
    ╰─ GATE 4: CODE REVIEW         — file exists AND checkpoint shows [x] CODE REVIEW AND VERDICT: APPROVED
    ╰─ If BLOCKED → loop back to step 3, do NOT skip retest+QA
+   ╰─ EXCEPT when every blocking finding is a Comment Budget one → Rule: Comment-Only Rework
 7. MERGE REQUEST     → merge-request-creator (ONLY after all 4 gates green)
    ╰─ GATE 5: MR                  — PR URL returned
 8. DONE              → report back to Master
@@ -57,6 +58,8 @@ Every story follows this exact sequence. No shortcuts, no skipping, no reorderin
 **If any gate fails → STOP. Re-delegate the responsible agent. Never advance with a failed gate.**
 
 **Rework cycle (REQUIRES FIXES or BLOCKED) always restarts at step 3 (fix → test → QA → review).** Never jump from fix straight to MR.
+
+Two rework reports are **not** content rework, and each has its own rule — both still end at a green gate, neither restarts the cycle: `Rule: Comment-Only Rework` (every blocking finding is a Comment Budget one) and `Rule: Uncommitted Work Rework` (the work exists on disk, it was just never committed).
 
 ---
 
@@ -327,8 +330,11 @@ When rework is needed (QA REQUIRES FIXES or Review BLOCKED), pick the fix agent 
 | Architectural / cross-module refactor required | **Original developer** |
 | Test gap only (implementation OK, coverage missing) | **test-engineer** |
 | Security vulnerability | **bug-fixer (by language)** — security findings are bugs |
+| Comment Budget findings, and nothing else | **comment-sanitizer** — see `Rule: Comment-Only Rework`. Never a developer: they would restart the whole cycle to delete comment lines |
 
 If unsure → default to **original developer** (they own the code).
+
+> A report mixing comment findings with any other Major → the other finding picks the agent from the rows above. The comment lines get fixed by whoever is already touching the file; the fast path is for comment-only reports.
 
 ### Rule: Artifact Verification Gate — MANDATORY
 
@@ -364,14 +370,36 @@ After code-reviewer report, read the `VERDICT` before doing ANYTHING else.
 **If `VERDICT: BLOCKED`:**
 
 1. STOP — present full review report.
-2. Automatically delegate fixes (see Rule: Fix Agent Selection).
-3. Wait → test-engineer → qa-analyst → code-reviewer → merge-request-creator.
-4. If BLOCKED again → repeat (subject to 2-Strike Rule).
-5. **Do NOT ask the human.**
+2. **Read what is blocking before picking the path.** If EVERY Critical/Major finding is a Comment Budget finding → `Rule: Comment-Only Rework`. Otherwise continue below.
+3. Automatically delegate fixes (see Rule: Fix Agent Selection).
+4. Wait → test-engineer → qa-analyst → code-reviewer → merge-request-creator.
+5. If BLOCKED again → repeat (subject to 2-Strike Rule).
+6. **Do NOT ask the human.**
 
-> Same rules as GATE 3: NEVER skip, NEVER jump steps.
+> Same rules as GATE 3: NEVER skip, NEVER jump steps. The comment-only path in step 2 is not a skipped step — it still ends at `GATE 4` green, with an `APPROVED` artifact written by code-reviewer. What it drops is re-running agents whose results provably cannot have changed.
 
 > **Note**: Approval gates between SDLC stages (PM, SA, AR, MR, NEXT) are handled by Master, not TechLead. TechLead orchestrates the full story cycle internally without individual approvals between sub-stages.
+
+### Rule: Comment-Only Rework — Sanitize and Re-review (scope: rework) — MANDATORY
+
+`VERDICT: BLOCKED` where EVERY Critical/Major finding is a Comment Budget finding (ratio, block over 5 lines, the same explanation twice, a comment citing a path or symbol that does not exist, state/history recorded, story residue in config). Not content rework — no bug, no missing feature, no coverage gap. Do NOT restart fix → test → QA → review.
+
+**Why this is safe**: comment-sanitizer never edits a code line, and step 3 proves it on the diff rather than trusting the agent. No code line changed → the test-report and qa-report from this round are still valid, and re-running test-engineer and qa-analyst only re-derives results that could not have moved. Four agent calls become one.
+
+1. **Confirm the trigger.** Read every blocking finding. **One single non-comment finding → normal cycle**, no exceptions and no partial fast path. Mixed reports are the case this rule must not touch.
+2. Delegate to **comment-sanitizer** with the exact files the reviewer flagged. Batch by level — one call never mixes `safe` and `default`, since level is a per-call instruction.
+3. **Verify the diff yourself** — the sanitizer's self-report is not proof:
+
+   ```bash
+   git -C "$P" diff -U0 | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | grep -vE '^[+-][[:space:]]*(#|//|\*|/\*|$)'
+   ```
+
+   **Any output = a code line changed.** Abort the fast path and fall back to the full cycle — the premise that made it safe no longer holds.
+4. **Do NOT re-run test-engineer or qa-analyst.** Their artifacts from this round stand.
+5. Re-delegate to **code-reviewer**, scoped: say explicitly that no code line changed, that step 3's diff check passed, and that it is confirming the comment findings are resolved — not re-reviewing the diff. It writes `-code-review-rN.md` as usual, so the Artifact Verification Gate keeps working unchanged.
+6. `APPROVED` → merge-request-creator. BLOCKED again → 2-Strike Rule.
+
+> The re-review is one call, not a formality to skip. It is what produces the `APPROVED` artifact that Master's Pre-Merge Verification and the Artifact Verification Gate both read. Going straight to MR would leave `BLOCKED` as the only verdict on disk.
 
 ### Rule: Uncommitted Work Rework — Commit-Only Fix (scope: rework) — MANDATORY
 
