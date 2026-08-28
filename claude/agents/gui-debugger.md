@@ -170,7 +170,7 @@ After context-scout returns:
 - Follow ESLint, Prettier, and project conventions
 - **MANDATORY: Regression test for every fix** (component test or E2E matching reproduction)
 - Remove temporary debug code
-- Document fix inline if root cause was non-obvious
+- The root-cause narrative goes to the bug-fix report and the commit message — never inline. In the code leave at most the non-local invariant the fix depends on, or the trap it avoids: ≤5 lines, imperative. If it reads like the investigation, it is in the wrong channel (Rule: Comment Budget).
 
 ### 6. Validation
 

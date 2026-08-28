@@ -148,7 +148,7 @@ After context-scout returns:
 - Follow existing linting, formatting, and naming conventions
 - **MANDATORY: Delegate all test creation and execution to test-engineer**
 - Target: >=90% coverage, test interactions, edge cases, error states, accessibility
-- Document complex logic inline (JSDoc/TSDoc)
+- Public API surface gets JSDoc/TSDoc (`@param`/`@returns`). Complex logic does NOT get a narrative comment: the explanation goes to the story artifact and the history to the commit. Inline, write only the non-local invariant or the trap — ≤5 lines, imperative (Rule: Comment Budget).
 
 ### Step 5: Validation
 

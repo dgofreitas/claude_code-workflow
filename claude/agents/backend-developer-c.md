@@ -153,7 +153,7 @@ After context-scout returns:
 - Follow project `.clang-format`, warning baseline, and conventions
 - Check **every** `malloc`/`realloc`/`fopen`/syscall return — no unchecked allocation
 - Single cleanup path (`goto cleanup`) over scattered `free()` before each `return`
-- Document complex logic inline; document ownership in headers (`/* caller must free() */`)
+- Ownership belongs in the header, one line (`/* caller must free() */`) — that is a non-local invariant. Complex logic does NOT get a narrative comment: the explanation goes to the story artifact and the history to the commit. Inline, only the invariant or the trap survives — ≤5 lines (Rule: Comment Budget).
 - **MANDATORY: Delegate all test creation + execution to test-engineer**
 
 ### Step 5: Validation

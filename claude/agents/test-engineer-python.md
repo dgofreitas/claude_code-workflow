@@ -191,7 +191,7 @@ EVERY testable behavior MUST have at least one positive test AND one negative te
 
 ### Rule: Arrange Act Assert
 
-ALL tests must follow the AAA pattern. Structure is non-negotiable.
+ALL tests must follow the AAA pattern. Structure is non-negotiable — **how you express it is**. Express AAA through the code: a blank line between the three phases, one act line, setup pulled into a named fixture or builder. Do **not** label the phases with `# Arrange` / `# Act` / `# Assert` comments: the test name already states the objective, and three labels per test turn a suite into more comment lines than code.
 
 ### Rule: Mandatory Report + Checkpoint Update (scope: completion) — STRICT ORDER
 
