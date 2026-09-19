@@ -20,6 +20,7 @@ const {
   stripRtkPrefix,
   gcStaleSessions,
 } = require('./rtk-guard-lib');
+const { withCompactReporter } = require('./mocha-reporter');
 
 function main() {
   log('PRE_START', { pid: process.pid });
@@ -43,8 +44,13 @@ function main() {
   const sf = stateFilePath(input.session_id, command);
   const state = readState(sf);
 
+  // rtk has no mocha parser, so mocha output reaches the agent unfiltered either way.
+  // Applied on both paths below, since the blocked path skips rtk entirely.
+  const compact = withCompactReporter(command, input.cwd);
+  if (compact !== command) log('PRE_MOCHA_REPORTER', { sessionId: input.session_id, compact });
+
   if (state.blocked) {
-    const { stripped } = stripRtkPrefix(command);
+    const { stripped } = stripRtkPrefix(compact);
     log('PRE_BLOCKED', { sessionId: input.session_id, command, stripped });
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
@@ -55,13 +61,18 @@ function main() {
     return;
   }
 
-  // Not blocked — delegate entirely to the real rtk rewrite logic, feeding it the
-  // exact same stdin we received. Pass its output straight through unchanged.
+  // Not blocked — delegate entirely to the real rtk rewrite logic. Feed it the stdin we
+  // received, carrying the compacted command so rtk's own rewrite builds on top of it.
   try {
     const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
     const rtkBin = path.join(projectDir, '.claude', 'bin', 'rtk');
+    const forwarded = compact === command
+      ? raw
+      : JSON.stringify(Object.assign({}, input, {
+        tool_input: Object.assign({}, input.tool_input, { command: compact }),
+      }));
     const out = execFileSync(rtkBin, ['hook', 'claude'], {
-      input: raw,
+      input: forwarded,
       encoding: 'utf8',
       timeout: 10000,
     });
@@ -69,7 +80,18 @@ function main() {
     process.stdout.write(out);
   } catch (e) {
     log('PRE_REWRITE_FAIL', String(e && e.message));
-    process.exit(0); // rtk missing/broken/timed out — fail open
+    // rtk missing/broken/timed out — fail open, but keep the reporter rewrite: it is
+    // independent of rtk and is the only thing shrinking mocha output.
+    if (compact !== command) {
+      process.stdout.write(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          updatedInput: Object.assign({}, input.tool_input, { command: compact }),
+        },
+      }));
+      return;
+    }
+    process.exit(0);
   }
 }
 
