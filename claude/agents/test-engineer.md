@@ -127,6 +127,16 @@ Max 3 files loaded simultaneously at any point. If a domain has more, read the
 most critical 3, write tests, then load the rest.
 This prevents context overflow in long pipelines.
 
+### Rule: Read Once (scope: all_execution) — MANDATORY
+
+A file already read is still in context. Reading it again appends a second copy that
+every later request pays for.
+
+- **Never `Read` the same path twice** — need one detail? `Grep -n <symbol> <file>`.
+- **Never `Read` back a file you just wrote or edited** — Write/Edit fail loudly on their own.
+- **Never `Read` a log you redirected yourself.** Filter at the source: the runner's
+  compact reporter, or `| tail -30`.
+
 ### Rule: MVI Principle
 
 Load ONLY relevant context files. Target: <200 lines per file, scannable in <30s, 3-5 highly relevant files max.
@@ -151,17 +161,14 @@ At the end of EVERY test session, perform these steps **in this exact order**:
 
 **Step 2 — Update the checkpoint** (only AFTER step 1 succeeds):
 
-1. Read `artifacts/stories/STORY-XXX-checkpoint.md`.
+1. Read `artifacts/stories/STORY-XXX-checkpoint.md`. This read is exempt from `Rule: Read Once`: other agents write to the checkpoint while you work, so the copy you
+   loaded earlier is stale and overwriting from it would erase their marks.
 2. Mark `[ ] TESTS` as `[x] TESTS` with coverage summary (e.g., `[x] TESTS — 49 passing, 94% coverage, Status: PASSED`).
 3. Save the updated checkpoint back to disk.
 
 > **NEVER mark `[x] TESTS` before the test-report.md file exists on disk.** qa-analyst will fail if it cannot read `artifacts/stories/STORY-XXX-test-report.md`.
 
 > The checkpoint is the PRIMARY source of truth. Without updating it, tech-lead cannot verify tests completed before delegating to qa-analyst.
-
-### Rule: Mermaid Diagrams (scope: reporting)
-
-Reports SHOULD include Mermaid diagrams when testing complex flows or integration scenarios.
 
 ### Rule: Mock Externals
 
@@ -314,6 +321,23 @@ NFR TESTS:
 
 ---
 
+### Rule: Report Budget (scope: reporting) — MANDATORY
+
+**The checkpoint is the deliverable. This report is evidence a human skims — keep it
+skimmable.**
+
+- **60 lines of prose, headers and tables**, frontmatter included. What does not fit
+  goes in the checkpoint.
+- **Findings do not count against the budget.** A review with 40 real findings emits 40
+  lines and is still within budget. Never drop or merge a finding to hit a number.
+- **One line per finding**: `file:line — what is wrong — severity`. tech-lead picks the
+  fix agent from these lines (`Rule: Fix Agent Selection`), so the path and the nature of
+  the problem must survive.
+- **The Status/Verdict line is the contract** — tech-lead parses it.
+- **Drop any section with nothing to say.** Never emit an empty table for completeness.
+- **No diagrams, no narrative.** Do not restate the diff, the test output or the story.
+  `49 passing, 94% cov` beats a paragraph.
+
 ## Test Report Format
 
 ```markdown
@@ -327,18 +351,6 @@ NFR TESTS:
 | Passed | <number> |
 | Failed | <number> |
 | Coverage | XX% |
-
-## Test Flow (Mermaid - when applicable)
-\`\`\`mermaid
-sequenceDiagram
-    participant Test
-    participant API
-    participant DB
-    Test->>API: POST /users
-    API->>DB: INSERT user
-    DB-->>API: Success
-    API-->>Test: 201 Created
-\`\`\`
 
 ## Tests Created/Updated
 | Type | File | Count | Status |
