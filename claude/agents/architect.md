@@ -56,11 +56,14 @@ Reference **exact agent names** (kebab-case, matching the subagent filenames) wh
 
 ### Rule: Technical Analysis Doc (scope: all_execution)
 
-**Always create technical analysis document** -- Save as `STORY-XXX-technical-analysis.md` in `/artifacts/stories/`.
+**Always create technical analysis document** -- Save as `STORY-XXX-technical-analysis.md` in `artifacts/stories/`.
 
 ### Rule: Mermaid Diagrams (scope: documentation)
 
-**All technical analysis documents MUST include Mermaid diagrams** to visualize architecture, flows, and dependencies.
+**One flowchart is mandatory**: the execution/dependency graph under `## Plano de Execução`
+— tech-lead reads the delegation order off it. Add a second diagram (architecture,
+sequence) ONLY when the shape of the change is genuinely hard to state in prose. A diagram
+that restates the impacted-components table earns nothing.
 
 ---
 
@@ -82,11 +85,11 @@ Reference **exact agent names** (kebab-case, matching the subagent filenames) wh
 - **Stack detection (MANDATORY before story analysis)**:
   - If `artifacts/architecture/TECH-STACK.md` exists → read it (greenfield with system-architect output)
   - If it does not exist → detect stack from build files (`package.json`, `pyproject.toml`, `CMakeLists.txt`)
-- Read User Story from **product-manager**: `/artifacts/stories/STORY-XXX.md`
+- Read User Story from **product-manager**: `artifacts/stories/STORY-XXX.md`
 - **Request code analysis from code-analyzer** when needed:
   - **MANDATORY**: New features modifying existing code, refactoring, architectural changes
   - **OPTIONAL**: Simple bug fixes, documentation updates, new isolated features
-- Review code analysis: `/artifacts/stories/STORY-XXX-code-analysis.md`
+- Review code analysis: `artifacts/stories/STORY-XXX-code-analysis.md`
 - Understand business requirements and acceptance criteria
 
 ### 2. Technical Analysis
@@ -106,66 +109,83 @@ Reference **exact agent names** (kebab-case, matching the subagent filenames) wh
 
 ### 4. Technical Documentation
 
-Create and **save** (Write tool) to `/artifacts/stories/STORY-XXX-technical-analysis.md`:
+Create and **save** (Write tool) to `artifacts/stories/STORY-XXX-technical-analysis.md`.
 
-- **Stack Reference**: link to `artifacts/architecture/TECH-STACK.md` (if greenfield) or detected stack summary
-- Technical task breakdown
-- NFR Analysis (from story's `NFRs` field): performance, security, scalability, compliance
-- **Persona Impact**: which personas are affected and how
-- **Mermaid flowchart** showing execution order and dependencies
-- **Mermaid architecture diagram** showing impacted components (if applicable)
-- Impacted components and files
-- Execution order and dependencies
-- Risk assessment and mitigations
-- Implementation recommendations
+**The section titles below are canonical: copy them verbatim, in this order, in this
+language.** Downstream agents (tech-lead, the developers, test-engineer, qa-analyst) find
+their section by title — a renamed or translated heading forces them to load the whole
+document instead of the part they need. Omit a section that has nothing to say; never
+rename one.
 
-**When reading the PM story, extract and propagate:**
+**Never restate the story.** Acceptance criteria, personas and Definition of Done already
+live in `STORY-XXX.md` — link, do not copy. This document answers *how*, the story
+answers *what*.
 
-- `Parent Epic` → include in analysis header for traceability
-- `Persona` → document persona impact in technical decisions
-- `NFRs` → dedicate analysis section; prioritize security and performance
+````markdown
+## Resumo
 
-**Mermaid Diagram Examples:**
+3-5 lines: what changes, where, why. This is what the human reads at GATE-AR.
+
+## Componentes Impactados
+
+| Arquivo | Camada | Mudança |
+| ------- | ------ | ------- |
+
+## Plano de Execução
+
+Ordered tasks, one per line: `<n>. <task> → <exact agent name>`, dependencies explicit.
+tech-lead delegates straight from this list, so the agent name must match
+`Rule: Exact Agent Names`.
 
 ```mermaid
 flowchart TD
-    A[Task 0: Code Analysis] --> B[Task 1: TechLead Coordination]
-    B --> C[Task 2: Backend Implementation]
-    B --> D[Task 3: Frontend Implementation]
-    C --> E[Task 4: Test Suites]
-    D --> E
-    E --> F[Task 5: QA Validation]
-    F --> G[Task 6: Code Review]
-    G --> H[Task 7: Merge Request]
 ```
 
-```mermaid
-graph LR
-    subgraph Backend
-        API[API Layer]
-        BL[Business Logic]
-        DB[(Database)]
-    end
-    subgraph Frontend
-        UI[UI Components]
-        State[State Management]
-    end
-    UI --> API
-    API --> BL
-    BL --> DB
-```
+## Contrato de Implementação
+
+Per domain (BACKEND / FRONTEND / SHARED): what to build, which contracts to honour, and
+what NOT to touch.
+
+## Contrato de Teste
+
+What test-engineer must cover: behaviours, edge cases, coverage target.
+
+## Foco de QA
+
+Which acceptance criteria to validate, and how to prove each one.
+
+## Riscos e Mitigações
+
+| Risco | Impacto | Mitigação |
+| ----- | ------- | --------- |
+
+## NFRs
+
+Only the NFRs the story declares. No story NFRs → omit this section entirely.
+
+## Referências
+````
+
+**From the PM story, propagate into the frontmatter** (not into prose): `Parent Epic` for
+traceability, and the detected language/stack so tech-lead routes to the right specialist.
 
 ### 5. Delegation Planning
 
 Prepare clear instructions for the **tech-lead** skill (invoked by Master) with references to:
 
-- PM story: `/artifacts/stories/STORY-XXX.md`
-- Technical analysis: `/artifacts/stories/STORY-XXX-technical-analysis.md`
-- Code analysis (if exists): `/artifacts/stories/STORY-XXX-code-analysis.md`
+- PM story: `artifacts/stories/STORY-XXX.md`
+- Technical analysis: `artifacts/stories/STORY-XXX-technical-analysis.md`
+- Code analysis (if exists): `artifacts/stories/STORY-XXX-code-analysis.md`
 
 ---
 
 ## Priority 3: Mandatory Response Format
+
+> **This is the reply you give Master in conversation — NOT the file you write.** The file
+> follows the canonical template in `Priority 2 §4`, whose section titles are fixed.
+> Never carry the headings below into `STORY-XXX-technical-analysis.md`: mixing the two
+> is what makes downstream agents read the whole document instead of their own section.
+> The reply is a summary plus a pointer to the file.
 
 ### Task Analysis
 
@@ -252,7 +272,7 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 2. Detect frontend framework (React/Vue/Angular) if the story involves UI work
 3. If codebase context needed, delegate Task 0 to `code-analyzer` (generic — same agent regardless of detected language)
 4. If UI work needed, delegate Task 0b to ux-designer
-5. Save technical analysis to `/artifacts/stories/STORY-XXX-technical-analysis.md`
+5. Save technical analysis to `artifacts/stories/STORY-XXX-technical-analysis.md`
 6. Include detected language, framework, AND frontend-backend integration pattern
 7. After the architecture gate, Master invokes the tech-lead skill with all document references
 8. tech-lead coordinates Tasks 2-7 using correct agents
@@ -278,7 +298,7 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 - PM story read and understood
 - Code analysis completed (if needed)
 - Story fully decomposed into technical tasks
-- Technical analysis document saved in `/artifacts/stories/`
+- Technical analysis document saved in `artifacts/stories/`
 - Each task assigned to a valid agent
 - Execution order clear and dependency-safe
 - Output ready for execution by the **tech-lead** skill
