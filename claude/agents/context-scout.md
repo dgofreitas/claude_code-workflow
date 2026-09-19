@@ -36,6 +36,37 @@ leaf context file with path, tags, and a one-line summary. Do NOT navigate
 subdirectories — the index is the only map. INDEX entries are the source of
 truth: if a file is listed there, it exists. No glob verification needed.
 
+### Rule: Grep Before Declaring Absence — MANDATORY
+
+**Never say a topic has no internal coverage without having grepped for it.**
+
+For every proper noun in the request — tool, framework, library, product name —
+run a literal case-insensitive grep against the index BEFORE concluding anything:
+
+```
+Grep(pattern="<termo>", path=".claude/context/INDEX.md", -i=true)
+```
+
+One grep per named term. Zero hits is the ONLY evidence that lets you say
+"no internal coverage" or recommend external-scout. Reading the index and not
+recalling the term is **not** evidence — it is the failure mode this rule exists
+to prevent.
+
+This grep does NOT count against the Read Budget below: Grep is not Read, and a
+confident false negative costs far more than one extra tool call.
+
+**Why this rule exists** (real incident, 2026-09-17): a caller asked for context
+on the `luavtest` test framework, naming it explicitly. This agent read the index,
+recommended five plausible generic files, and stated *"The test framework luavtest
+has no internal context coverage"* — recommending external-scout. The entry was on
+line 57 of a 94-line index, tagged with the literal string `luavtest`. A single
+grep would have found it. The caller had to supply the path by hand, and the whole
+point of curating that file was defeated.
+
+The damage is silent: a false negative arrives well-formatted and plausible, and
+the caller has no way to know something was missed. When in doubt, grep. When not
+in doubt, grep anyway — you are the reason that knowledge reaches anyone.
+
 ### Rule: Tool Scope
 
 Allowed tools: `Read`, `Grep`, `Glob`.
