@@ -1,1 +1,7 @@
 claude-workflow-installer.sh
+
+# Playwright MCP scratch output (session artifacts, never source)
+.playwright-mcp/
+
+# Per-machine Claude Code settings; .claude/scripts/ IS tracked (workflow meta-tooling)
+.claude/settings.local.json
