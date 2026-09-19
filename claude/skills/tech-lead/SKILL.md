@@ -292,6 +292,7 @@ When a delegated agent returns:
 - **BLOCKED** (from code-reviewer): handled by `Rule: GATE 4 — CODE REVIEW`.
 - **Refuses task as out-of-scope**: STOP entire story, report to Master "STORY-XXX BLOCKED: [reason]".
 
+
 Never silently swallow agent errors.
 
 ### Rule: 2-Strike Rule (no infinite retry)
@@ -550,6 +551,29 @@ Domains implemented this story:
 Coverage target: ≥ 90% per file (story-specific only, ignore global).
 After testing: update checkpoint — mark [x] TESTS with results.
 ```
+
+> **⚠ AT MOST 4 FILES PER CALL.** More files → sequential calls of ≤4. Measured over 104
+> real test-engineer runs: 3-4 files averages $2.29 and 40 requests; 5-8 averages $6.93 and 67; 9+
+> averages $20.21 and 137. The 37% of runs carrying 5+ files burned 76% of the agent's
+> whole spend — cost grows with the square of session length, so a file costs several
+> times more arriving in a big batch than in a small one.
+>
+> **Split by file count, NOT by domain.** The most expensive runs averaged 1.0 domain:
+> domain count does not predict cost, file count does. This does not loosen
+> `Rule: Layer-Bulk Delegation`, which governs the *developers* — a dev builds a whole
+> layer in one call; test-engineer receives that layer in batches of ≤4 files.
+>
+> **When batching, say which batch it is** — the default delegation line makes every
+> session mark `[x] TESTS` and overwrite the canonical report, so batch 1 would open GATE 2
+> with a third of the suite written:
+>
+> - Batches `1..n-1`, replace the last line with:
+>   `Batch <i> of <n>. Append your results to STORY-XXX-test-report.md if it already exists.`
+>   `Do NOT mark [x] TESTS — further batches follow.`
+> - Batch `n`, replace it with:
+>   `Final batch (<n> of <n>). Consolidate the report, then mark [x] TESTS with totals for the whole story.`
+>
+> GATE 2 therefore opens exactly once, on the last batch, against the full suite.
 
 > **⚠ STRICT LIMIT**: list files + coverage target ONLY.
 > NEVER include test case descriptions, mock strategies, assertions, or implementation hints.
