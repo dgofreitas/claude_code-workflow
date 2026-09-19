@@ -4,7 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-This repo is **not a runnable app**. It is the source of truth for a multi-agent SDLC workflow that installs into `<project>/.claude/` via a self-contained shell installer. The deliverable is `claude-workflow-installer.sh` (a base64-encoded tarball) — **built, never committed**. It is gitignored, so a fresh clone has no installer at all: run `bash build-claude-installer.sh` first. Editing anything under `claude/` changes nothing anywhere until that build runs.
+This repo is **not a runnable app**. It is the source of truth for a multi-agent SDLC workflow that installs into `<project>/.claude/` via a self-contained shell installer. The deliverable is `claude-workflow-installer.sh` (a base64-encoded tarball) — **built, never committed**. It is gitignored, so a fresh clone has no installer at all: run `bash build-claude-workflow-installer.sh` first. Editing anything under `workflow/` changes nothing anywhere until that build runs.
+
+**Two directories, and they are not the same thing.** `workflow/` is the *payload* — what
+gets bundled and installed into other projects as their `.claude/`. `.claude/` at this
+repo's root is *this* repo's own config plus tooling for improving the workflow
+(`.claude/scripts/`), and is never shipped. Before adding a file, ask which one it belongs
+to: if the workflow executes it at runtime it goes in `workflow/`; if it only helps us
+work on the workflow it goes in `.claude/`. The directory was renamed from `claude/` to
+`workflow/` precisely because one leading dot was too thin a line to hold that apart.
 
 There is **no automated test suite**. Testing means installing into a real project and exercising the workflow: `claude` → invoke Master (the main session, driven by the installed `CLAUDE.md`).
 
@@ -14,16 +22,16 @@ There is **no automated test suite**. Testing means installing into a real proje
 
 ```bash
 # Build the self-contained installer (outputs claude-workflow-installer.sh)
-bash build-claude-installer.sh
+bash build-claude-workflow-installer.sh
 
 # Install into a target project
-bash install-claude.sh --dest <target-project>
+bash install-claude-workflow.sh --dest <target-project>
 
 # Verify installed files (run inside target project)
-bash install-claude.sh --help   # shows all options
+bash install-claude-workflow.sh --help   # shows all options
 
 # Build with custom output path
-bash build-claude-installer.sh --output /path/to/output.sh
+bash build-claude-workflow-installer.sh --output /path/to/output.sh
 ```
 
 After install, add `rtk` to PATH:
@@ -34,10 +42,10 @@ export PATH="$PWD/.claude/bin:$PATH"
 
 ## Architecture
 
-`claude/` is the entire deliverable — everything that gets bundled by `build-claude-installer.sh` and installed into `<project>/.claude/`:
+`workflow/` is the entire deliverable — everything that gets bundled by `build-claude-workflow-installer.sh` and installed into `<project>/.claude/`:
 
 ```
-claude/
+workflow/
 ├── CLAUDE.md          # Master orchestrator instructions (injected every session)
 ├── RTK.md             # Token-optimizer reference (rtk prefix for bash commands)
 ├── settings.json      # Claude Code harness config (models, hooks, MCP servers)
@@ -65,13 +73,13 @@ Master (main session, router)
   → [GATE-NEXT] → next story or summary
 ```
 
-Five named human approval gates: `GATE-PM`, `GATE-SA`, `GATE-AR`, `GATE-MR`, `GATE-NEXT`. Execution mode (default / auto-gate / batch-auto) is persisted to `.claude/.exec-mode` — set it deterministically with `/mode` (see `claude/commands/sdlc/mode.md`) or let Master infer it from trigger phrases.
+Five named human approval gates: `GATE-PM`, `GATE-SA`, `GATE-AR`, `GATE-MR`, `GATE-NEXT`. Execution mode (default / auto-gate / batch-auto) is persisted to `.claude/.exec-mode` — set it deterministically with `/mode` (see `workflow/commands/sdlc/mode.md`) or let Master infer it from trigger phrases.
 
-`tech-lead` is a **Skill**, not a subagent — it runs in the main session context (which always has the `Agent`/`Task` tool), and orchestrates the specialist subagents inside a single story. Master never calls story-internal agents (test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer) directly; it always goes through the `tech-lead` skill. See `claude/CLAUDE.md` for the full routing/gate logic.
+`tech-lead` is a **Skill**, not a subagent — it runs in the main session context (which always has the `Agent`/`Task` tool), and orchestrates the specialist subagents inside a single story. Master never calls story-internal agents (test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer) directly; it always goes through the `tech-lead` skill. See `workflow/CLAUDE.md` for the full routing/gate logic.
 
 > **Nested subagent delegation** (a subagent's `Agent` tool calling another subagent, e.g. `backend-developer` calling `context-scout`) requires **Claude Code ≥ v2.1.172**. Below that version those calls silently no-op. Also note: the `Agent(name1, name2)` scoped-allowlist syntax in a subagent's own `tools:` frontmatter is only enforced when that agent runs as the main thread (`claude --agent`) — inside a subagent definition, any parenthesized list is ignored and the subagent gets unrestricted nested-spawn ability.
 
-### Context system (`claude/context/`)
+### Context system (`workflow/context/`)
 
 Five buckets: `standards/`, `workflows/`, `stacks/`, `meta/`, `project/`. The only navigation point is `context/INDEX.md` — a flat semantic index with tags. `context-scout` reads INDEX.md, filters by tags, and returns ≤5 files. Each file targets ≤200 lines (MVI — Minimal Viable Information principle).
 
@@ -87,7 +95,7 @@ Never cap `max_tokens` on code-generation agents (backend-developer, frontend-de
 
 ### Model tiering
 
-Pick Opus/Sonnet/Haiku 4.x per role deliberately when adding agents to `claude/agents/` — don't default everything to the same tier. Cheap/fast models for high-volume lookups (context-scout, external-scout), stronger models for implementation and review.
+Pick Opus/Sonnet/Haiku 4.x per role deliberately when adding agents to `workflow/agents/` — don't default everything to the same tier. Cheap/fast models for high-volume lookups (context-scout, external-scout), stronger models for implementation and review.
 
 ### Agent permission model
 
@@ -97,10 +105,10 @@ Claude Code subagents don't support OpenCode-style granular per-agent task allow
 
 | File | Purpose |
 |------|---------|
-| `claude/CLAUDE.md` | Master orchestrator instructions (the installed workflow entry point) |
-| `claude/RTK.md` | RTK token-optimizer command reference |
-| `claude/settings.json` | Claude Code harness: models, MCP servers, hooks |
-| `claude/skills/tech-lead/SKILL.md` | In-story orchestration (Impl → Test → QA → Review → MR) |
-| `claude/commands/sdlc/mode.md` | `/mode` — deterministic execution-mode switch |
-| `build-claude-installer.sh` | Builds the self-contained `claude-workflow-installer.sh` |
-| `install-claude.sh` | Installs the workflow into a target project's `.claude/` |
+| `workflow/CLAUDE.md` | Master orchestrator instructions (the installed workflow entry point) |
+| `workflow/RTK.md` | RTK token-optimizer command reference |
+| `workflow/settings.json` | Claude Code harness: models, MCP servers, hooks |
+| `workflow/skills/tech-lead/SKILL.md` | In-story orchestration (Impl → Test → QA → Review → MR) |
+| `workflow/commands/sdlc/mode.md` | `/mode` — deterministic execution-mode switch |
+| `build-claude-workflow-installer.sh` | Builds the self-contained `claude-workflow-installer.sh` |
+| `install-claude-workflow.sh` | Installs the workflow into a target project's `.claude/` |
