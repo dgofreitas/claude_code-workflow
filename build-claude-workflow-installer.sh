@@ -4,10 +4,10 @@
 # Claude Code Workflow - Builder de Instalador Auto-Contido
 # ==============================================================================
 # Este script cria um instalador único (claude-workflow-installer.sh) que
-# contém todos os arquivos necessários do deliverable claude/ embutidos em
+# contém todos os arquivos necessários do deliverable workflow/ embutidos em
 # formato TGZ.
 #
-# Uso: bash build-claude-installer.sh [--output <arquivo>]
+# Uso: bash build-claude-workflow-installer.sh [--output <arquivo>]
 # ==============================================================================
 
 set -euo pipefail
@@ -30,7 +30,7 @@ readonly NC='\033[0m'
 # Variáveis
 OUTPUT_FILE="${OUTPUT_DEFAULT}"
 
-# Lista de itens obrigatórios para o bundle (dentro de claude/)
+# Lista de itens obrigatórios para o bundle (dentro de workflow/)
 readonly CLAUDE_REQUIRED_ITEMS=(
     "agents"
     "commands"
@@ -94,7 +94,7 @@ printBanner() {
 }
 
 printHelp() {
-    echo "Uso: bash build-claude-installer.sh [OPÇÃO]"
+    echo "Uso: bash build-claude-workflow-installer.sh [OPÇÃO]"
     echo ""
     echo "Opções:"
     echo "  -o, --output <arquivo>   Arquivo de saída (padrão: claude-workflow-installer.sh)"
@@ -134,10 +134,10 @@ parseArguments() {
 validateSourceFiles() {
     logStep "Validando arquivos fonte..."
 
-    local claudeDir="${SCRIPT_DIR}/claude"
+    local claudeDir="${SCRIPT_DIR}/workflow"
 
     if [[ ! -d "${claudeDir}" ]]; then
-        logError "Diretório claude/ não encontrado em: ${SCRIPT_DIR}"
+        logError "Diretório workflow/ não encontrado em: ${SCRIPT_DIR}"
         return 1
     fi
 
@@ -145,10 +145,10 @@ validateSourceFiles() {
 
     for item in "${CLAUDE_REQUIRED_ITEMS[@]}"; do
         if [[ ! -e "${claudeDir}/${item}" ]]; then
-            logError "Item obrigatório não encontrado: claude/${item}"
+            logError "Item obrigatório não encontrado: workflow/${item}"
             ((missing++))
         else
-            logSuccess "Encontrado: claude/${item}"
+            logSuccess "Encontrado: workflow/${item}"
         fi
     done
 
@@ -165,15 +165,15 @@ createTarball() {
 
     logStep "Criando tarball..."
 
-    # Copiar install-claude.sh para dentro de claude/ para o bundle
-    # (o stub espera source de ${TEMP_EXTRACT_DIR}/claude/install-claude.sh)
-    cp "${SCRIPT_DIR}/install-claude.sh" "${SCRIPT_DIR}/claude/install-claude.sh"
+    # Copiar install-claude-workflow.sh para dentro de workflow/ para o bundle
+    # (o stub espera source de ${TEMP_EXTRACT_DIR}/workflow/install-claude-workflow.sh)
+    cp "${SCRIPT_DIR}/install-claude-workflow.sh" "${SCRIPT_DIR}/workflow/install-claude-workflow.sh"
 
-    # Criar tarball com gzip do diretório claude/ inteiro
-    tar -czf "${tarballPath}" -C "${SCRIPT_DIR}" "claude"
+    # Criar tarball com gzip do diretório workflow/ inteiro
+    tar -czf "${tarballPath}" -C "${SCRIPT_DIR}" "workflow"
 
-    # Limpar: remover install-claude.sh de claude/ (só estava lá para o bundle)
-    rm -f "${SCRIPT_DIR}/claude/install-claude.sh"
+    # Limpar: remover install-claude-workflow.sh de workflow/ (só estava lá para o bundle)
+    rm -f "${SCRIPT_DIR}/workflow/install-claude-workflow.sh"
 
     local size
     size=$(stat -c%s "${tarballPath}" 2>/dev/null || stat -f%z "${tarballPath}" 2>/dev/null)
@@ -260,12 +260,12 @@ if [[ -n "${PAYLOAD_MARKER}" ]]; then
     if extractPayload "${SCRIPT_SELF}" "${TEMP_EXTRACT_DIR}"; then
         logInfo "Arquivos extraídos para: ${TEMP_EXTRACT_DIR}"
 
-        # Executar install-claude.sh extraído
-        SCRIPT_DIR="${TEMP_EXTRACT_DIR}/claude"
+        # Executar install-claude-workflow.sh extraído
+        SCRIPT_DIR="${TEMP_EXTRACT_DIR}/workflow"
         export SCRIPT_DIR
 
-        # Source do install-claude.sh extraído
-        source "${TEMP_EXTRACT_DIR}/claude/install-claude.sh" "$@"
+        # Source do install-claude-workflow.sh extraído
+        source "${TEMP_EXTRACT_DIR}/workflow/install-claude-workflow.sh" "$@"
         exit $?
     else
         logError "Falha ao extrair payload"
@@ -273,14 +273,14 @@ if [[ -n "${PAYLOAD_MARKER}" ]]; then
     fi
 fi
 
-# Se não há payload, procurar install-claude.sh no diretório atual
-logWarn "Nenhum payload encontrado - procurando install-claude.sh local..."
-if [[ -f "install-claude.sh" ]]; then
-    source "./install-claude.sh" "$@"
+# Se não há payload, procurar install-claude-workflow.sh no diretório atual
+logWarn "Nenhum payload encontrado - procurando install-claude-workflow.sh local..."
+if [[ -f "install-claude-workflow.sh" ]]; then
+    source "./install-claude-workflow.sh" "$@"
     exit $?
 fi
 
-logError "Nenhum payload e nenhum install-claude.sh encontrado"
+logError "Nenhum payload e nenhum install-claude-workflow.sh encontrado"
 exit 1
 STUB_EOF
 }
@@ -292,10 +292,10 @@ createPayloadInstaller() {
     logStep "Gerando instalador auto-contido: ${outputPath}"
 
     # Gerar stub script + marcador + payload
-    # (install-claude.sh já deve estar em claude/ se usarmos source dele)
-    # NOTA: o stub source install-claude.sh do TEMP_EXTRACT_DIR/claude/
-    # O install-claude.sh precisa estar no tarball, então precisamos copiá-lo
-    # para claude/ antes de criar o tarball
+    # (install-claude-workflow.sh já deve estar em workflow/ se usarmos source dele)
+    # NOTA: o stub source install-claude-workflow.sh do TEMP_EXTRACT_DIR/workflow/
+    # O install-claude-workflow.sh precisa estar no tarball, então precisamos copiá-lo
+    # para workflow/ antes de criar o tarball
     {
         generateStubScript
         echo ""
@@ -333,9 +333,9 @@ main() {
         exit 1
     fi
 
-    # Verificar se install-claude.sh existe (será incluído no bundle)
-    if [[ ! -f "${SCRIPT_DIR}/install-claude.sh" ]]; then
-        logError "install-claude.sh não encontrado em: ${SCRIPT_DIR}"
+    # Verificar se install-claude-workflow.sh existe (será incluído no bundle)
+    if [[ ! -f "${SCRIPT_DIR}/install-claude-workflow.sh" ]]; then
+        logError "install-claude-workflow.sh não encontrado em: ${SCRIPT_DIR}"
         logInfo "Este arquivo é necessário para o instalador auto-contido"
         exit 1
     fi

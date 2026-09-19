@@ -4,7 +4,7 @@
 # Claude Code Workflow — Instalador Local
 # ==============================================================================
 # Compatível com: Debian, Ubuntu, Linux Mint, macOS
-# Uso: bash install-claude.sh [--dest <path>] [--verbose] [--help]
+# Uso: bash install-claude-workflow.sh [--dest <path>] [--verbose] [--help]
 #
 # Modo: LOCAL apenas. Instala em <project>/.claude/.
 # Se --dest não for informado, instala no cwd/.claude.
@@ -50,7 +50,7 @@ readonly RTK_INSTALL_SCRIPT_URL="https://raw.githubusercontent.com/rtk-ai/rtk/re
 readonly RTK_GLOBAL_BIN_DIR="${HOME}/.local/bin"
 
 readonly PLAYWRIGHT_MCP_PACKAGE="@playwright/mcp@latest"
-readonly PLAYWRIGHT_BROWSER="chromium"   # deve bater com --browser em claude/settings.json mcpServers.playwright
+readonly PLAYWRIGHT_BROWSER="chromium"   # deve bater com --browser em workflow/settings.json mcpServers.playwright
 
 COUNT_AGENTS=0
 COUNT_COMMANDS=0
@@ -99,7 +99,7 @@ printBanner() {
 }
 
 printHelp() {
-    echo "Uso: bash install-claude.sh [OPÇÃO]"
+    echo "Uso: bash install-claude-workflow.sh [OPÇÃO]"
     echo ""
     echo "Modo único: instalação LOCAL no projeto (.claude/)."
     echo ""
@@ -559,7 +559,7 @@ applyModelProvider() {
 
     if ! command -v jq > /dev/null 2>&1; then
         logError "jq é obrigatório para aplicar o provedor Ollama (merge de settings.local.json)."
-        logError "Instale jq e rode novamente: bash install-claude.sh --dest <path> --provider ollama"
+        logError "Instale jq e rode novamente: bash install-claude-workflow.sh --dest <path> --provider ollama"
         return 1
     fi
 
