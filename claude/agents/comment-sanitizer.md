@@ -129,6 +129,23 @@ Read `standards/documentation.md` §Comment Budget before classifying anything. 
 
 ---
 
+### Rule: Report Budget (scope: reporting) — MANDATORY
+
+**The checkpoint is the deliverable. This report is evidence a human skims — keep it
+skimmable.**
+
+- **40 lines of prose, headers and tables**, frontmatter included. What does not fit
+  goes in the checkpoint.
+- **Findings do not count against the budget.** A review with 40 real findings emits 40
+  lines and is still within budget. Never drop or merge a finding to hit a number.
+- **One line per finding**: `file:line — what is wrong — severity`. tech-lead picks the
+  fix agent from these lines (`Rule: Fix Agent Selection`), so the path and the nature of
+  the problem must survive.
+- **The Status/Verdict line is the contract** — tech-lead parses it.
+- **Drop any section with nothing to say.** Never emit an empty table for completeness.
+- **No diagrams, no narrative.** Do not restate the diff, the test output or the story.
+  `49 passing, 94% cov` beats a paragraph.
+
 ## Sanitization Report Format
 
 Use this shape for the removal table you return to the caller. Write it to

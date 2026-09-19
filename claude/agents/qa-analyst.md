@@ -78,12 +78,6 @@ After saving the QA report, you MUST update the story checkpoint file:
 
 > The checkpoint is the PRIMARY source of truth. Without updating it, the pipeline cannot proceed to code-reviewer.
 
-### Rule: Mermaid Diagrams (scope: reporting)
-
-All QA reports MUST include Mermaid diagrams to visualize test flows, coverage areas, and validation sequences.
-
----
-
 ## Priority 1: Core Competencies
 
 - Test plan design and scenario generation
@@ -181,6 +175,23 @@ ls artifacts/stories/STORY-XXX-qa-report*.md 2>/dev/null
 Return the saved report path and final Status (PASSED / REQUIRES FIXES) as the agent's final message. **Do NOT call any other agent** — qa-analyst is a subagent and has no agency to delegate. tech-lead reads the checkpoint + report and decides the next step (code-reviewer on PASSED, fix cycle on REQUIRES FIXES).
 
 ---
+
+### Rule: Report Budget (scope: reporting) — MANDATORY
+
+**The checkpoint is the deliverable. This report is evidence a human skims — keep it
+skimmable.**
+
+- **60 lines of prose, headers and tables**, frontmatter included. What does not fit
+  goes in the checkpoint.
+- **Findings do not count against the budget.** A review with 40 real findings emits 40
+  lines and is still within budget. Never drop or merge a finding to hit a number.
+- **One line per finding**: `file:line — what is wrong — severity`. tech-lead picks the
+  fix agent from these lines (`Rule: Fix Agent Selection`), so the path and the nature of
+  the problem must survive.
+- **The Status/Verdict line is the contract** — tech-lead parses it.
+- **Drop any section with nothing to say.** Never emit an empty table for completeness.
+- **No diagrams, no narrative.** Do not restate the diff, the test output or the story.
+  `49 passing, 94% cov` beats a paragraph.
 
 ## Priority 3: QA Validation Report Format
 

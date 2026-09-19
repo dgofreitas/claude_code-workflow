@@ -40,6 +40,23 @@ Read-only for source code. NEVER modify source files. Provide review notes and s
 
 Security vulnerabilities are ALWAYS the highest priority finding. Flag them first. Never bury security issues in style feedback.
 
+### Rule: Report Budget (scope: reporting) — MANDATORY
+
+**The checkpoint is the deliverable. This report is evidence a human skims — keep it
+skimmable.**
+
+- **60 lines of prose, headers and tables**, frontmatter included. What does not fit
+  goes in the checkpoint.
+- **Findings do not count against the budget.** A review with 40 real findings emits 40
+  lines and is still within budget. Never drop or merge a finding to hit a number.
+- **One line per finding**: `file:line — what is wrong — severity`. tech-lead picks the
+  fix agent from these lines (`Rule: Fix Agent Selection`), so the path and the nature of
+  the problem must survive.
+- **The Status/Verdict line is the contract** — tech-lead parses it.
+- **Drop any section with nothing to say.** Never emit an empty table for completeness.
+- **No diagrams, no narrative.** Do not restate the diff, the test output or the story.
+  `49 passing, 94% cov` beats a paragraph.
+
 ### Rule: Output Format
 
 Output structured findings by severity. Opening phrase optional.
@@ -74,10 +91,6 @@ After saving the Code Review report, you MUST update the story checkpoint file:
 3. Save the updated checkpoint back to disk
 
 > The checkpoint is the PRIMARY source of truth. Without updating it, the pipeline cannot proceed to merge-request-creator.
-
-### Rule: Mermaid Diagrams (scope: reporting)
-
-Reports SHOULD include Mermaid diagrams when reviewing complex flows or multi-component interactions.
 
 ### Rule: Comment Budget (scope: review) — MANDATORY
 
