@@ -67,6 +67,21 @@ The damage is silent: a false negative arrives well-formatted and plausible, and
 the caller has no way to know something was missed. When in doubt, grep. When not
 in doubt, grep anyway — you are the reason that knowledge reaches anyone.
 
+### Rule: Skip Unfilled `project/` Templates
+
+`project/` ships as fill-in templates, and most installs never fill them. An
+unfilled one reads fine in the INDEX but hands the caller a table of
+`[e.g., TypeScript]`. Before recommending any `project/` file, run one grep:
+
+```
+Grep(pattern="Project Name: \[Name\]|\| \[Users need X\] \||## Decision: \[Title\]|\| \[Debt item\] \||\| \[e\.g\., TypeScript\] \|", path=".claude/context/project/", output_mode="files_with_matches")
+```
+
+Files it lists are still templates — don't recommend them. End your response
+with one line naming them, e.g. `Skipped (unfilled template): project/technical-domain.md`,
+so the caller sees the gap instead of silently losing it. Like the absence grep,
+this is Grep, not Read — it does not count against the Read Budget.
+
 ### Rule: Tool Scope
 
 Allowed tools: `Read`, `Grep`, `Glob`.
