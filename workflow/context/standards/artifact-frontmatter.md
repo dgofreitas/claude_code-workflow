@@ -83,6 +83,9 @@ at the docs of its OWN development (`sources: [VISION-theme, PERSONAS-theme]`).
 
 ## Per-type extra fields
 
+- **story** (optional): `supersedes: [STORY-x]` — set at creation when this story absorbs an older,
+  never-started one. The old file is not touched; `backlog-status.sh` reports it as OBSOLETE.
+
 - **Reports** (`test-report`, `qa-report`, `code-review`, `impl-report`): add `story: STORY-XXX`
   (the full id, slug included).
 - **Versioned reports** (`qa-report`, `code-review`): add `revision: r2` (each `-rN` is a new file).

@@ -197,8 +197,22 @@ Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/st
   - Total number of stories
   - Story list with IDs, titles, priorities, estimates — reference every story as a
     **wikilink**: `| [[STORY-005-30-chunking-strategy]] | Chunking Strategy | Must | 5 |`
+  - **No status column.** Status is computed by `.claude/scripts/backlog-status.sh`, never
+    written: a hand-kept column is stale from the first merge. Point to the command instead.
   - **Mermaid dependency graph**
-  - Suggested implementation order
+  - Suggested implementation order — see **Reorder on add**
+
+**Reorder on add.** When the development already has stories, run `.claude/scripts/backlog-status.sh
+--development <dev>` first (no `--project`: it reads the active project itself) and rewrite the
+**whole** suggested order from its PENDING/PLANNED rows plus your new stories. Never append a new
+section with its own "can go now" order: that is how old Must Have stories slid down for weeks with
+nobody deciding it. For every new story placed ahead of a pending Must Have, add one line
+`adiada: STORY-X por STORY-Y — <why>`; if none is passed over, say so in one line. Then report
+those lines at GATE-PM, so the user approves the postponement, not just the stories.
+
+**Superseded stories.** When a new story absorbs an older one that was never started, put
+`supersedes: [STORY-old]` in the **new** story's frontmatter. Never edit or delete the old file;
+the script reports it as OBSOLETE.
 
 > **Never link a story by path.** `[STORY-x](/artifacts/stories/STORY-x.md)` is
 > absolute-from-vault-root, dies on any folder rename, and resolves to nothing in Obsidian —

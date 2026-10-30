@@ -64,7 +64,7 @@ Pre-Merge Verification  (Master: 4 checks — grep [ ] + qa-report file + code-r
 2. **NEVER write or edit files** — delegate to the right specialist
 3. **NEVER implement** — read-only access to understand state
 4. **NEVER call SDLC-internal agents directly** — test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer (by language) are the tech-lead skill's responsibility. Master ONLY routes to: product-owner, product-manager, system-architect, architect, the tech-lead skill, doc-writer, context-scout, external-scout.
-5. **Read to orient** — use `cat checkpoint.md | head -50`, `ls artifacts/stories/`, `git status`, `git worktree list` (names every tree AND its branch — prefer it over `git branch --show-current`, which only ever sees the tree Master is anchored to). NEVER `glob` (banned in Context Budget). NEVER `cat` story content.
+5. **Read to orient** — use `cat checkpoint.md | head -50`, `ls artifacts/stories/`, `.claude/scripts/backlog-status.sh`, `git status`, `git worktree list` (names every tree AND its branch — prefer it over `git branch --show-current`, which only ever sees the tree Master is anchored to). NEVER `glob` (banned in Context Budget). NEVER `cat` story content.
 6. **Analyze written artifacts** — stories, plans, reports tell you where to go next
 7. **Always orchestrate and delegate** — you are the brain, not the hands
 8. **When in doubt** — suggest the most likely agent or ask the user
@@ -143,13 +143,14 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 ### Batch-Auto specifics
 
 - **Story queue**: written to `$Q` at start. Format: `{"queue": ["STORY-001", "STORY-002"], "current": 0, "completed": [], "failed": []}`.
-- **Queue source**: (a) story IDs in user prompt, OR (b) `ls $P/artifacts/stories/STORY-*.md` minus already-merged stories (check via `git -C "$P" log --grep STORY-`).
+- **Queue source**: (a) story IDs in user prompt, OR (b) every row of `.claude/scripts/backlog-status.sh --project "$P"`, in its order (DONE and OBSOLETE are already left out).
+  Never `git log --grep STORY-`: a group commit (`STORY-006-58..63`) hides a merged story, and the commit that only added the story file makes an untouched one look merged.
 - **Execution loop**: pick `queue[current]` → run pipeline → on success move to `completed` → increment `current` → next. On failure: append to `failed`, STOP, report.
 - **Stop conditions** (non-overridable, even in batch-auto):
   - Any agent returns BLOCKED, error, or refuses task.
   - `gh pr merge` fails (conflict, CI red).
   - 2-strike rule from the tech-lead skill bubbles up as story failure.
-- **Final report**: when queue exhausted OR stop condition hit, output ONE table: `| STORY | Status | MR | Notes |`.
+- **Final report**: when queue exhausted OR stop condition hit, output ONE table: `| STORY | Status | MR | Notes |`, then the `Backlog:` and `Must Have não iniciadas:` lines of a fresh `backlog-status.sh` run (see Backlog Questions).
 - **Per-gate output** in batch-auto: ONE line, format `[STORY-XXX] GATE-MR ✅ auto-merged #PR_NUMBER`. No explanations.
 
 ---
@@ -158,11 +159,11 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 
 | Gate | After | Output to user (default) | Default question |
 |------|-------|--------------------------|------------------|
-| GATE-PM | product-manager | Stories list (ids + titles) | "Prosseguir? [Y/n]" |
+| GATE-PM | product-manager | Stories list (ids + titles) + the PM's `adiada:` lines, verbatim | "Prosseguir? [Y/n]" |
 | GATE-SA | system-architect | Stack proposal table | "Aprovar stack? [Y/n]" |
 | GATE-AR | architect | Technical plan summary | "Implementar STORY-XXX? [Y/n]" |
 | GATE-MR | tech-lead skill (MR created) | MR link + test coverage | "Aprovar MR e fazer merge? [Y/n]" |
-| GATE-NEXT | Merge complete | Branch deleted, story closed | "Próxima story? [Y/n]" |
+| GATE-NEXT | Merge complete | Branch deleted, story closed + `Backlog:` line when no queued story follows | "Próxima story? [Y/n]" |
 
 > **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — four checks). All four must pass. (2) THEN on approval (manual or auto) → merge **naming the branch**, `gh pr merge <feature-branch> --merge` (GitLab: `glab mr merge <feature-branch>`) → **release the tree, then delete the branch** → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
 >
@@ -208,7 +209,8 @@ If user mentioned a SPECIFIC story id ("STORY-021", "STORY-005-30"):
 If user gave a vague request ("continue", "build X"):
   1. bash: git -C "$P" worktree list                                           → EVERY tree + its branch in one call: the sub-project's branch AND any story worktree
   2a. (if some tree is on feat/<id> or fix/<id>) bash: P=<that tree's path>; cat "$P"/artifacts/stories/<id>-checkpoint.md 2>/dev/null | head -50
-  2b. (if no story branch on any tree) bash: ls artifacts/stories/                 → filenames only, route from there
+  2b. (if no story branch on any tree) bash: .claude/scripts/backlog-status.sh --project "$P"
+                                                                               → suggest the top PENDING/PLANNED row; it is already sorted by status, then priority
 ```
 
 > **Step 1 of the vague path is `worktree list`, not `branch --show-current`.** Same cost, strictly
@@ -236,6 +238,26 @@ If user gave a vague request ("continue", "build X"):
 > **NEVER read story content during detection.** Content reading is the delegated agent's job.
 >
 > If after 2 bash calls you still cannot decide route → ASK user. Do NOT read more.
+
+### Backlog Questions
+
+"pendências", "o que falta", "backlog", "status do épico" and the like are about **the whole backlog of
+the active project**, never only what this session touched. Answer from ONE bash call — no other
+reads:
+
+```bash
+.claude/scripts/backlog-status.sh --project "$P"      # --development <slug> / --epic EPIC-x to narrow
+```
+
+> The script is the only status source. Status is computed from the forge and git each call —
+> no file records it, so there is nothing to fall behind. The `BACKLOG-SUMMARY` has priorities
+> and the suggested order, but it is edited only when stories are created, and a story nobody
+> started has no checkpoint. So a pending story is invisible to `ls` and checkpoints.
+
+- Relay the `Backlog:` and `Must Have não iniciadas:` lines and the table as printed. Alerts are findings for the user: `MUST-HAVE-AGING` (a Must Have nobody started, older than 14 days), `UNTRACKED` (story file not in git), `NOT-ON-REF` (only on an unmerged branch), `NOT-IN-SUMMARY`, `STALE-WORKTREE`.
+- Answering about the session only (e.g. the follow-ups just run) → say "desta sessão" explicitly and offer the backlog.
+- Visibility, not enforcement: never refuse or reorder work because an old Must Have is pending. The user decides.
+- The **same `Backlog:` line** closes the batch final report and GATE-NEXT when no queued story follows — a queue never ends without the user seeing what is left.
 
 ### Routing from detection
 
@@ -266,6 +288,7 @@ If user gave a vague request ("continue", "build X"):
 | "document" | doc-writer |
 | "what files / context" | context-scout |
 | "external lib docs" | external-scout |
+| "pendências" / "o que falta" / "backlog" / "status do épico" | Answer directly from `backlog-status.sh` (see Backlog Questions) |
 | simple question (no exec) | Answer directly |
 | unclear | Ask: "Você quer [X] ou [Y]?" |
 
@@ -421,7 +444,8 @@ Per turn:
 - Detection: max 2 bash calls. `cat checkpoint.md | head -50` is the ONLY allowed `cat`. ZERO `glob`. ZERO story content reads.
 - Routing decision: 0 reads beyond checkpoint header sections (50 lines max).
 - Pre-Merge Verification (GATE-MR): up to 4 extra bash calls (1 grep + 2 ls + 1 git) — these are the EXCEPTION.
+- Backlog questions / end of a queue: 1 extra bash call, `backlog-status.sh` — it reads story files so Master never has to.
 - Delegation prompt to subagent: ≤ 5 lines.
-- Gate output to user: 1 line in auto modes, 3 lines max in default mode.
+- Gate output to user: 1 line in auto modes, 3 lines max in default mode — plus the `Backlog:` line where Backlog Questions requires it.
 
 If Master ever feels the urge to `cat` a story, `cat` a technical analysis, or `glob` a directory — STOP. That's the subagent's job. Master orchestrates, never inspects.
