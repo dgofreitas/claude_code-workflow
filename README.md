@@ -61,11 +61,11 @@ flowchart TD
 
 | Piece | Count | Notes |
 |---|---|---|
-| Specialist subagents | 34 | Product, architecture, UX, implementation, testing, QA, review, MR, DevOps, docs, context scouts |
+| Specialist subagents | 35 | Product, architecture, UX, implementation, testing, QA, review, MR, DevOps, docs, context scouts |
 | Language-specific variants | Node.js · Python · C · React · Angular · Vue | Separate developers, test engineers, reviewers and bug fixers per stack |
-| Slash commands | 12 | `/story`, `/plan`, `/implement`, `/bugfix`, `/review`, `/qa`, `/mr`, `/mode`, `/project`, … |
+| Slash commands | 13 | `/story`, `/plan`, `/implement`, `/bugfix`, `/review`, `/qa`, `/mr`, `/mode`, `/project`, … |
 | Skills | 13 | `tech-lead` orchestration, task management, test execution, Playwright debugging, container dev, docs lookup |
-| Hooks | 11 Node.js scripts | Guardrails and context hygiene (see below) |
+| Hooks | 13 Node.js scripts | Guardrails and context hygiene (see below) |
 | Context library | ~45 files | Standards, workflows, stack guides and project memory, indexed by tags |
 
 ## Engineering decisions worth noting
@@ -96,22 +96,25 @@ An alternate profile maps every agent to Ollama Cloud models for personal projec
 
 **Resumable, auditable stories.** Each story keeps a checkpoint file and writes QA and
 code-review reports as artifacts. Interrupted work resumes from the first unchecked item.
-Story status and coverage feed an Obsidian Bases board.
+Story status and coverage feed an Obsidian Bases board. Backlog status is computed, never
+kept by hand: `scripts/backlog-status.sh` classifies every story from git and the forge, so a
+story nobody started still shows up when you ask what is left.
 
 **Multi-project umbrellas.** One install can drive several sibling repositories,
 with every path and git operation anchored to the active sub-project (`/project`).
 
 ## Installation
 
-Requirements: Claude Code, Node.js, Git and `jq`; the GitHub CLI (`gh`) for MRs.
+Requirements: Claude Code, Node.js and Git; the GitHub CLI (`gh`) for MRs; Python 3 for the
+statusline; `jq` only for the Ollama profile.
 
 ```bash
 # from this repo: build the self-contained installer
-bash build-claude-installer.sh            # → claude-workflow-installer.sh
+bash build-claude-workflow-installer.sh   # → claude-workflow-installer.sh
 
 # install into a target project
-bash install-claude.sh --dest /path/to/your-project
-bash install-claude.sh --help             # all options (--provider, --no-tavily, --rtk-version …)
+bash claude-workflow-installer.sh --dest /path/to/your-project
+bash claude-workflow-installer.sh --help  # all options (--provider, --no-tavily, --rtk-version …)
 ```
 
 The installer copies the workflow into `<project>/.claude/`, downloads RTK from its upstream
@@ -133,18 +136,21 @@ artifacts and routes to the right stage.
 ## Repository layout
 
 ```text
-claude/                   # everything installed into <project>/.claude/
-├── CLAUDE.md             # Master orchestrator instructions
-├── settings.json         # models, hooks, permissions, MCP servers
-├── agents/               # 34 specialist subagents
-├── commands/sdlc/        # slash commands
-├── skills/               # tech-lead and supporting skills
-├── hooks/                # Node.js guardrail hooks
-├── context/              # tagged context library
-├── model-profiles/       # alternate model assignments (Ollama)
-└── templates/            # Obsidian story-board templates
-build-claude-installer.sh # packs claude/ into one installer script
-install-claude.sh         # installs into a target project
+workflow/                          # everything installed into <project>/.claude/
+├── CLAUDE.md                      # Master orchestrator instructions
+├── settings.json                  # models, hooks, permissions, MCP servers
+├── agents/                        # 35 specialist subagents
+├── commands/sdlc/                 # slash commands
+├── skills/                        # tech-lead and supporting skills
+├── hooks/                         # Node.js guardrail hooks
+├── scripts/                       # read-only helpers (backlog status, comment triage)
+├── statusline/                    # model, subagents, tokens and plan limits
+├── context/                       # tagged context library
+├── model-profiles/                # alternate model assignments (Ollama)
+└── templates/                     # Obsidian story-board templates
+.claude/                           # this repo's own config and tooling, never shipped
+build-claude-workflow-installer.sh # packs workflow/ into one installer script
+install-claude-workflow.sh         # installs into a target project
 ```
 
 ## Status
