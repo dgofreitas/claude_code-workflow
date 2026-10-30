@@ -2,7 +2,7 @@
 name: bug-fixer-c
 description: "C bug diagnosis and fixing specialist with root-cause analysis and regression testing — memory corruption, undefined behavior, integer bugs, data races."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # BugFixerC

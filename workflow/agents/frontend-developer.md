@@ -2,7 +2,7 @@
 name: frontend-developer
 description: "General frontend UI engineering specialist for any framework — produces accessible, performant, production-grade UI code"
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # FrontendDeveloper

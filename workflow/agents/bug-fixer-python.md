@@ -2,7 +2,7 @@
 name: bug-fixer-python
 description: "Python bug diagnosis and fixing specialist (Django/FastAPI/Flask/Starlette) with root-cause analysis and regression testing — async/await pitfalls, race conditions, memory leaks."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # BugFixerPython

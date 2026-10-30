@@ -2,7 +2,7 @@
 name: qa-analyst
 description: "Quality assurance specialist validating acceptance criteria, executing tests, and ensuring Definition of Done before review or deployment"
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # QA Analyst — Quality Validation Specialist

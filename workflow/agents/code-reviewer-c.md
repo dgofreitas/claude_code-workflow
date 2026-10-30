@@ -2,7 +2,7 @@
 name: code-reviewer-c
 description: "C code review, security, and quality assurance agent — memory safety, buffer bounds, integer promotion, undefined behavior, CERT-C/CWE-aware scanning."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # CodeReviewerC

@@ -2,7 +2,7 @@
 name: code-reviewer
 description: "Code review, security, and quality assurance agent."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # CodeReviewer

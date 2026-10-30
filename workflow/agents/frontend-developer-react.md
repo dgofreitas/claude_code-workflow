@@ -2,7 +2,7 @@
 name: frontend-developer-react
 description: "React/Next.js frontend specialist for components, hooks, state management, and UI implementation."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # Frontend Developer — React/Next.js Specialist

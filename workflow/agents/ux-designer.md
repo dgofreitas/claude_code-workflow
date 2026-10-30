@@ -2,7 +2,7 @@
 name: ux-designer
 description: "UX/UI design specialist creating wireframes, component specs, and design system documentation."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # UX Designer -- User Experience & Interface Specialist

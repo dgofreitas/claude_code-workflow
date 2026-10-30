@@ -2,7 +2,7 @@
 name: shell-developer
 description: "Bash/Zsh scripting specialist for production-grade automation and CLI tools."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # Shell Systems Engineer -- Production Grade

@@ -2,7 +2,7 @@
 name: backend-developer-python
 description: "Python backend specialist for FastAPI, Django, Flask, Starlette with production-grade patterns."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # BackendDeveloperPython

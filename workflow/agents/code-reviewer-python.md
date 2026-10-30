@@ -2,7 +2,7 @@
 name: code-reviewer-python
 description: "Python code review, security, and quality assurance agent — type safety, OWASP-aware security scanning, Django/FastAPI/Flask framework conventions."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # CodeReviewerPython

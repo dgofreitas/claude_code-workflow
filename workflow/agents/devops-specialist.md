@@ -2,7 +2,7 @@
 name: devops-specialist
 description: "DevOps specialist for CI/CD pipelines, infrastructure as code, and deployment automation."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # DevopsSpecialist

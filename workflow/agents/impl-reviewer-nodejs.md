@@ -2,7 +2,7 @@
 name: impl-reviewer-nodejs
 description: "Post-implementation reviewer validating Node.js code against technical analysis specifications."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # Implementation Reviewer -- Node.js Specialist

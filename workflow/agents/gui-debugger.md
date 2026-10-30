@@ -2,7 +2,7 @@
 name: gui-debugger
 description: "Frontend/GUI bug diagnosis and fixing specialist using the Playwright MCP server for live browser inspection. Handles visual, DOM, interaction, hydration, layout, and console/network-driven UI bugs."
 tools: Read, Write, Edit, Bash, Glob, Grep, Task, Skill
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # gui-debugger

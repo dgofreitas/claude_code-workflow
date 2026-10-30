@@ -2,7 +2,7 @@
 name: test-engineer-c
 description: "C test authoring and TDD agent (Unity/cmocka/CTest) for comprehensive test coverage with sanitizers and gcov."
 tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite, Agent(context-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # TestEngineerC

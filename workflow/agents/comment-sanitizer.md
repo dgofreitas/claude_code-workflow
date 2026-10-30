@@ -2,7 +2,7 @@
 name: comment-sanitizer
 description: "Applies the Comment Budget to existing source files — removes narration, keeps invariants, never touches code."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # CommentSanitizer

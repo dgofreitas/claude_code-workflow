@@ -3,7 +3,7 @@ name: external-scout
 description: Fetches live, version-specific documentation for external libraries and frameworks using Context7 and other sources. Filters, sorts, and returns relevant documentation.
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, Agent(context-scout)
 skills: context7, tavily
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # ExternalScout

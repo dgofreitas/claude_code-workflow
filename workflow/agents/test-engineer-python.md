@@ -2,7 +2,7 @@
 name: test-engineer-python
 description: "Python test authoring and TDD agent (pytest) for comprehensive test coverage."
 tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite, Agent(context-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # TestEngineerPython

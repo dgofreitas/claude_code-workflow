@@ -2,7 +2,7 @@
 name: backend-developer-c
 description: "C backend specialist for CMake/Make services and libraries with production-grade memory safety and error handling."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # BackendDeveloperC

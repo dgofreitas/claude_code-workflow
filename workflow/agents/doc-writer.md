@@ -2,7 +2,7 @@
 name: doc-writer
 description: "Technical documentation specialist -- comprehensive Markdown with Mermaid diagrams."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent(context-scout, external-scout)
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 ---
 
 # DocWriter
