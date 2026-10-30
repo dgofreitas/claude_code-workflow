@@ -87,7 +87,8 @@
             "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/caveman-activate.js\"",
             "timeout": 5,
             "statusMessage": "Loading caveman mode..."
-          }
+          },
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-state.js\"", "timeout": 5 }
         ]
       }
     ],

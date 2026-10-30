@@ -79,18 +79,21 @@ Some installs are an **umbrella** git repo whose sub-directories are themselves 
 **Resolve this FIRST each turn, before anything else, with ONE bash call:**
 
 ```bash
-AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"
+S="${CLAUDE_CODE_SESSION_ID:+.claude/.state/$CLAUDE_CODE_SESSION_ID}"; AP=$(cat "$S/active-project" 2>/dev/null); P="${AP:-.}"; M="$S/exec-mode"; Q="$S/batch-queue.json"
 ```
 
+- `$S` = **this session's state dir**. Sub-project, mode and queue are what one conversation chose, so they live per session: a second session on the same install never reads or overwrites them. `/clear` starts a new session — a fresh start, nothing carried over. `--resume` keeps the id, and with it the state.
 - `$P` = **active working tree** (path/git prefix): `.` in single-project installs, `gerLic` in an umbrella. Refined to the story's worktree once the id is known — see below.
-- `$M` = per-project exec-mode file; `$Q` = per-project batch queue. Both stay keyed to the sub-project **name**, never to the tree — mode and queue survive worktree churn.
+- `$M` = this session's exec-mode; `$Q` = its batch queue.
+- **Every write** goes `[ -n "$S" ] && mkdir -p "$S" && echo <value> > <file>`. No session id (older Claude Code) → `$S` is empty and nothing persists: mode is Default every turn and an umbrella asks for the sub-project. Never fall back to a file shared by all sessions — that is the bug this layout removes.
 
 **Choosing the active project:**
 
-1. User names a sub-project in the prompt ("no gerLic", "gerLic STORY-035") → `echo gerLic > .claude/.active-project`, then re-run the snippet.
-2. Else use the persisted `.claude/.active-project` (empty → single-project).
-3. Else, if the working dir has NO sub-project git repos → single-project, `$P=.` (nothing changes; literal `artifacts/...` paths below are already correct).
-4. Else (umbrella, none named/persisted) → ASK "Qual sub-projeto? (teco / gerLic / ...)". Do NOT guess — the wrong project corrupts paths and state. Set it deterministically with `/project <name>` (see `commands/sdlc/project.md`).
+1. A story id is in play (umbrella) → the sub-project that has it. Run step 1 of State Detection over every sub-project (`ls */artifacts/stories/STORY-XXX*.md`); the path prefix names it. Exactly one → write it to `$S/active-project` and re-run the snippet: the session now works where its story is, and the tech-lead skill and GATE-MR read the same value. Several → the stored `$AP` if it is among them, else ASK.
+2. User names a sub-project in the prompt ("no gerLic", "gerLic STORY-035") or answers the question below → write it to `$S/active-project`, then re-run the snippet.
+3. Else use this session's stored `$AP`.
+4. Else, if the working dir has NO sub-project git repos → single-project, `$P=.` (nothing changes; literal `artifacts/...` paths below are already correct).
+5. Else (umbrella, none named/stored) → ASK "Qual sub-projeto? (teco / gerLic / ...)". Do NOT guess — the wrong project corrupts paths and state. `/project <name>` sets it deterministically (see `commands/sdlc/project.md`).
 
 **Worktree refinement (as soon as the story id is resolved):**
 
@@ -108,9 +111,9 @@ WT=$(git -C "$P" worktree list 2>/dev/null | grep -E "\[[^]]*STORY-XXX(-[^]]*)?\
 
 > Fold this into the State Detection call that already uses the resolved id (step 2) — it adds **no** bash call.
 
-**THE ANCHORING RULE:** every `artifacts/...` path in this file is shorthand for **`$P/artifacts/...`**, and every `git` / `ls` / `cat` on project content runs under **`$P`** (`git -C "$P" ...`). Per-project state (`$M`, `$Q`) means concurrent work on teco and gerLic never collides. In single-project installs `$P=.`, `$M=.claude/.exec-mode`, `$Q=.claude/.batch-queue.json` — identical to before.
+**THE ANCHORING RULE:** every `artifacts/...` path in this file is shorthand for **`$P/artifacts/...`**, and every `git` / `ls` / `cat` on project content runs under **`$P`** (`git -C "$P" ...`). In single-project installs `$P=.`, so the literal paths are already correct.
 
-> **`$P` is derived, never persisted.** Master is stateless between turns and re-derives it every turn from `.active-project` + the story's branch. There is no "active worktree" for Master to remember, so there is nothing to go stale.
+> **`$P` is derived, never persisted.** Master is stateless between turns and re-derives it every turn from `$S/active-project` + the story's branch. There is no "active worktree" for Master to remember, so there is nothing to go stale.
 
 > This ONE bash call (resolving `$P/$M/$Q`) is a **step-0 preamble** and does not count against the 2-call State Detection budget.
 
@@ -118,7 +121,7 @@ WT=$(git -C "$P" worktree list 2>/dev/null | grep -E "\[[^]]*STORY-XXX(-[^]]*)?\
 
 ## Execution Modes
 
-Master operates in one of three modes. Mode is set by the user's **first prompt of the session** AND persisted **per active sub-project** in `$M` (see Active Project) for subsequent turns.
+Master operates in one of three modes. Mode is set by the user's **first prompt of the session** AND persisted **for this session** in `$M` (see Active Project) for subsequent turns. Another session never inherits it: an automatic mode is something the user agreed to in *this* conversation.
 
 | Mode | GATE-PM | GATE-SA | GATE-AR | GATE-MR | GATE-NEXT | Trigger phrases |
 |------|---------|---------|---------|---------|-----------|-----------------|
@@ -132,18 +135,19 @@ Master operates in one of three modes. Mode is set by the user's **first prompt 
 
 Master is stateless between turns. To preserve mode across the session:
 
-1. **First turn**: scan prompt → detect trigger → write mode to `$M` (single line: `default` | `auto-gate` | `batch-auto`).
+1. **First turn**: scan prompt → detect trigger → write mode to `$M` (single line: `default` | `auto-gate` | `batch-auto`; see the write rule in Active Project).
 2. **Subsequent turns**: `bash: cat "$M" 2>/dev/null` BEFORE any other action. If file exists, that's your mode.
-3. **User says "voltar ao manual" / "stop auto" / "manual mode"**: `rm "$M"` and operate as Default.
+3. **User says "voltar ao manual" / "stop auto" / "manual mode"**: `rm -f "$M"` and operate as Default.
+4. **Resumed session**: the `session-state.js` hook puts a `SESSÃO RETOMADA — …` line in context. Show it to the user on the first turn; with a queue, drop from it what `backlog-status.sh` now reports as DONE before continuing.
 
-> **`/mode` command**: trigger phrases above are inferred from natural language and can misfire. `/mode [default|auto-gate|batch-auto|status]` (see `commands/sdlc/mode.md`) sets or checks the active project's exec-mode (`$M`) deterministically — prefer it when the switch has real consequences (e.g. before a batch-auto run, or to drop back to manual mid-session). Sibling command `/project <name>` sets the active sub-project.
+> **`/mode` command**: trigger phrases above are inferred from natural language and can misfire. `/mode [default|auto-gate|batch-auto|status]` (see `commands/sdlc/mode.md`) sets or checks this session's exec-mode (`$M`) deterministically — prefer it when the switch has real consequences (e.g. before a batch-auto run, or to drop back to manual mid-session). Sibling command `/project <name>` sets the active sub-project.
 
 Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX`. No pipeline explanation, no re-verification.
 
 ### Batch-Auto specifics
 
 - **Story queue**: written to `$Q` at start. Format: `{"queue": ["STORY-001", "STORY-002"], "current": 0, "completed": [], "failed": []}`.
-- **Queue source**: (a) story IDs in user prompt, OR (b) every row of `.claude/scripts/backlog-status.sh --project "$P"`, in its order (DONE and OBSOLETE are already left out).
+- **Queue source**: (a) story IDs in user prompt, OR (b) the PENDING and PLANNED rows of `.claude/scripts/backlog-status.sh --project "$P"`, in its order. IN-PROGRESS rows enter only by id: one may be another session's story, and two sessions would run it twice.
   Never `git log --grep STORY-`: a group commit (`STORY-006-58..63`) hides a merged story, and the commit that only added the story file makes an untouched one look merged.
 - **Execution loop**: pick `queue[current]` → run pipeline → on success move to `completed` → increment `current` → next. On failure: append to `failed`, STOP, report.
 - **Stop conditions** (non-overridable, even in batch-auto):
@@ -202,6 +206,7 @@ Run on every request (including "continue"). **Hard budget: max 2 bash calls per
 ```
 If user mentioned a SPECIFIC story id ("STORY-021", "STORY-005-30"):
   1. bash: ls artifacts/stories/STORY-XXX*.md 2>/dev/null                          → story exists? plan exists?
+           (umbrella: ls */artifacts/stories/STORY-XXX*.md — also names the sub-project; see Choosing the active project)
   2. bash: WT=$(git -C "$P" worktree list 2>/dev/null | grep -E "\[[^]]*<RESOLVED-ID>(-[^]]*)?\]" | awk '{print $1}' | head -1); P="${WT:-$P}"
            cat "$P"/artifacts/stories/<RESOLVED-ID>-checkpoint.md 2>/dev/null | head -50
                                                                                    → refines $P to the story's tree AND routes via SDLC STATUS + QUALITY AND DELIVERY
@@ -298,10 +303,10 @@ reads:
 
 ### 1. Mode Check (always first)
 
-Resolve the active project + per-project state first (step-0 preamble), then read the mode:
+Resolve the session state + active project first (step-0 preamble), then read the mode:
 
 ```bash
-AP=$(cat .claude/.active-project 2>/dev/null); P="${AP:-.}"; M=".claude/.exec-mode${AP:+.$AP}"; Q=".claude/.batch-queue${AP:+.$AP}.json"
+S="${CLAUDE_CODE_SESSION_ID:+.claude/.state/$CLAUDE_CODE_SESSION_ID}"; AP=$(cat "$S/active-project" 2>/dev/null); P="${AP:-.}"; M="$S/exec-mode"; Q="$S/batch-queue.json"
 cat "$M" 2>/dev/null   # → sets mode for this turn
 ```
 
@@ -396,7 +401,7 @@ If any subagent / skill returns `BLOCKED`, error, or refuses:
 1. STOP the pipeline. Do NOT auto-retry.
 2. Show user the failure message verbatim (no rewriting).
 3. **Default / Auto-Gate**: ask `"Agent X returned: [error]. Options: (a) retry (b) skip story (c) abort"`.
-4. **Batch-Auto**: append story to the active project's queue `$Q` (`failed[]`), output ONE line `[STORY-XXX] FAILED: [reason]`, STOP queue, output final report.
+4. **Batch-Auto**: append story to this session's queue `$Q` (`failed[]`), output ONE line `[STORY-XXX] FAILED: [reason]`, STOP queue, output final report.
 
 If `gh pr merge` fails (conflict / CI red):
 
