@@ -54,6 +54,7 @@ workflow/
 ├── skills/            # Skills (SKILL.md entrypoints), incl. tech-lead (orchestration skill)
 ├── context/            # 5-bucket context system (INDEX.md + files)
 ├── hooks/              # Caveman mode + RTK session hooks (Node.js)
+├── statusline/         # Statusline: caveman badge + model/subagents, tokscale tokens, plan limits
 └── bin/                # rtk binary (token-saving bash proxy)
 ```
 

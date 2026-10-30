@@ -39,6 +39,7 @@ readonly CLAUDE_REQUIRED_ITEMS=(
     "skills"
     "model-profiles"
     "scripts"
+    "statusline"
     "templates"
     "CLAUDE.md"
     "RTK.md"
@@ -51,6 +52,10 @@ readonly RTK_GLOBAL_BIN_DIR="${HOME}/.local/bin"
 
 readonly PLAYWRIGHT_MCP_PACKAGE="@playwright/mcp@latest"
 readonly PLAYWRIGHT_BROWSER="chromium"   # deve bater com --browser em workflow/settings.json mcpServers.playwright
+
+readonly TOKSCALE_PACKAGE="tokscale@latest"
+# Mesmo glob que tokscale_bin() em workflow/statusline/usage.py usa como fallback do PATH
+readonly TOKSCALE_NPX_GLOB="${HOME}/.npm/_npx/*/node_modules/@tokscale/cli-*/bin/tokscale"
 
 COUNT_AGENTS=0
 COUNT_COMMANDS=0
@@ -120,6 +125,7 @@ printHelp() {
     echo "com um link simbólico em <projeto>/.claude/bin/rtk. --rtk-version afeta essa instalação global."
     echo "Playwright MCP: o navegador Chromium é baixado na instalação (best-effort, não bloqueia se falhar)."
     echo "Se falhar ou for pulado, rode manualmente: npx -y -p @playwright/mcp@latest playwright install chromium"
+    echo "tokscale (tokens na statusline): instalado/atualizado via npx a cada instalação (best-effort)."
     echo ""
     echo "Variáveis de ambiente:"
     echo "  API_KEY_TAVILY        Chave da API Tavily (evita prompt interativo)"
@@ -174,7 +180,15 @@ checkPrerequisites() {
         warnings+=("npx")
         logWarn "npx não encontrado — o navegador do Playwright MCP não será pré-instalado"
     else
-        logInfo "npx encontrado — navegador Chromium do Playwright MCP será baixado na instalação"
+        logInfo "npx encontrado — navegador Chromium do Playwright MCP e tokscale serão baixados na instalação"
+    fi
+
+    # python3 (statusline: sem ele só aparece o badge do caveman)
+    if ! command -v python3 > /dev/null 2>&1; then
+        warnings+=("python3")
+        logWarn "python3 não encontrado — a statusline mostrará só o badge do caveman"
+    else
+        logSuccess "python3: $(python3 --version 2>&1 | cut -d' ' -f2)"
     fi
 
     # Git (recomendado)
@@ -334,6 +348,38 @@ installPlaywrightMcp() {
 playwrightBrowserDir() {
     npx -y -p "${PLAYWRIGHT_MCP_PACKAGE}" playwright install --dry-run "${PLAYWRIGHT_BROWSER}" 2>/dev/null \
         | awk '/Install location:/ {print $NF; exit}' || true
+}
+
+findTokscale() {
+    command -v tokscale 2>/dev/null && return 0
+    ls -t ${TOKSCALE_NPX_GLOB} 2>/dev/null | head -1
+}
+
+installTokscale() {
+    logStep "Instalando/atualizando o tokscale (linha de tokens da statusline)..."
+
+    if ! command -v npx > /dev/null 2>&1; then
+        logWarn "npx não encontrado — a linha de tokens da statusline ficará em \"carregando…\""
+        logInfo "  Instale manualmente depois: npx -y ${TOKSCALE_PACKAGE} --version"
+        return 0
+    fi
+
+    # npx instala no cache se faltar e atualiza no lugar se já existir
+    local installOutput
+    installOutput=$(npx -y "${TOKSCALE_PACKAGE}" --version 2>&1) || true
+
+    local bin
+    bin=$(findTokscale)
+    if [[ -n "${bin}" ]]; then
+        logSuccess "tokscale: $("${bin}" --version 2>/dev/null || echo "${bin}")"
+        if [[ "${bin}" != "${HOME}/.npm/_npx/"* ]]; then
+            logInfo "  A statusline usa o tokscale do PATH (${bin}), não o do npx — atualize-o você mesmo"
+        fi
+    else
+        logWarn "Falha ao baixar o tokscale — a linha de tokens da statusline ficará em \"carregando…\""
+        [[ "${VERBOSE}" == "true" ]] && logInfo "  Saída: ${installOutput}"
+        logInfo "  Para tentar manualmente depois: npx -y ${TOKSCALE_PACKAGE} --version"
+    fi
 }
 
 # Guarda-chuva = a raiz tem sub-diretórios que são repos git próprios
@@ -658,6 +704,7 @@ installLocal() {
     copyWorkflowFiles "${targetDir}"
     installRtk "${targetDir}"
     installPlaywrightMcp
+    installTokscale
     installBoard "${targetDir}" "${projectRoot}"
     updateGitignore "${projectRoot}"
     configureTavilyMCP "${targetDir}"
@@ -727,6 +774,12 @@ verifyInstallation() {
         logSuccess "  Navegador Playwright MCP: instalado"
     else
         logWarn "  Navegador Playwright MCP: não encontrado (download pode ter falhado — veja instruções manuais acima)"
+    fi
+
+    if [[ -n "$(findTokscale)" ]]; then
+        logSuccess "  tokscale (statusline): instalado"
+    else
+        logWarn "  tokscale (statusline): não encontrado (download pode ter falhado — veja instruções manuais acima)"
     fi
 
     if [[ ${errors} -eq 0 ]]; then

@@ -22,7 +22,8 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/caveman-statusline.sh\""
+    "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/statusline/statusline.sh\"",
+    "refreshInterval": 5
   },
   "hooks": {
     "PreToolUse": [

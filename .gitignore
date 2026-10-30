@@ -5,3 +5,5 @@ claude-workflow-installer.sh
 
 # Per-machine Claude Code settings; .claude/scripts/ IS tracked (workflow meta-tooling)
 .claude/settings.local.json
+
+__pycache__/

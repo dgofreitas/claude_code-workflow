@@ -39,6 +39,7 @@ readonly CLAUDE_REQUIRED_ITEMS=(
     "model-profiles"
     "scripts"
     "skills"
+    "statusline"
     "templates"
     "CLAUDE.md"
     "RTK.md"
@@ -170,7 +171,7 @@ createTarball() {
     cp "${SCRIPT_DIR}/install-claude-workflow.sh" "${SCRIPT_DIR}/workflow/install-claude-workflow.sh"
 
     # Criar tarball com gzip do diretório workflow/ inteiro
-    tar -czf "${tarballPath}" -C "${SCRIPT_DIR}" "workflow"
+    tar -czf "${tarballPath}" --exclude='__pycache__' -C "${SCRIPT_DIR}" "workflow"
 
     # Limpar: remover install-claude-workflow.sh de workflow/ (só estava lá para o bundle)
     rm -f "${SCRIPT_DIR}/workflow/install-claude-workflow.sh"
