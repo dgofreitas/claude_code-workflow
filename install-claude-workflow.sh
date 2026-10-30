@@ -119,7 +119,7 @@ printHelp() {
     echo "RTK é instalado globalmente em ~/.local/bin (compartilhado entre projetos, já costuma estar no PATH),"
     echo "com um link simbólico em <projeto>/.claude/bin/rtk. --rtk-version afeta essa instalação global."
     echo "Playwright MCP: o navegador Chromium é baixado na instalação (best-effort, não bloqueia se falhar)."
-    echo "Se falhar ou for pulado, rode manualmente: npx -y playwright install chromium"
+    echo "Se falhar ou for pulado, rode manualmente: npx -y -p @playwright/mcp@latest playwright install chromium"
     echo ""
     echo "Variáveis de ambiente:"
     echo "  API_KEY_TAVILY        Chave da API Tavily (evita prompt interativo)"
@@ -279,6 +279,15 @@ installRtk() {
                 logInfo "    Adicione ao seu shell profile (~/.bashrc ou ~/.zshrc): export PATH=\"${globalBinDir}:\$PATH\""
                 ;;
         esac
+
+        # Atualizar ~/.local/bin/rtk não adianta se outro `rtk` vem antes no PATH
+        # (ex.: `cargo install rtk` instala uma ferramenta homônima, sem relação).
+        local pathRtk
+        pathRtk=$(command -v rtk 2>/dev/null || true)
+        if [[ -n "${pathRtk}" && "$(readlink -f "${pathRtk}")" != "$(readlink -f "${globalBinDir}/rtk")" ]]; then
+            logWarn "  Outro 'rtk' tem precedência no PATH: ${pathRtk} ($("${pathRtk}" --version 2>/dev/null || echo "versão desconhecida"))"
+            logInfo "    Remova-o ou coloque ${globalBinDir} antes no PATH — senão o shell não usa o RTK recém-instalado"
+        fi
     else
         logWarn "Falha ao baixar o RTK automaticamente — a instalação continua sem ele"
         [[ "${VERBOSE}" == "true" ]] && logInfo "  Saída do instalador: ${installOutput}"
@@ -291,24 +300,40 @@ installPlaywrightMcp() {
 
     if ! command -v npx > /dev/null 2>&1; then
         logWarn "npx não encontrado — não é possível preparar o Playwright MCP automaticamente"
-        logInfo "  Instale manualmente depois: npx -y playwright install ${PLAYWRIGHT_BROWSER}"
+        logInfo "  Instale manualmente depois: npx -y -p ${PLAYWRIGHT_MCP_PACKAGE} playwright install ${PLAYWRIGHT_BROWSER}"
         return 0
     fi
 
-    # Aquece o cache npx do pacote @playwright/mcp (best-effort, não bloqueia a instalação)
-    npx -y "${PLAYWRIGHT_MCP_PACKAGE}" --version > /dev/null 2>&1 || true
+    # Instala/atualiza o @playwright/mcp no cache do npx. Se ele não roda aqui (ex.: Node abaixo
+    # do que o Playwright exige), o MCP também não sobe no Claude Code.
+    local mcpOutput
+    if ! mcpOutput=$(npx -y "${PLAYWRIGHT_MCP_PACKAGE}" --version 2>&1); then
+        logWarn "Playwright MCP não executa nesta máquina — o MCP não vai iniciar no Claude Code:"
+        logWarn "  $(echo "${mcpOutput}" | tr '\n' ' ')"
+        return 0
+    fi
+    logSuccess "Playwright MCP: ${mcpOutput##*$'\n'}"
 
     local installOutput
-    installOutput=$(npx -y playwright install "${PLAYWRIGHT_BROWSER}" 2>&1) || true
+    installOutput=$(npx -y -p "${PLAYWRIGHT_MCP_PACKAGE}" playwright install "${PLAYWRIGHT_BROWSER}" 2>&1) || true
 
-    if [[ -d "${HOME}/.cache/ms-playwright" || -d "${HOME}/Library/Caches/ms-playwright" ]]; then
-        logSuccess "Navegador ${PLAYWRIGHT_BROWSER} do Playwright MCP instalado"
+    local browserDir
+    browserDir=$(playwrightBrowserDir)
+    if [[ -n "${browserDir}" && -d "${browserDir}" ]]; then
+        logSuccess "Navegador ${PLAYWRIGHT_BROWSER} do Playwright MCP instalado: ${browserDir}"
     else
         logWarn "Falha ao baixar o navegador do Playwright MCP automaticamente — a instalação continua sem ele"
         [[ "${VERBOSE}" == "true" ]] && logInfo "  Saída: ${installOutput}"
-        logInfo "  Para tentar manualmente depois: npx -y playwright install ${PLAYWRIGHT_BROWSER}"
-        logInfo "  Dependências de sistema faltando (Linux)? npx -y playwright install --with-deps ${PLAYWRIGHT_BROWSER}"
+        logInfo "  Para tentar manualmente depois: npx -y -p ${PLAYWRIGHT_MCP_PACKAGE} playwright install ${PLAYWRIGHT_BROWSER}"
+        logInfo "  Dependências de sistema faltando (Linux)? acrescente --with-deps ao comando acima"
     fi
+}
+
+# Diretório da revisão do navegador que o Playwright *do MCP* espera. Um `npx playwright`
+# avulso resolve outra versão do Playwright e baixa outra revisão, que o MCP não enxerga.
+playwrightBrowserDir() {
+    npx -y -p "${PLAYWRIGHT_MCP_PACKAGE}" playwright install --dry-run "${PLAYWRIGHT_BROWSER}" 2>/dev/null \
+        | awk '/Install location:/ {print $NF; exit}' || true
 }
 
 # Guarda-chuva = a raiz tem sub-diretórios que são repos git próprios
@@ -696,7 +721,9 @@ verifyInstallation() {
         logWarn "  Binário rtk: não encontrado (download pode ter falhado — veja instruções manuais acima)"
     fi
 
-    if [[ -d "${HOME}/.cache/ms-playwright" || -d "${HOME}/Library/Caches/ms-playwright" ]]; then
+    local browserDir
+    browserDir=$(playwrightBrowserDir)
+    if [[ -n "${browserDir}" && -d "${browserDir}" ]]; then
         logSuccess "  Navegador Playwright MCP: instalado"
     else
         logWarn "  Navegador Playwright MCP: não encontrado (download pode ter falhado — veja instruções manuais acima)"
