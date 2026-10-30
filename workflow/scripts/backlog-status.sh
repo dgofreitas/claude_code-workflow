@@ -44,7 +44,8 @@ usage() {
 uso: backlog-status.sh [--project DIR] [--ref REF] [--development SLUG] [--epic EPIC-X]
                        [--aging-days N] [--all] [--json]
 
-  --project DIR    sub-projeto (default: .claude/.active-project, senão .)
+  --project DIR    sub-projeto (default: o desta sessão, em .claude/.state/<sessão>/active-project;
+                   fora de sessão, num umbrella, é obrigatório)
   --ref REF        referência da verdade (default: origin/main; sem fetch — é só leitura)
   --all            inclui DONE e OBSOLETE na tabela (por default só entram nas contagens)
   --json           uma linha JSON por story, mais uma linha "summary"
@@ -73,9 +74,16 @@ done
 
 [[ "${AGING_DAYS}" =~ ^[0-9]+$ ]] || die 1 "--aging-days exige um número"
 
+# Nunca um arquivo compartilhado entre sessões: outra sessão trocando de sub-projeto
+# faria esta ler o backlog do repo errado.
+if [[ -z "${PROJECT}" && -n "${CLAUDE_CODE_SESSION_ID:-}" ]]; then
+    PROJECT="$(cat ".claude/.state/${CLAUDE_CODE_SESSION_ID}/active-project" 2>/dev/null || true)"
+fi
 if [[ -z "${PROJECT}" ]]; then
-    PROJECT="$(cat .claude/.active-project 2>/dev/null || true)"
-    PROJECT="${PROJECT:-.}"
+    subs=""
+    for d in */; do [[ -e "${d}.git" ]] && subs="${subs} ${d%/}"; done
+    [[ -z "${subs}" ]] || die 1 "umbrella sem sub-projeto definido: use --project <um de:${subs}>"
+    PROJECT="."
 fi
 
 ROOT="$(git -C "${PROJECT}" rev-parse --show-toplevel 2>/dev/null)" \

@@ -497,12 +497,23 @@ updateGitignore() {
     fi
     grep -qxF ".claude/node_modules/" "${gitignoreFile}" 2>/dev/null || echo ".claude/node_modules/" >> "${gitignoreFile}"
     grep -qxF ".obsidian/" "${gitignoreFile}" 2>/dev/null || echo ".obsidian/" >> "${gitignoreFile}"
-    # Estado efêmero por-projeto (nunca deve ser commitado)
-    grep -qxF ".claude/.active-project" "${gitignoreFile}" 2>/dev/null || echo ".claude/.active-project" >> "${gitignoreFile}"
-    grep -qxF ".claude/.exec-mode*" "${gitignoreFile}" 2>/dev/null || echo ".claude/.exec-mode*" >> "${gitignoreFile}"
-    grep -qxF ".claude/.batch-queue*.json" "${gitignoreFile}" 2>/dev/null || echo ".claude/.batch-queue*.json" >> "${gitignoreFile}"
+    # Estado efêmero por sessão (nunca deve ser commitado)
+    grep -qxF ".claude/.state/" "${gitignoreFile}" 2>/dev/null || echo ".claude/.state/" >> "${gitignoreFile}"
 
     logSuccess ".gitignore atualizado"
+}
+
+# Antes o sub-projeto, o modo e a fila ficavam em arquivos que todas as sessões dividiam;
+# agora ficam em .claude/.state/<sessão>/. Os antigos não são mais lidos — removê-los evita
+# que alguém os edite achando que valem.
+removeLegacyState() {
+    local targetDir="$1" f found=0
+    for f in "${targetDir}/.active-project" "${targetDir}"/.exec-mode* "${targetDir}"/.batch-queue*.json; do
+        [[ -e "${f}" ]] || continue
+        rm -f "${f}" && found=1 && logInfo "  Estado antigo removido: ${f#"${targetDir}/"}"
+    done
+    [[ "${found}" -eq 1 ]] && logInfo "  Sub-projeto e modo agora são por sessão: defina de novo com /project e /mode"
+    return 0
 }
 
 configureTavilyMCP() {
@@ -702,6 +713,7 @@ installLocal() {
     fi
 
     copyWorkflowFiles "${targetDir}"
+    removeLegacyState "${targetDir}"
     installRtk "${targetDir}"
     installPlaywrightMcp
     installTokscale

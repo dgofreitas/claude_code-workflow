@@ -29,19 +29,58 @@ function readStdin() {
   try { return fs.readFileSync(0, 'utf8'); } catch { return ''; }
 }
 
-// Same $P resolution Master's own step-0 preamble uses — without it, an umbrella
-// install would check the wrong git repo (umbrella root instead of the sub-project).
+// The sub-project THIS session chose, from its own state dir (see CLAUDE.md → Active
+// Project). Never a file shared between sessions: a concurrent session switching
+// projects would silently point this guard at the wrong repo.
 // Only the REPO matters here, not which of its working trees: branch refs and the
 // worktree list are shared across every tree, so any of them answers both.
-function resolveRepoDir() {
-  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+function sessionRepoDir(projectDir, sessionId) {
+  if (!sessionId) return projectDir;
   try {
-    const activeProject = fs.readFileSync(path.join(projectDir, '.claude', '.active-project'), 'utf8').trim();
+    const activeProject = fs.readFileSync(
+      path.join(projectDir, '.claude', '.state', sessionId, 'active-project'), 'utf8').trim();
     if (activeProject) return path.join(projectDir, activeProject);
   } catch {
-    // no umbrella / no active project file — single-project install
+    // no state yet / single-project install
   }
   return projectDir;
+}
+
+// The umbrella root and every direct sub-directory that is its own git repo.
+function candidateRepos(projectDir) {
+  const repos = [projectDir];
+  let entries = [];
+  try { entries = fs.readdirSync(projectDir, { withFileTypes: true }); } catch { return repos; }
+  for (const e of entries) {
+    if (e.isDirectory() && !e.name.startsWith('.') && fs.existsSync(path.join(projectDir, e.name, '.git'))) {
+      repos.push(path.join(projectDir, e.name));
+    }
+  }
+  return repos;
+}
+
+function localBranches(repoDir) {
+  return new Set(
+    git(['for-each-ref', '--format=%(refname:short)', 'refs/heads/'], repoDir).split('\n').filter(Boolean)
+  );
+}
+
+// The repo that owns the branch the command publishes. The branch name decides, not
+// any stored choice: a story branch exists in exactly one sub-project, so it is found
+// wherever the session happens to be anchored. Several hits (same branch name in two
+// sub-projects) fall back to the session's own project; still ambiguous → null.
+function publishRepoDir(command, projectDir, sessionRepo) {
+  const tokens = tokenize(command);
+  const explicit = flagValue(tokens, SOURCE_FLAGS);
+  const hits = [];
+  for (const repo of candidateRepos(projectDir)) {
+    let branches;
+    try { branches = localBranches(repo); } catch { continue; }
+    if (explicit ? branches.has(explicit) : detectBranch(tokens, branches)) hits.push(repo);
+  }
+  if (hits.length === 1) return hits[0];
+  if (hits.length === 0) return sessionRepo;   // guardPublish then explains what is missing
+  return hits.includes(sessionRepo) ? sessionRepo : null;
 }
 
 // stderr is discarded: a hook writing to stderr pollutes the transcript, and every
@@ -135,9 +174,7 @@ function guardPublish(command, action, repoDir) {
   // every publish gets denied for the wrong reason.
   let branches;
   try {
-    branches = new Set(
-      git(['for-each-ref', '--format=%(refname:short)', 'refs/heads/'], repoDir).split('\n').filter(Boolean)
-    );
+    branches = localBranches(repoDir);
   } catch {
     return;
   }
@@ -218,12 +255,21 @@ function main() {
   }
 
   const command = input.tool_input.command;
-  const repoDir = resolveRepoDir();
+  const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const repoDir = sessionRepoDir(projectDir, input.session_id);
 
   const publishMatch = command.match(PUBLISH_RE);
   if (publishMatch) {
     try {
-      guardPublish(command, publishMatch[1], repoDir);
+      const publishRepo = publishRepoDir(command, projectDir, repoDir);
+      if (!publishRepo) {
+        deny(
+          'A branch do comando existe em mais de um sub-projeto, e nenhum deles é o projeto desta sessão. ' +
+          'Defina o sub-projeto com `/project <nome>` e repita o comando.'
+        );
+        process.exit(0);
+      }
+      guardPublish(command, publishMatch[1], publishRepo);
     } catch {
       process.exit(0); // git/fs failure — fail open, never block on infra error
     }

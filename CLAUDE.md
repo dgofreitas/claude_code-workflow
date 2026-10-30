@@ -74,7 +74,7 @@ Master (main session, router)
   → [GATE-NEXT] → next story or summary
 ```
 
-Five named human approval gates: `GATE-PM`, `GATE-SA`, `GATE-AR`, `GATE-MR`, `GATE-NEXT`. Execution mode (default / auto-gate / batch-auto) is persisted to `.claude/.exec-mode` — set it deterministically with `/mode` (see `workflow/commands/sdlc/mode.md`) or let Master infer it from trigger phrases.
+Five named human approval gates: `GATE-PM`, `GATE-SA`, `GATE-AR`, `GATE-MR`, `GATE-NEXT`. Execution mode (default / auto-gate / batch-auto), the active sub-project and the batch queue are **per session**, in `.claude/.state/<session_id>/` (owned by `workflow/hooks/session-state.js`) — set them deterministically with `/mode` and `/project`, or let Master infer them from the prompt. Never move them back into a file shared by all sessions: two sessions on one umbrella then switch each other's project and inherit each other's automatic mode.
 
 `tech-lead` is a **Skill**, not a subagent — it runs in the main session context (which always has the `Agent`/`Task` tool), and orchestrates the specialist subagents inside a single story. Master never calls story-internal agents (test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer) directly; it always goes through the `tech-lead` skill. See `workflow/CLAUDE.md` for the full routing/gate logic.
 

@@ -119,9 +119,11 @@ grep -q 'forge: git-only' <<< "${OUT}" && echo "ok   forge git-only" || { echo "
 bash "${SCRIPT}" --project "${R}" --json | head -1 | grep -q '"summary":"Backlog: 3 PENDING' \
     && echo "ok   json" || { echo "FAIL json"; fail=1; }
 
-mkdir -p "${TMP}/.claude"; echo proj > "${TMP}/.claude/.active-project"
-( cd "${TMP}" && bash "${SCRIPT}" ) | head -1 | grep -q "backlog-status: ${R} " \
-    && echo "ok   umbrella .active-project" || { echo "FAIL umbrella"; fail=1; }
+mkdir -p "${TMP}/.claude/.state/sess-a"; echo proj > "${TMP}/.claude/.state/sess-a/active-project"
+( cd "${TMP}" && CLAUDE_CODE_SESSION_ID=sess-a bash "${SCRIPT}" ) | head -1 | grep -q "backlog-status: ${R} " \
+    && echo "ok   umbrella: sub-projeto da sessão" || { echo "FAIL umbrella"; fail=1; }
+( cd "${TMP}" && CLAUDE_CODE_SESSION_ID=sess-b bash "${SCRIPT}" 2>&1 || true ) | grep -q "umbrella sem sub-projeto" \
+    && echo "ok   umbrella: outra sessão não herda" || { echo "FAIL umbrella herdou"; fail=1; }
 
 written="$(find "${R}" "${TMP}/wt-003" "${TMP}/remote.git" -newer "${TMP}/marker" | head -5)"
 [[ -z "${written}" ]] && echo "ok   nada escrito" || { echo "FAIL escreveu: ${written}"; fail=1; }
