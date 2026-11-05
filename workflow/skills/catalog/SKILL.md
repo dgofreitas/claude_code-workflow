@@ -65,12 +65,17 @@ files:
   - common/sessionsCursor.js
 provides: [http.GET./licencaWeb/v0/activeSessions_V2]
 consumes: [mongo.activeSessions]
+canonical:
+  - "cursor keyset das listas V2 → common/sessionsCursor.js#encodeCursor"
 stories: [STORY-012-sessoes-v2-mongo-keyset]
 verified-at: af78a4a664
 ---
 
 ## O que faz
 ## Onde vive          file → symbol (function, class, export). NEVER line numbers — they rot.
+## Fonte canônica     each domain value or rule this feature owns → the ONE symbol that computes
+                      it, and the test that pins it. Then "Cópias conhecidas": other places that
+                      compute the same thing (they diverge — treat as debt, never as a second source).
 ## Decisões           one line each, pointing at the technical-analysis that made them
 ## Desvios conhecidos code that contradicts a .claude/context standard — do not copy it
 ## Armadilhas         what broke before, or will (only if real and non-obvious)
@@ -129,6 +134,15 @@ verified-at: af78a4a664
   reads a field its provider does not emit.
 
 ### Rules for every entry
+
+- **Canonical sources are the point.** The defect this catalog exists to prevent is not a rule
+  changed on purpose — it is the same domain rule (a position, an exchange rate, a currency
+  map, a cache key, a date window) computed again somewhere else, the copies drifting apart,
+  and a fix that patches one copy. Measured on moneyTrackr: 16 of 22 knowledge-gap bugs that
+  reached production. So every value or rule an entry owns goes in `canonical:` (frontmatter,
+  `"<what> → <file>#<symbol>"`) and under **Fonte canônica**, and every other place that
+  computes it goes under **Cópias conhecidas** — with the file, so the next story can route
+  it to the source. `lookup` prints `canonical:` first.
 
 - `files:` is mandatory and lists every file the entry describes. It is what makes the
   entry go **stale** mechanically: `$S check` diffs those files from `verified-at` to HEAD.

@@ -424,7 +424,7 @@ function cmdLookup(project, cat, terms) {
   }
   const res = terms.map((t) => new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
   const scored = cat.entries.map((e) => {
-    const hay = [e.id, e.title, e.summary].concat(asList(e.tags), asList(e.files), asList(e.provides), asList(e.consumes)).join(' ');
+    const hay = [e.id, e.title, e.summary].concat(asList(e.tags), asList(e.canonical), asList(e.files), asList(e.provides), asList(e.consumes)).join(' ');
     const head = res.filter((r) => r.test(hay)).length;
     const body = res.filter((r) => r.test(e.body)).length;
     return { e, score: head * 2 + body };
@@ -436,6 +436,9 @@ function cmdLookup(project, cat, terms) {
   for (const { e, score } of scored) {
     console.log('- ' + path.join(CATALOG_DIR, e.rel) + '  (score ' + score + ')');
     console.log('  ' + e.summary);
+    // The answer a planner is looking for: where a domain value is computed, so the story
+    // uses it instead of computing it again.
+    for (const c of asList(e.canonical)) console.log('  canonical: ' + c);
     console.log('  files: ' + asList(e.files).join(', '));
     // Flagged at the moment of use: a planner reading a stale entry is the harm, and the
     // story that would refresh it only runs after the plan exists.

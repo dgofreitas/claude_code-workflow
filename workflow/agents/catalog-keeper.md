@@ -43,6 +43,19 @@ built from memory or from another entry's text is the failure this catalog canno
   folding an interface into a feature entry as "nobody uses it", grep this repo for its
   path/name. Only an interface with no caller anywhere stays as a line in a feature.
 
+### Rule: Canonical Sources — the reason this catalog exists
+
+For every domain value or rule a feature owns — a position, a balance, a rate conversion, a
+currency map, a date window, a cache key, a status classification — find the ONE symbol that
+computes it and record it in `canonical:` and under **Fonte canônica**, with the test that
+pins it (or "sem teste"). Then grep the project for other places computing the same thing
+(same formula, same constant table, same filter) and list them under **Cópias conhecidas**,
+noting where they already diverge. Do not pick a winner by guessing: when two copies disagree
+and nothing says which is right, list both and say so — that is a finding for the user.
+
+The defect this prevents is the same rule computed twice and drifting apart, then fixed in
+one copy only. An entry that lists files but no canonical source has missed its main job.
+
 ### Rule: Scope
 
 - Write only under `$P/artifacts/catalog/`. Never under `.claude/`, never source code.
@@ -82,6 +95,9 @@ Input: story id, `$P`, the output of `node $S affected --project "$P"`.
    add new ones), `stories:` (append the story id), `verified-at:`.
 2. For each **uncovered** changed file: add it to the entry it belongs to, or create a new
    feature/contract entry. A new route, collection, event or env var is always a contract.
+   Canonical sources move with the story: a source the story created goes into `canonical:`;
+   a copy it routed to the source leaves **Cópias conhecidas**; a new copy it introduced (the
+   review should have caught it) goes in, and in your report.
 3. For each **stale from outside** entry (max 5): re-read its files, refresh it.
 4. `node $S index --project "$P"` then `node $S check --project "$P"` — in an umbrella it
    finds the siblings' catalogs by itself. Fix every ERROR you introduced. Report MISMATCH

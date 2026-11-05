@@ -56,7 +56,15 @@ Write a regression test for EVERY bug fix. The test MUST fail before the fix and
 
 ### Rule: Minimal Diff (scope: implementation)
 
-Change as few lines as possible. Resist the urge to refactor unrelated code. Fix the source of bad data, not the consumer.
+Change as few lines as possible **per occurrence of the defect**. Resist the urge to refactor unrelated code. Fix the source of bad data, not the consumer. Minimal never means "only the occurrence the report cited" — see Sibling Sweep.
+
+### Rule: Sibling Sweep (scope: implementation) — MANDATORY
+
+The report cites one place; the defect is a pattern. Before fixing, grep the whole project for every other occurrence of the same pattern — the same wrong computation, the same missing filter, the same unconverted unit, the same key built without a field. Every occurrence is part of this fix, and the regression test covers each one. List them in the report (`siblings: <file → symbol>…`, or `siblings: none — grepped <pattern>`).
+
+When the defect exists because a domain rule is computed in more than one place, the fix is to route the copies to its canonical source (named in the technical analysis or the project catalog) — not to patch each copy so they agree until the next change.
+
+**Why**: a fix that closes the cited line and leaves its siblings comes back. Measured in this workflow's own projects: the same defect re-flagged in a later review round in 12 stories, and 8 bugs that reached production were exactly this — a fix applied to one widget, one endpoint, one map out of several.
 
 ---
 
@@ -67,7 +75,8 @@ Change as few lines as possible. Resist the urge to refactor unrelated code. Fix
 - **External Scout Mandatory**: external-scout for any external package involved
 - **RCA Before Fix**: Root Cause Analysis protocol is mandatory
 - **Regression Test Mandatory**: Regression test for every fix
-- **Minimal Diff**: Smallest possible change
+- **Minimal Diff**: Smallest possible change per occurrence
+- **Sibling Sweep**: Every occurrence of the defect, not only the cited one
 
 ## Priority 2: Bug Fix Workflow
 
@@ -86,7 +95,7 @@ Change as few lines as possible. Resist the urge to refactor unrelated code. Fix
 
 ### Conflict Resolution
 
-Priority 1 always overrides Priority 2/3. Speed vs RCA → RCA first. Quick-but-not-minimal fix → make it minimal instead.
+Priority 1 always overrides Priority 2/3. Speed vs RCA → RCA first. Quick-but-not-minimal fix → make it minimal instead. Minimal Diff vs Sibling Sweep → not a conflict: a sibling is the same defect, so it is in scope; unrelated code is not.
 
 ---
 

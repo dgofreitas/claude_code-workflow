@@ -102,6 +102,11 @@ that restates the impacted-components table earns nothing.
 
 ### 2. Technical Analysis
 
+- **Canonical sources first** — fill `## Fontes Canônicas` before planning the change.
+  The defect that most often reaches production in these projects is a domain rule
+  computed a second time and drifting from the first (16 of 22 knowledge-gap bugs measured
+  on moneyTrackr), and the plan is the last point where it is cheap to prevent: once a
+  developer writes the copy, review has to catch it and the fix has to find every copy.
 - Analyze technical complexity and risks
 - Identify impacted components (from code analysis)
 - Determine required technology stack changes
@@ -153,6 +158,18 @@ flowchart TD
 
 Per domain (BACKEND / FRONTEND / SHARED): what to build, which contracts to honour, and
 what NOT to touch.
+
+## Fontes Canônicas
+
+Every domain value or rule this story reads, computes or changes (a position, a balance, a
+conversion, a currency/country map, a date window, a cache key, a classification) → the ONE
+symbol that computes it today: `<value> → <file>#<symbol>` (from `catalog.cjs lookup`
+`canonical:` lines, or found by grep). Developers USE these, never compute them again. No
+source yet → name the symbol this story creates as the source. Known copies that compute the
+same thing → say whether this story routes them to the source or leaves them (and why).
+
+**Fix stories:** list here every occurrence of the defect's pattern, found by grep across
+the whole project — not only the one the bug report cites. Each one is in scope.
 
 ## Contrato de Teste
 

@@ -349,6 +349,12 @@ When rework is needed (QA REQUIRES FIXES or Review BLOCKED), pick the fix agent 
 
 If unsure → default to **original developer** (they own the code).
 
+Every fix delegation carries `Refs: artifacts/stories/STORY-XXX-technical-analysis.md` next to
+the report path: rework is where a fix lands on one copy of a rule computed in several
+places, and `## Fontes Canônicas` is what tells the fixer where the rule really lives. The
+bug-fixers sweep for siblings by their own rule; name the cited pattern in the prompt so
+they grep for it, not for the line.
+
 > A report mixing comment findings with any other Major → the other finding picks the agent from the rows above. The comment lines get fixed by whoever is already touching the file; the fast path is for comment-only reports.
 
 ### Rule: Artifact Verification Gate — MANDATORY
@@ -644,7 +650,8 @@ THEN update checkpoint: mark [x] QA with result (PASSED or REQUIRES FIXES)
 ```
 Task(subagent_type="code-reviewer") STORY-XXX
 Review code quality, architecture, and test coverage.
-Read: artifacts/stories/STORY-XXX-checkpoint.md, artifacts/stories/STORY-XXX-qa-report.md
+Read: artifacts/stories/STORY-XXX-checkpoint.md, artifacts/stories/STORY-XXX-qa-report.md,
+      artifacts/stories/STORY-XXX-technical-analysis.md (## Fontes Canônicas — Canonical Source Check)
 After review: save review report to artifacts/stories/STORY-XXX-code-review.md
 THEN update checkpoint: mark [x] CODE REVIEW with verdict (APPROVED or BLOCKED)
 ```

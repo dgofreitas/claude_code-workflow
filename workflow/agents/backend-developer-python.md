@@ -18,6 +18,16 @@ model: claude-sonnet-5-5
 
 ## Critical Rules
 
+### Rule: Use Canonical Sources, Never Recompute (scope: implementation) — MANDATORY
+
+Before writing code that reads or computes a domain value (a position, a balance, a
+conversion, a currency/country map, a date window, a cache key, a classification), read
+`## Fontes Canônicas` in the story's technical analysis and call the `file#symbol` it names.
+A value the analysis does not list but that probably exists already → `grep` (and
+`node .claude/skills/catalog/scripts/catalog.cjs lookup --project <root> <terms>` when the
+project has a catalog) before writing it. Computing it again — even identically — creates the
+copy that later drifts from the original; the code-reviewer blocks it as Major.
+
 ### Rule: Comment Budget (scope: all_execution)
 
 A comment earns its place ONLY when a reader would get it wrong without it. Hard limits:
