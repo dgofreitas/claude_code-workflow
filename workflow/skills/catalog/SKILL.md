@@ -7,7 +7,7 @@ description: >
   conferir se está em dia ("catalog check", "catálogo desatualizado") ou para consultar
   antes de planejar ("o que já existe sobre X"). A atualização no fim de cada story é
   feita pelo tech-lead, não por este skill.
-argument-hint: [init|check|lookup <termos>]
+argument-hint: [init|check|lookup <termos>|refresh <entradas>]
 allowed-tools: Task Bash Read AskUserQuestion SendMessage
 ---
 
@@ -249,6 +249,14 @@ dedicated branch (`docs/catalog-bootstrap`), so the bootstrap lands as one revie
 catalog-keeper call in `Mode: refresh` with exactly those entries. In an umbrella, a
 sibling's catalog still on an unmerged branch lives in a worktree — pass it with
 `--siblings <worktree dir>` or its contracts read as "no provider catalogued".
+
+## Mode: refresh
+
+Re-verify entries against the code without waiting for them to go stale — after an entry is
+found wrong, or after the keeper's rules changed (e.g. provider fields now come from what the
+code writes). One `catalog-keeper` call in `Mode: refresh` with exactly the entries named —
+`providers` expands to every `role: provider` contract; batch them (≤ 15 entries per call),
+in parallel like init. Then `check`. Do not commit unless the user asked.
 
 ## Mode: lookup
 

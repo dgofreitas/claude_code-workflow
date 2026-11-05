@@ -93,7 +93,7 @@ S="${CLAUDE_CODE_SESSION_ID:+.claude/.state/$CLAUDE_CODE_SESSION_ID}"; AP=$(cat 
 2. User names a sub-project in the prompt ("no gerLic", "gerLic STORY-035") or answers the question below → write it to `$S/active-project`, then re-run the snippet.
 3. Else use this session's stored `$AP`.
 4. Else, if the working dir has NO sub-project git repos → single-project, `$P=.` (nothing changes; literal `artifacts/...` paths below are already correct).
-5. Else (umbrella, none named/stored) → ASK "Qual sub-projeto? (teco / gerLic / ...)". Do NOT guess — the wrong project corrupts paths and state. `/project <name>` sets it deterministically (see `commands/sdlc/project.md`).
+5. Else (umbrella, none named/stored) → ASK "Qual sub-projeto? (teco / gerLic / ...)". Do NOT guess — the wrong project corrupts paths and state. `/sdlc:project <name>` sets it deterministically (see `commands/sdlc/project.md`).
 
 **Worktree refinement (as soon as the story id is resolved):**
 
@@ -140,7 +140,7 @@ Master is stateless between turns. To preserve mode across the session:
 3. **User says "voltar ao manual" / "stop auto" / "manual mode"**: `rm -f "$M"` and operate as Default.
 4. **Resumed session**: the `session-state.js` hook puts a `SESSÃO RETOMADA — …` line in context. Show it to the user on the first turn; with a queue, drop from it what `backlog-status.sh` now reports as DONE before continuing.
 
-> **`/mode` command**: trigger phrases above are inferred from natural language and can misfire. `/mode [default|auto-gate|batch-auto|status]` (see `commands/sdlc/mode.md`) sets or checks this session's exec-mode (`$M`) deterministically — prefer it when the switch has real consequences (e.g. before a batch-auto run, or to drop back to manual mid-session). Sibling command `/project <name>` sets the active sub-project.
+> **`/sdlc:mode` command**: trigger phrases above are inferred from natural language and can misfire. `/sdlc:mode [default|auto-gate|batch-auto|status]` (see `commands/sdlc/mode.md`) sets or checks this session's exec-mode (`$M`) deterministically — prefer it when the switch has real consequences (e.g. before a batch-auto run, or to drop back to manual mid-session). Sibling command `/sdlc:project <name>` sets the active sub-project.
 
 Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX`. No pipeline explanation, no re-verification.
 
@@ -292,7 +292,7 @@ reads:
 | "review" / "QA" / "validate" / "MR" / "PR" / "bug" / "fix" / story in execution | **tech-lead skill** (tech-lead picks the right internal agent: test-engineer / qa-analyst / code-reviewer / bug-fixer / merge-request-creator) |
 | "document" | doc-writer |
 | "what files / context" | context-scout |
-| "criar catálogo" / "catalog init" / "catálogo desatualizado" / "o que já existe sobre X" | **catalog skill** (init / check / lookup). The per-story update is tech-lead's, never Master's |
+| "criar catálogo" / "catalog init" / "catálogo desatualizado" / "o que já existe sobre X" | **catalog skill** (init / check / lookup / refresh; deterministic: `/sdlc:catalog`) — "como usar o catálogo" → show `/sdlc:catalog help`. The per-story update is tech-lead's, never Master's |
 | "external lib docs" | external-scout |
 | "pendências" / "o que falta" / "backlog" / "status do épico" | Answer directly from `backlog-status.sh` (see Backlog Questions) |
 | simple question (no exec) | Answer directly |

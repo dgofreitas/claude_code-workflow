@@ -53,7 +53,7 @@ flowchart TD
   implementation and re-runs tests and QA. There is no shortcut to the MR.
 - **Five human gates** (`GATE-PM`, `GATE-SA`, `GATE-AR`, `GATE-MR`, `GATE-NEXT`). Three
   execution modes (`default`, `auto-gate`, `batch-auto`) let you trade supervision for
-  throughput, set deterministically with `/mode`.
+  throughput, set deterministically with `/sdlc:mode`.
 - **Pre-merge verification runs in every mode**: no open checklist items, QA report present,
   code-review report present, branch fully pushed. Any failure aborts the merge.
 
@@ -63,7 +63,7 @@ flowchart TD
 |---|---|---|
 | Specialist subagents | 35 | Product, architecture, UX, implementation, testing, QA, review, MR, DevOps, docs, context scouts |
 | Language-specific variants | Node.js · Python · C · React · Angular · Vue | Separate developers, test engineers, reviewers and bug fixers per stack |
-| Slash commands | 13 | `/story`, `/plan`, `/implement`, `/bugfix`, `/review`, `/qa`, `/mr`, `/mode`, `/project`, … |
+| Slash commands | 14 | `/sdlc:story`, `/sdlc:plan`, `/sdlc:implement`, `/sdlc:bugfix`, `/sdlc:review`, `/sdlc:qa`, `/sdlc:mr`, `/sdlc:mode`, `/sdlc:project`, `/sdlc:catalog`, … |
 | Skills | 13 | `tech-lead` orchestration, task management, test execution, Playwright debugging, container dev, docs lookup |
 | Hooks | 13 Node.js scripts | Guardrails and context hygiene (see below) |
 | Context library | ~45 files | Standards, workflows, stack guides and project memory, indexed by tags |
@@ -101,7 +101,7 @@ kept by hand: `scripts/backlog-status.sh` classifies every story from git and th
 story nobody started still shows up when you ask what is left.
 
 **Multi-project umbrellas.** One install can drive several sibling repositories,
-with every path and git operation anchored to the active sub-project (`/project`).
+with every path and git operation anchored to the active sub-project (`/sdlc:project`).
 
 ## Installation
 
