@@ -110,7 +110,7 @@ def price(requests):
     return total, peak, over
 
 
-def collect(hours, match=None):
+def collect(hours, match=None, project=None):
     """match: regex over the delegation prompt — the log path names only the session's
     project, so in an umbrella the sub-project shows up in the prompt, not the path."""
     cutoff = time.time() - hours * 3600 if hours else 0
@@ -122,6 +122,9 @@ def collect(hours, match=None):
         if os.path.getmtime(path) < cutoff:
             continue
         agent, deleg, requests = scan(path)
+        # The log path names the session's project dir (e.g. -home-...-moneyTrackr-V2).
+        if project and not re.search(project, path):
+            continue
         if match and not re.search(match, deleg):
             continue
         # Zero-token entries (e.g. `<synthetic>`) cost nothing whatever their model.
@@ -225,9 +228,10 @@ def main():
     ap.add_argument('--runs', action='store_true', help='with --agent: per-run distribution')
     ap.add_argument('--files', action='store_true', help='with --agent: cost by files per delegation')
     ap.add_argument('--match', help='only runs whose delegation prompt matches this regex')
+    ap.add_argument('--project', help='only runs whose log path (the session\'s project dir) matches this regex')
     args = ap.parse_args()
 
-    runs = collect(args.hours, args.match)
+    runs = collect(args.hours, args.match, args.project)
     if not runs:
         print('no subagent logs found under ~/.claude/projects')
         return
