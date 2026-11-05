@@ -31,4 +31,4 @@ Complete strategic documentation: Vision & Strategy, Personas (JTBD), Epics (MoS
 
 ## Next Step
 
-After approval, run `/story <epic-id>` to have product-manager decompose an approved epic into implementable user stories.
+After approval, run `/sdlc:story <epic-id>` to have product-manager decompose an approved epic into implementable user stories.

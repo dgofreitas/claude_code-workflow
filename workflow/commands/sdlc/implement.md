@@ -29,8 +29,8 @@ Use the **tech-lead** skill to orchestrate the story:
 
 ## Prerequisites
 
-- A story file should exist (run `/story` first)
-- A technical analysis should exist (run `/plan` first)
+- A story file should exist (run `/sdlc:story` first)
+- A technical analysis should exist (run `/sdlc:plan` first)
 - Both are recommended but not strictly required
 
 ## Output

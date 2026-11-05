@@ -38,4 +38,4 @@ Invoke the `system-architect` subagent via the Task tool:
 
 ## Next Step
 
-After scaffold, run `/story` or `/plan EPIC-XXX` to proceed with the backlog.
+After scaffold, run `/sdlc:story` or `/sdlc:plan EPIC-XXX` to proceed with the backlog.

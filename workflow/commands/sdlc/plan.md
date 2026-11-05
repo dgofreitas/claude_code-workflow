@@ -28,5 +28,5 @@ A technical analysis file containing: stack detection results, architecture deci
 
 ## Prerequisites
 
-- A story file should exist (run `/story` or `/epic` first)
-- For greenfield projects: `artifacts/architecture/TECH-STACK.md` must exist (run `/scaffold` first)
+- A story file should exist (run `/sdlc:story` or `/sdlc:epic` first)
+- For greenfield projects: `artifacts/architecture/TECH-STACK.md` must exist (run `/sdlc:scaffold` first)

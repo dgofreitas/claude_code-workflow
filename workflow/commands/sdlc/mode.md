@@ -31,7 +31,7 @@ Then parse `$ARGUMENTS` (case-insensitive), operating on `$M` / `$Q`:
 
 - Switching mode mid-story does not interrupt an in-flight `tech-lead` skill invocation — it only changes gate behavior for turns after this command runs.
 - Switching to `default` mid-batch (`rm "$M"`) does **not** clear the batch queue (`$Q`). The queue file stays; a later `batch-auto` would resume it. To abandon the queue entirely, also run `rm -f "$Q"`.
-- Mode and queue are **per session**, not per sub-project: switching the active project (`/project`) keeps this session's mode. Another session — and this one after `/clear` — starts in default.
+- Mode and queue are **per session**, not per sub-project: switching the active project (`/sdlc:project`) keeps this session's mode. Another session — and this one after `/clear` — starts in default.
 - This never bypasses Pre-Merge Verification (CLAUDE.md §6.1) — that check is independent of mode and always runs before GATE-MR.
 
 ## Output
