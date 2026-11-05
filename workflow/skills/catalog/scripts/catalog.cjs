@@ -330,13 +330,27 @@ function siblingCatalogs(project, explicit) {
   const common = git(abs, ['rev-parse', '--path-format=absolute', '--git-common-dir'], { allowFail: true });
   const home = common ? path.dirname(common) : top;
   const parent = path.dirname(home);
+  // During a bootstrap every sub-project's catalog sits on a branch of the same name, often in
+  // a worktree rather than in the sub-project checkout. A sibling worktree on this project's
+  // branch wins over the sibling checkout, so a coordinated bootstrap cross-checks itself.
+  const branch = git(abs, ['branch', '--show-current'], { allowFail: true });
   const out = [];
   for (const d of fs.readdirSync(parent)) {
     const dir = path.join(parent, d);
     if (dir === home || dir === top) continue;
-    if (!fs.existsSync(path.join(dir, CATALOG_DIR))) continue;
-    const cat = loadCatalog(dir);
-    if (cat) out.push({ name: d, cat });
+    if (git(dir, ['rev-parse', '--git-dir'], { allowFail: true }) === null) continue;
+    let where = dir;
+    if (branch) {
+      const wl = git(dir, ['worktree', 'list', '--porcelain'], { allowFail: true }) || '';
+      for (const block of wl.split('\n\n')) {
+        const wt = (block.match(/^worktree (.+)$/m) || [])[1];
+        const br = (block.match(/^branch refs\/heads\/(.+)$/m) || [])[1];
+        if (wt && br === branch && fs.existsSync(path.join(wt, CATALOG_DIR))) where = wt;
+      }
+    }
+    if (!fs.existsSync(path.join(where, CATALOG_DIR))) continue;
+    const cat = loadCatalog(where);
+    if (cat) out.push({ name: where === dir ? d : d + ' (' + path.basename(where) + ')', cat });
   }
   return out;
 }
@@ -360,6 +374,7 @@ function cmdCheck(project, cat, siblings) {
   // provider does not emit is the "producer and consumer disagree" class of defect.
   const mine = cat.entries.filter((e) => e.type === 'catalog-contract');
   const sibs = siblingCatalogs(project, siblings);
+  const norm = (f) => f.replace(/\[\]/g, '').replace(/\s+/g, '');
   const providers = {};
   const owners = {};
   for (const src of [{ name: '(this project)', cat }].concat(sibs)) {
@@ -386,12 +401,27 @@ function cmdCheck(project, cat, siblings) {
     // The two sides rarely write fields at the same depth: `releaseUpdate` on one side covers
     // `releaseUpdate.termoAceite` on the other, and `items[].id` is `items.id`. Only a field with
     // no ancestor or descendant on the provider side is a disagreement.
-    const norm = (f) => f.replace(/\[\]/g, '').replace(/\s+/g, '');
     const emitted = asList(p.e.fields).map(norm);
     const covers = (f) => emitted.some((q) => q === f || f.startsWith(q + '.') || q.startsWith(f + '.'));
     const missing = asList(e.fields).filter((f) => !covers(norm(f)));
     if (missing.length && emitted.length) {
       problems.push(['MISMATCH', e.rel, 'reads ' + missing.join(', ') + ' — not in ' + p.where + ' ' + p.e.rel]);
+    }
+  }
+
+  // The other direction: this project's providers against the siblings' consumers. Without
+  // it a story that drops a field a sibling still reads passes its own check — the provider's
+  // story is exactly where that break has to show up.
+  for (const e of mine.filter((x) => x.role === 'provider')) {
+    const emitted = asList(e.fields).map(norm);
+    if (!emitted.length) continue;
+    const covers = (f) => emitted.some((q) => q === f || f.startsWith(q + '.') || q.startsWith(f + '.'));
+    for (const sib of sibs) {
+      for (const c of sib.cat.entries) {
+        if (c.type !== 'catalog-contract' || c.role !== 'consumer' || c.id !== e.id) continue;
+        const missing = asList(c.fields).filter((f) => !covers(norm(f)));
+        if (missing.length) problems.push(['MISMATCH', e.rel, sib.name + ' ' + c.rel + ' reads ' + missing.join(', ') + ' — not emitted here']);
+      }
     }
   }
 

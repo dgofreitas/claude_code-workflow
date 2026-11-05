@@ -35,6 +35,12 @@ built from memory or from another entry's text is the failure this catalog canno
 ### Rule: Contracts from both ends of the wire
 
 - Provider `fields:` = what the handler actually emits (read the response construction).
+  When it returns a stored record as-is (`res.json(doc)`), the fields are what the code
+  WRITES into that record — grep every insert/update/`$set` on it — never a list of fields
+  that "could" be there, a schema guess, or anything read from a consumer's entry. A field
+  only the consumer side names is exactly what `check` exists to flag; listing it on the
+  provider side to be thorough hides a real bug (it happened: a provider entry listed a
+  `licenceFile_3` no code writes, and the consumer's dead "Anterior 3" slot went unreported).
 - Consumer `fields:` = what the consumer actually reads (grep its property accesses).
 - The `id` is the full wire path after every mount/prefix (`http.GET./licencaWeb/v0/x`),
   so both sides compute the same one. Resolve the prefix — open the file that mounts it.
