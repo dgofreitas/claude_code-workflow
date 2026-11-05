@@ -92,10 +92,19 @@ O QUE OBSERVAR
       "já existia" → divergência antiga entre os projetos; vale abrir uma story.
   - lookup com "⚠ STALE" → a entrada pode estar velha; confirme no código.
 
+MUDANÇAS GRANDES (redesenho de telas, refatoração ampla)
+  - Feita por uma story do workflow: nada a fazer. O tech-lead divide a atualização do
+    catálogo em lotes paralelos quando a story toca muitas entradas; telas que deixaram
+    de existir têm a entrada apagada, telas que só mudaram de arquivo são reapontadas.
+  - Feita fora do workflow: o /sdlc:catalog check diz qual caminho seguir —
+      até 30% das entradas atingidas  →  /sdlc:catalog refresh <entradas>
+      acima de 30%                    →  /sdlc:catalog init (recriar; os limites antigos
+                                         das entradas já não batem com o código)
+
 QUANDO USAR O REFRESH
   - Uma entrada se mostrou errada (ex.: lista um campo que o código não produz).
   - As regras do catalog-keeper mudaram depois que o catálogo foi criado.
-  - Muitas entradas desatualizadas de uma vez.
+  - Algumas entradas desatualizadas de uma vez (até ~30% do catálogo).
 
 ONDE FICA
   artifacts/catalog/INDEX.md            índice (gerado — não edite à mão)

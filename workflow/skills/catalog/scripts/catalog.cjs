@@ -280,7 +280,7 @@ function cmdAffected(project, cat, baseArg) {
     const files = asList(e.files);
     files.forEach((f) => covered.add(f));
     const hit = files.filter((f) => changed.has(f) || gone.has(f));
-    if (hit.length) touched.push({ e, hit, gone: hit.filter((f) => gone.has(f)) });
+    if (hit.length) touched.push({ e, hit, gone: hit.filter((f) => gone.has(f)), allGone: files.every((f) => gone.has(f)) });
   }
   const uncovered = Array.from(changed).filter((f) => !covered.has(f) && !ignored(f) && SOURCE_RE.test(f));
 
@@ -296,12 +296,18 @@ function cmdAffected(project, cat, baseArg) {
 
   const work = touched.length || uncovered.length || drift.length;
   console.log('CATALOG: ' + (work ? 'update' : 'no-op'));
+  // The size tech-lead splits on: one keeper call per ~12 entries, like init batches.
+  const units = touched.length + Math.min(drift.length, 5) + Math.ceil(uncovered.length / 4);
+  console.log('work units: ' + units + ' (touched ' + touched.length + ', stale ' + Math.min(drift.length, 5) +
+    ', uncovered files ' + uncovered.length + ')' + (units > 12 ? ' — split into parallel batches of ≤ 12' : ''));
   console.log('base: ' + base.ref + ' @ ' + base.mb.slice(0, 10) + ' | head: ' + git(project, ['rev-parse', '--short=10', 'HEAD']));
   console.log('changed files: ' + changes.length);
   if (touched.length) {
     console.log('\n## Entries touched by this diff (' + touched.length + ')');
     for (const t of touched) {
-      console.log('- ' + t.e.rel + ' ← ' + t.hit.join(', ') + (t.gone.length ? '  [GONE: ' + t.gone.join(', ') + ']' : ''));
+      console.log('- ' + t.e.rel + ' ← ' + t.hit.join(', ') +
+        (t.allGone ? '  [ALL FILES GONE — capability removed? delete the entry; moved? repoint it]'
+          : t.gone.length ? '  [GONE: ' + t.gone.join(', ') + ']' : ''));
     }
   }
   if (uncovered.length) {
@@ -431,6 +437,14 @@ function cmdCheck(project, cat, siblings) {
   const src = git(project, ['ls-files']).split('\n').filter((f) => f && !ignored(f) && SOURCE_RE.test(f));
   const unc = src.filter((f) => !covered.has(f));
   const pct = src.length ? Math.round((100 * (src.length - unc.length)) / src.length) : 100;
+  // A large rewrite done outside the workflow: refreshing entry by entry costs more and ends
+  // worse than rebuilding — the old entries' boundaries no longer match the code.
+  const hit = new Set(problems.filter((x) => x[0] === 'STALE' || (x[0] === 'ERROR' && /file does not exist/.test(x[2]))).map((x) => x[1]));
+  const ratio = cat.entries.length ? hit.size / cat.entries.length : 0;
+  if (hit.size) {
+    problems.push(['INFO', '(remedy)', hit.size + ' of ' + cat.entries.length + ' entries (' + Math.round(ratio * 100) + '%) stale or pointing at removed files — ' +
+      (ratio > 0.3 ? 'above 30%: rebuild with `/sdlc:catalog init` rather than refresh' : '`/sdlc:catalog refresh` them')]);
+  }
   problems.push(['INFO', '(coverage)', pct + '% of ' + src.length + ' source files are in some entry' + (sibs.length ? ' | siblings with a catalog: ' + sibs.map((s) => s.name).join(', ') : '')]);
 
   report(problems);

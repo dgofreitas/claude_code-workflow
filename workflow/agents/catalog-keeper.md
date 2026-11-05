@@ -110,11 +110,26 @@ Input: a list of files + neighbours + `verified-at`.
 
 ### Mode: update — end of a story (called by tech-lead after GATE 4)
 
-Input: story id, `$P`, the output of `node $S affected --project "$P"`.
+Input: story id, `$P`, the output of `node $S affected --project "$P"`, and — when the
+change is large — a part (`parte i de n`, with the entries of that part) or `finalização`.
+
+- **`parte i de n`**: do steps 1-3 for exactly the entries listed, nothing else — no
+  `index`, no `check`, no commit, no checkpoint. Parallel parts run at the same time, and
+  those steps touch shared files.
+- **`finalização`** (after every part returned): steps 4-6 only, over the whole catalog.
+- Neither given: all steps.
 
 1. For each **touched** entry: read the changed files and the diff
    (`git -C "$P" diff <base>..HEAD -- <files>`), update the body, `files:` (drop GONE paths,
    add new ones), `stories:` (append the story id), `verified-at:`.
+   **`[ALL FILES GONE]`** — decide which it is, from the diff:
+   - **moved** (the same capability now lives in other files — a redesign, a rename):
+     repoint `files:` and update the body; the entry keeps its id.
+   - **removed** (the capability no longer exists): `git -C "$P" rm` the entry. Do not keep
+     an entry "for history" — git log is the history, and a catalog that describes code that
+     is gone misleads the next planner. A removed **provider** contract goes in your report
+     with the sibling consumers that read it (`check` will list them): the story just broke
+     them, or they were already dead.
 2. For each **uncovered** changed file: add it to the entry it belongs to, or create a new
    feature/contract entry. A new route, collection, event or env var is always a contract.
    Canonical sources move with the story — with their semantics: a source the story created goes into `canonical:`;

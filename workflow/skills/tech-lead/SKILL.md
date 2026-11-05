@@ -448,6 +448,13 @@ an entry written against a diff that later moves is wrong on arrival.
 3. First line `CATALOG: update` → delegate **catalog-keeper** (format below) with the full
    output. It updates the entries, regenerates the INDEX, commits `artifacts/catalog/` as
    `docs(catalog): STORY-XXX` and marks `[x] CATALOG`.
+   **The second line says `split into parallel batches`** (a redesign, a large refactor):
+   one call would carry every changed file, and an agent's depth falls as its delegation
+   grows — the catalog would come out shallowest exactly where the code changed most. Split
+   the listed entries into parts of ≤ 12, grouped by directory, and send every part in the
+   same message (`Mode: update, parte i de n` + its entries + the full `affected` output for
+   context). When all return, one more call with `Mode: update, finalização` regenerates the
+   INDEX, checks, commits and marks `[x] CATALOG`.
 4. Verify per Checkpoint Sanity Check item 3, then merge-request-creator.
 
 - Not a quality gate: a catalog failure never reopens fix → test → QA → review. It follows
