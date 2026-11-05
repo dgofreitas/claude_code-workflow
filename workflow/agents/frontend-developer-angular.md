@@ -29,6 +29,9 @@ A value the analysis does not list but that probably exists already → `grep` (
 `node .claude/skills/catalog/scripts/catalog.cjs lookup --project <root> <terms>` when the
 project has a catalog) before writing it. Computing it again — even identically — creates the
 copy that later drifts from the original; the code-reviewer blocks it as Major.
+Respect the semantics each source states — unit, currency, time zone, which date. Converting
+is allowed only explicitly, at the boundary, once (`percentToDecimal(rate)`), never by
+treating one as the other.
 
 ### Rule: Comment Budget (scope: all_execution)
 

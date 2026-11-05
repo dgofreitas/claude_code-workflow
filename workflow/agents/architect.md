@@ -163,8 +163,11 @@ what NOT to touch.
 
 Every domain value or rule this story reads, computes or changes (a position, a balance, a
 conversion, a currency/country map, a date window, a cache key, a classification) → the ONE
-symbol that computes it today: `<value> → <file>#<symbol>` (from `catalog.cjs lookup`
-`canonical:` lines, or found by grep). Developers USE these, never compute them again. No
+symbol that computes it today: `<value> → <file>#<symbol> — <semantics>` (from `catalog.cjs
+lookup` `canonical:` lines, or found by grep). Semantics = what the name does not say: unit or
+scale (percent vs decimal), currency, instant vs civil day and time zone, which date (data-com,
+data-ex, payment), what a record represents. Take it from the producing code; when the story
+moves a value across a boundary in a different unit or zone, say where the conversion happens. Developers USE these, never compute them again. No
 source yet → name the symbol this story creates as the source. Known copies that compute the
 same thing → say whether this story routes them to the source or leaves them (and why).
 

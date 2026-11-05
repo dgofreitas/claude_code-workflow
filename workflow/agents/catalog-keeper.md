@@ -56,6 +56,22 @@ and nothing says which is right, list both and say so — that is a finding for 
 The defect this prevents is the same rule computed twice and drifting apart, then fixed in
 one copy only. An entry that lists files but no canonical source has missed its main job.
 
+### Rule: Write the Meaning, Not Only the Name
+
+A field name and type do not say what a value means. For every canonical value and contract
+field where they could be misread, write the semantics as the code establishes it — end the
+`canonical:` line with ` — <semantics>` and fill the contract's **Semântica**:
+
+- numbers with a unit or scale: percent vs decimal, cents vs units, per-day vs per-year;
+- money: which currency, and whether mixed currencies can appear in one list;
+- dates and times: an instant or a civil day (and how it is stored — 00:00 UTC?), which time
+  zone, and WHICH date (data-com, data-ex, payment, settlement, record time);
+- records: what one document represents when a collection holds several kinds.
+
+Take it from the code that produces the value (the conversion, the parser, the schema), never
+from the field's name. When the producer does not make it determinable, write
+"semântica não determinável pelo código" — a gap the user should see, not a guess.
+
 ### Rule: Scope
 
 - Write only under `$P/artifacts/catalog/`. Never under `.claude/`, never source code.
@@ -95,7 +111,7 @@ Input: story id, `$P`, the output of `node $S affected --project "$P"`.
    add new ones), `stories:` (append the story id), `verified-at:`.
 2. For each **uncovered** changed file: add it to the entry it belongs to, or create a new
    feature/contract entry. A new route, collection, event or env var is always a contract.
-   Canonical sources move with the story: a source the story created goes into `canonical:`;
+   Canonical sources move with the story — with their semantics: a source the story created goes into `canonical:`;
    a copy it routed to the source leaves **Cópias conhecidas**; a new copy it introduced (the
    review should have caught it) goes in, and in your report.
 3. For each **stale from outside** entry (max 5): re-read its files, refresh it.
@@ -107,6 +123,9 @@ Input: story id, `$P`, the output of `node $S affected --project "$P"`.
    field the sibling still reads was removed. Report those first, under `NOVO nesta story:`,
    with the sibling entry that breaks. The rest is pre-existing, under `já existia:`. You
    never edit the sibling's catalog: its entries describe its code and change with its stories.
+   For every contract this story touched, also compare its **Semântica** with the
+   counterpart's (as in finalize, step 3): a semantic mismatch the story introduced — a field
+   that now holds percent where the consumer still reads decimal — goes under `NOVO nesta story:`.
 5. Commit ONLY `artifacts/catalog/` on the story branch:
    `git -C "$P" add artifacts/catalog && git -C "$P" commit -m "docs(catalog): STORY-XXX"`.
 6. Mark `[x] CATALOG` in `$P/artifacts/stories/STORY-XXX-checkpoint.md` and commit it.
@@ -123,14 +142,20 @@ If `affected` printed `CATALOG: no-op`, the tech-lead should not have called you
    contract → the same capability written twice by parallel batches: merge them, or, when
    they really are two capabilities, keep the contract in the `provides:` of the one whose
    files implement it and point the other at it in prose.
-3. **MISMATCH with both sides in this project** is usually an init artefact, not a defect:
+3. **Compare meaning, not only names.** For each consumer contract whose provider is
+   catalogued (here or in a sibling), read both **Semântica** sections: a consumer that treats
+   a percent as a decimal, an instant as a civil day, or one date kind as another reads a field
+   that exists and still disagrees. `check` cannot see this — report it as
+   `SEMANTIC MISMATCH: <consumer entry> × <provider entry> — <field>: <one side> vs <other>`,
+   with file → symbol on both sides. Never edit either side to make them agree.
+4. **MISMATCH with both sides in this project** is usually an init artefact, not a defect:
    a response is often assembled across files that landed in different batches (a handler
    builds the body, a helper in another file adds a block), so the provider entry lists only
    part of it. Follow the response construction through every call until you see the full
    body; fix the provider entry when it was incomplete, the consumer entry when it was wrong.
    Only what is still a MISMATCH after reading the code is a finding — report it verbatim
    with the file and symbol that proves it. Cross-project MISMATCH: never edit to silence it.
-4. Re-run `index` if you changed any entry. Do not commit unless the prompt says so.
+5. Re-run `index` if you changed any entry. Do not commit unless the prompt says so.
 
 ### Mode: refresh — named stale entries
 

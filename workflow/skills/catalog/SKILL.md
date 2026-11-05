@@ -66,7 +66,7 @@ files:
 provides: [http.GET./licencaWeb/v0/activeSessions_V2]
 consumes: [mongo.activeSessions]
 canonical:
-  - "cursor keyset das listas V2 → common/sessionsCursor.js#encodeCursor"
+  - "cursor keyset das listas V2 → common/sessionsCursor.js#encodeCursor — opaco, base64 de JSON v3"
 stories: [STORY-012-sessoes-v2-mongo-keyset]
 verified-at: af78a4a664
 ---
@@ -105,6 +105,8 @@ verified-at: af78a4a664
 ---
 
 ## Forma              request (params, query, body) and response, as THIS side sees it
+## Semântica          per field whose meaning a name does not carry: unit, scale, currency,
+                      time zone / instant vs civil day, which date, what a record represents
 ## Garantias          ordering, limits, error codes, auth — what the other side relies on
 ```
 
@@ -143,6 +145,16 @@ verified-at: af78a4a664
   `"<what> → <file>#<symbol>"`) and under **Fonte canônica**, and every other place that
   computes it goes under **Cópias conhecidas** — with the file, so the next story can route
   it to the source. `lookup` prints `canonical:` first.
+- **Semantics travel with the value.** Each `canonical:` line ends with ` — <semantics>`
+  whenever the value's name does not say it all, and contracts carry a **Semântica** section.
+  Write it for: numbers with a unit or scale (percent vs decimal, cents vs units), money
+  (which currency), dates and times (instant vs civil day stored as 00:00 UTC, which time
+  zone, data-com vs data-ex vs payment date), and records whose kind is not obvious (a live
+  quote vs a historical candle in one collection). Measured on moneyTrackr: the contract bugs
+  that reached production were all of this kind — both sides agreed on the field's name and
+  type and disagreed on its meaning (SGS rate in percent read as decimal, a civil day shown
+  one day early in local time, B3 data-com deduplicated against Yahoo data-ex). Shape-only
+  checks cannot see them; only the written meaning can.
 
 - `files:` is mandatory and lists every file the entry describes. It is what makes the
   entry go **stale** mechanically: `$S check` diffs those files from `verified-at` to HEAD.

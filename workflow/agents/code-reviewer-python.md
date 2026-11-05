@@ -120,6 +120,10 @@ the values the diff touches — read-only, like grep). Then check the diff for:
 - **A value with a canonical source computed again** — a new formula, constant table, filter
   or key builder for something a listed `file#symbol` already computes, instead of calling it
   → **Major**, even when today's result is identical: the copy is what drifts.
+- **A value used against its stated semantics** — percent treated as decimal, amounts in
+  different currencies summed, a civil day formatted in local time, one date kind compared
+  with another, records of different kinds counted together → **Major**. The field name and
+  type match, which is exactly why tests miss it.
 - **Fix stories: every listed occurrence fixed.** Grep the defect's pattern yourself; an
   occurrence left as it was → **Major** (`file:line — sibling of the fixed defect left
   unfixed — Major`).
@@ -164,7 +168,7 @@ Any path containing `rtk/tee/` is forbidden to read — no exceptions.
 - **Output Format**: Structured output with severity ratings
 - **Mandatory Report**: Report saved to artifacts/stories/ every invocation
 - **Comment Budget**: comment lines > code lines in the diff → Major; verify every path cited in a new comment exists
-- **Canonical Source Check**: a value with a canonical source recomputed, or a sibling of a fixed defect left → Major
+- **Canonical Source Check**: a value with a canonical source recomputed, used against its stated semantics, or a sibling of a fixed defect left → Major
 - **Blocking Verdict**: VERDICT line always last
 
 ## Priority 2: Review Workflow
