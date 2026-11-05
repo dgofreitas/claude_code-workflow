@@ -42,7 +42,8 @@ Every story follows this exact sequence. No shortcuts, no skipping, no reorderin
    ╰─ GATE 4: CODE REVIEW         — file exists AND checkpoint shows [x] CODE REVIEW AND VERDICT: APPROVED
    ╰─ If BLOCKED → loop back to step 3, do NOT skip retest+QA
    ╰─ EXCEPT when every blocking finding is a Comment Budget one → Rule: Comment-Only Rework
-7. MERGE REQUEST     → merge-request-creator (ONLY after all 4 gates green)
+6b. CATALOG          → only if the checkpoint has a CATALOG item → Rule: Catalog Update
+7. MERGE REQUEST     → merge-request-creator (ONLY after all 4 gates green, and [x] CATALOG when present)
    ╰─ GATE 5: MR                  — PR URL returned
 8. DONE              → report back to Master
 ```
@@ -185,12 +186,18 @@ Skip delegations for all tasks already marked `[x]` in checkpoint.
 When a checkpoint file is loaded (Restart Detection or any subsequent read), validate its structure BEFORE trusting any `[x]`:
 
 1. **Required sections present**: `## SDLC STATUS`, `## QUALITY AND DELIVERY` (or legacy `## QUALIDADE E ENTREGA`). At least one of `## BACKEND` / `## FRONTEND` / `## SHARED` must exist.
-2. **No duplicate items**: `Merge Request` appears EXACTLY ONCE (under `SDLC STATUS`). `TESTS`, `QA`, `CODE REVIEW` each appear exactly once.
+2. **No duplicate items**: `Merge Request` appears EXACTLY ONCE (under `SDLC STATUS`). `TESTS`, `QA`, `CODE REVIEW` each appear exactly once; `CATALOG` at most once (absent is valid — see the checkpoint format).
 3. **No stale `[x]` without evidence**: for each `[x]` in QUALITY AND DELIVERY, verify the corresponding artifact:
    - `[x] QA` → `artifacts/stories/STORY-XXX-qa-report*.md` must exist.
    - `[x] CODE REVIEW` → `artifacts/stories/STORY-XXX-code-review*.md` must exist.
    - `[x] TESTS` → trust the checkpoint (test-engineer's only evidence is the checkpoint itself).
-4. **If any check fails** → checkpoint is corrupt:
+   - `[x] CATALOG` → `[x] CATALOG — no-op` is trusted; otherwise `git -C "$P" log --oneline -1 --fixed-strings --grep "docs(catalog): STORY-XXX"` must print a commit.
+4. **Catalog adopted mid-story**: `[ -f "$P/artifacts/catalog/INDEX.md" ]`, no `CATALOG` line,
+   and `Merge Request` still `[ ]` → append `- [ ] CATALOG` to QUALITY AND DELIVERY. A story
+   whose checkpoint predates the catalog would otherwise merge without updating it. Once the
+   MR exists, leave it: its diff is already on review, and the next story's `affected` lists
+   the entries it left stale.
+5. **If any check fails** → checkpoint is corrupt:
    - Missing sections → recreate the missing sections, preserve existing `[x]` items that pass validation.
    - Duplicates → keep the entry under `SDLC STATUS`, remove the one under `QUALITY AND DELIVERY`.
    - Stale `[x]` → revert to `[ ]` and report "Checkpoint reverted: <item> marked [x] without artifact".
@@ -241,7 +248,13 @@ updated: <ISO timestamp>
 - [ ] TESTS
 - [ ] QA
 - [ ] CODE REVIEW
+- [ ] CATALOG
 ```
+
+> **`CATALOG` exists only when the project has a catalog** — at creation time, run
+> `[ -f "$P/artifacts/catalog/INDEX.md" ]`; false → omit the line. The item is what carries
+> the catalog update to Master's Pre-Merge Check 1 (any `[ ]` aborts the merge), so a story
+> cannot reach `main` with the catalog behind it, and no project without one pays for it.
 
 > **Frontmatter** (per `context/standards/artifact-frontmatter.md`): the checkpoint is the
 > ONE mutable artifact, so it carries the live board fields. Source `title`/`development`/`epic`
@@ -256,9 +269,10 @@ updated: <ISO timestamp>
 
 - Items in BACKEND/FRONTEND must match the Domain Inventory — same granularity.
 - Specialist agents mark their own BACKEND/FRONTEND items `[x]` after each commit (enforced via delegation format).
-- Quality/delivery agents update their own checkpoint items: test-engineer marks `[x] TESTS`; qa-analyst marks `[x] QA`; code-reviewer marks `[x] CODE REVIEW`; merge-request-creator marks `[x] Merge Request`.
+- Quality/delivery agents update their own checkpoint items: test-engineer marks `[x] TESTS`; qa-analyst marks `[x] QA`; code-reviewer marks `[x] CODE REVIEW`; catalog-keeper marks `[x] CATALOG`; merge-request-creator marks `[x] Merge Request`.
 - TechLead's role at GATE 2/3/4/5 is to **verify** (Artifact Verification Gate), not to mark — never set `[x]` for an item the responsible agent did not mark.
 - After ALL BACKEND/FRONTEND/SHARED items are `[x]`, mark `[x] Implementation — TechLead` in SDLC STATUS (this one IS TechLead's responsibility — no specialist owns it).
+- `[x] CATALOG — no-op` is the other item TechLead marks itself, and only when `catalog.cjs affected` printed `CATALOG: no-op` (see Rule: Catalog Update) — a script verdict, not a judgement, so no agent is called to repeat it.
 - Keep the frontmatter `status`/`updated` current as the story crosses gates (and set `coverage` at GATE 2) — see **Rule: Board Status Field**. This is the ONLY mutable frontmatter and drives the Bases story board.
 
 ### Rule: Board Status Field — MANDATORY
@@ -411,6 +425,39 @@ code-reviewer / merge-request-creator gate on clean working tree (`git status --
 3. Re-delegate COMMIT ONLY of the file(s) already on disk — say so explicitly in the prompt (e.g. "git add + commit artifacts/stories/STORY-XXX-code-review.md as-is, do NOT re-review"). Even when the dirty file is the reporting agent's own report (e.g. code-reviewer's own code-review.md), this is STILL commit-only — NEVER re-run that agent's full workflow (review/test/QA) to "fix" an uncommitted file. A redo produces a NEW file version, which starts right back at zero commits.
 4. Return directly to the agent that reported the failure once its file is committed — do not restart the fix → test → QA → review cycle.
 5. Repeats for same story → 2-Strike Rule (BLOCKED, escalate).
+
+### Rule: Catalog Update (scope: after GATE 4) — MANDATORY when the checkpoint has CATALOG
+
+The project catalog (`$P/artifacts/catalog/`, format in `.claude/skills/catalog/SKILL.md`)
+records what exists in the code and where. It goes stale the day a story lands without
+updating it — so the update rides on the story's own branch and MR, after the code is final.
+
+Runs after `VERDICT: APPROVED`, never before: the review loop can still change the code, and
+an entry written against a diff that later moves is wrong on arrival.
+
+1. ```bash
+   node .claude/skills/catalog/scripts/catalog.cjs affected --project "$P"
+   ```
+2. First line `CATALOG: no-op` → mark `[x] CATALOG — no-op` yourself. No agent call.
+3. First line `CATALOG: update` → delegate **catalog-keeper** (format below) with the full
+   output. It updates the entries, regenerates the INDEX, commits `artifacts/catalog/` as
+   `docs(catalog): STORY-XXX` and marks `[x] CATALOG`.
+4. Verify per Checkpoint Sanity Check item 3, then merge-request-creator.
+
+- Not a quality gate: a catalog failure never reopens fix → test → QA → review. It follows
+  the 2-Strike Rule; a second failure → `STORY-XXX-BLOCKED` with `At gate: CATALOG`.
+- `MISMATCH` lines in catalog-keeper's report are findings about the code (a consumer reads a
+  field its provider does not emit) — copy them into the handoff's `Catalog:` line for the
+  user, the `NOVO nesta story:` ones first: those are a contract this story broke for a
+  sibling project, and the human at GATE-MR is the one who decides whether that ships. They
+  do not block the MR: the review that just approved is the judge of the code.
+
+```
+Task(subagent_type="catalog-keeper") STORY-XXX
+Mode: update. Project: $P. Story: STORY-XXX.
+Output of `catalog.cjs affected`: <paste verbatim>
+Technical analysis: $P/artifacts/stories/STORY-XXX-technical-analysis.md
+```
 
 ---
 
@@ -658,6 +705,7 @@ QA report: artifacts/stories/STORY-XXX-qa-report.md (Status: PASSED)
 Review report: artifacts/stories/STORY-XXX-code-review.md (VERDICT: APPROVED)
 Coverage: XX%
 Files changed: X (+YYY/-ZZZ lines)
+Catalog: updated N entries | no-op | no catalog   (+ MISMATCH lines, verbatim)
 ```
 
 Optional human-readable details below the structured block (Master ignores them):
@@ -677,7 +725,7 @@ Optional human-readable details below the structured block (Master ignores them)
 ```markdown
 STORY-XXX-BLOCKED
 Reason: <one-line root cause>
-At gate: <GATE 1 / GATE 2 / GATE 3 / GATE 4 / GATE 5>
+At gate: <GATE 1 / GATE 2 / GATE 3 / GATE 4 / CATALOG / GATE 5>
 Last agent: <agent-name>
 Checkpoint: artifacts/stories/STORY-XXX-checkpoint.md
 ```
@@ -714,7 +762,7 @@ Checkpoint: artifacts/stories/STORY-XXX-checkpoint.md
 14. NEVER loop on failures — see 2-Strike Rule.
 15. NEVER retry without changing strategy — identical retry = automatic stop.
 16. **NEVER create a pull request, run `git merge`, or merge code yourself** — merge-request-creator is the EXCLUSIVE agent for MR creation. TechLead coordinates; merge-request-creator delivers.
-17. **NEVER call merge-request-creator before ALL 4 gates pass** — GATE 1 (Domain), GATE 2 (Tests), GATE 3 (QA: file + `[x]` + PASSED), GATE 4 (Review: file + `[x]` + APPROVED). Any failure → re-delegate the missing agent.
+17. **NEVER call merge-request-creator before ALL 4 gates pass** — GATE 1 (Domain), GATE 2 (Tests), GATE 3 (QA: file + `[x]` + PASSED), GATE 4 (Review: file + `[x]` + APPROVED) — nor while a `CATALOG` item is still `[ ]`. Any failure → re-delegate the missing agent.
 18. **NEVER mark any QUALITY AND DELIVERY item `[x]` before BOTH the responsible agent reports success AND the artifact file exists on disk** (Artifact Verification Gate fires at marking time).
 
 ---
@@ -727,6 +775,7 @@ A story is DONE when **all 5 gates** of the Happy Path are green:
 - GATE 2: `[x] TESTS` (coverage ≥ 90%)
 - GATE 3: `[x] QA` + qa-report.md exists + Status PASSED
 - GATE 4: `[x] CODE REVIEW` + code-review.md exists + VERDICT APPROVED
+- `[x] CATALOG` when the checkpoint has the item (Rule: Catalog Update)
 - GATE 5: PR created, `[x] Merge Request`
 
 > Rework cycle is defined in Happy Path (step 3 onward). Refer there — do not duplicate the rule.

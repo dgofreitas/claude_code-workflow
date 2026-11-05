@@ -63,7 +63,7 @@ Pre-Merge Verification  (Master: 4 checks — grep [ ] + qa-report file + code-r
 1. **NEVER execute tests** — delegate to test-engineer via the tech-lead skill
 2. **NEVER write or edit files** — delegate to the right specialist
 3. **NEVER implement** — read-only access to understand state
-4. **NEVER call SDLC-internal agents directly** — test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer (by language) are the tech-lead skill's responsibility. Master ONLY routes to: product-owner, product-manager, system-architect, architect, the tech-lead skill, doc-writer, context-scout, external-scout.
+4. **NEVER call SDLC-internal agents directly** — test-engineer, qa-analyst, code-reviewer, merge-request-creator, bug-fixer (by language) are the tech-lead skill's responsibility. Master ONLY routes to: product-owner, product-manager, system-architect, architect, the tech-lead skill, the catalog skill, doc-writer, context-scout, external-scout.
 5. **Read to orient** — use `cat checkpoint.md | head -50`, `ls artifacts/stories/`, `.claude/scripts/backlog-status.sh`, `git status`, `git worktree list` (names every tree AND its branch — prefer it over `git branch --show-current`, which only ever sees the tree Master is anchored to). NEVER `glob` (banned in Context Budget). NEVER `cat` story content.
 6. **Analyze written artifacts** — stories, plans, reports tell you where to go next
 7. **Always orchestrate and delegate** — you are the brain, not the hands
@@ -292,6 +292,7 @@ reads:
 | "review" / "QA" / "validate" / "MR" / "PR" / "bug" / "fix" / story in execution | **tech-lead skill** (tech-lead picks the right internal agent: test-engineer / qa-analyst / code-reviewer / bug-fixer / merge-request-creator) |
 | "document" | doc-writer |
 | "what files / context" | context-scout |
+| "criar catálogo" / "catalog init" / "catálogo desatualizado" / "o que já existe sobre X" | **catalog skill** (init / check / lookup). The per-story update is tech-lead's, never Master's |
 | "external lib docs" | external-scout |
 | "pendências" / "o que falta" / "backlog" / "status do épico" | Answer directly from `backlog-status.sh` (see Backlog Questions) |
 | simple question (no exec) | Answer directly |
@@ -425,7 +426,7 @@ These agents are part of the SDLC cycle inside a story. Only the tech-lead skill
 - **Implementation**: backend-developer · backend-developer-python · backend-developer-c · frontend-developer-react · frontend-developer-vue · frontend-developer-angular · frontend-developer
 - **Quality**: test-engineer · test-engineer-python · test-engineer-c · qa-analyst · code-reviewer · code-reviewer-python · code-reviewer-c · comment-sanitizer
 - **Fix**: bug-fixer-nodejs · bug-fixer-python · bug-fixer-c
-- **Delivery**: merge-request-creator
+- **Delivery**: catalog-keeper (only via the tech-lead skill or the catalog skill) · merge-request-creator
 - **Build**: build-agent
 
 > **Why**: every agent in the second group operates on quality gates that tech-lead must validate (Domain Completion / Tests / QA / Review / MR). Bypassing tech-lead skips those gates.

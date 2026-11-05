@@ -82,6 +82,14 @@ that restates the impacted-components table earns nothing.
 ### 1. Intake and Context Gathering
 
 - Invoke **context-scout** to load project context
+- **Catalog first, when the project has one** (`<project root>/artifacts/catalog/INDEX.md` exists):
+  run `node .claude/skills/catalog/scripts/catalog.cjs lookup --project <project root> <3-6 terms from the story>`
+  BEFORE exploring code. It is read-only, like grep — no approval needed. Read the matching
+  entries (≤ 3) and start exploration from their `files:` instead of from the tree. Cite
+  what you used under `## Referências` as `catalog: features/<x>.md`.
+  An entry describes the code at its `verified-at`; it is not a spec. Confirm in code
+  anything the plan depends on, and where an entry describes a pattern that contradicts
+  `.claude/context/`, the standard wins (entries list those under *Desvios conhecidos*).
 - **Stack detection (MANDATORY before story analysis)**:
   - If `artifacts/architecture/TECH-STACK.md` exists → read it (greenfield with system-architect output)
   - If it does not exist → detect stack from build files (`package.json`, `pyproject.toml`, `CMakeLists.txt`)

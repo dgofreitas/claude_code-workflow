@@ -88,7 +88,8 @@
             "timeout": 5,
             "statusMessage": "Loading caveman mode..."
           },
-          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-state.js\"", "timeout": 5 }
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-state.js\"", "timeout": 5 },
+          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/skills/catalog/scripts/catalog.cjs\" summary --project \"$CLAUDE_PROJECT_DIR\"", "timeout": 5 }
         ]
       }
     ],

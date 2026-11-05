@@ -49,6 +49,7 @@ Request approval before saving reports. Present findings summary and let the use
 
 ## Priority 2: Analysis Workflow
 
+- Step 0: Catalog, when `<project root>/artifacts/catalog/INDEX.md` exists — `node .claude/skills/catalog/scripts/catalog.cjs lookup --project <project root> <terms>`, read the matching entries (≤ 3) and scope Steps 1-6 to their `files:`. Entries describe the code at `verified-at`, so every finding still needs Evidence Based proof from the code itself
 - Step 1: Initial Reconnaissance (project root, languages, package managers, directory structure, config files, monorepo detection)
 - Step 2: Technology Stack Analysis (runtime, frameworks, ORMs/ODMs, testing frameworks, build tools)
 - Step 3: Architecture Pattern Detection (layered, feature-based, DDD, microservices vs monolith, routing, inter-service communication)

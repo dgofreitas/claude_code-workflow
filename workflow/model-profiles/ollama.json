@@ -38,7 +38,8 @@
     "build-agent": "minimax-m3:cloud",
     "merge-request-creator": "minimax-m3:cloud",
     "task-manager": "minimax-m3:cloud",
-    "context-organizer": "minimax-m3:cloud"
+    "context-organizer": "minimax-m3:cloud",
+    "catalog-keeper": "deepseek-v4-pro:cloud"
   },
   "env": {
     "ANTHROPIC_BASE_URL": "http://localhost:11434",
