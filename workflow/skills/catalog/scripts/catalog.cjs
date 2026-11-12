@@ -341,10 +341,15 @@ function siblingCatalogs(project, explicit) {
   // branch wins over the sibling checkout, so a coordinated bootstrap cross-checks itself.
   const branch = git(abs, ['branch', '--show-current'], { allowFail: true });
   const out = [];
+  // Siblings exist only in an umbrella — a dir whose root holds the workflow install. A
+  // standalone project's parent is just a folder of unrelated repos (and of this repo's own
+  // worktrees), and none of them is a sibling.
+  if (!fs.existsSync(path.join(parent, '.claude', 'skills', 'catalog'))) return [];
   for (const d of fs.readdirSync(parent)) {
     const dir = path.join(parent, d);
     if (dir === home || dir === top) continue;
-    if (git(dir, ['rev-parse', '--git-dir'], { allowFail: true }) === null) continue;
+    const theirs = git(dir, ['rev-parse', '--path-format=absolute', '--git-common-dir'], { allowFail: true });
+    if (theirs === null || (common && theirs === common)) continue; // not a repo, or a worktree of this one
     let where = dir;
     if (branch) {
       const wl = git(dir, ['worktree', 'list', '--porcelain'], { allowFail: true }) || '';
