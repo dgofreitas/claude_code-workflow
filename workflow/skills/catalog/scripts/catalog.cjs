@@ -7,6 +7,7 @@
 //   node catalog.cjs affected  --project P [--base R] what the current branch's diff touched
 //   node catalog.cjs check     --project P            stale entries, broken refs, contracts
 //   node catalog.cjs lookup    --project P term...    entries matching the terms
+//   node catalog.cjs path      --project P [--to] term|id   the route of an interface across the umbrella
 //   node catalog.cjs inventory --project P            bootstrap aid: candidate units in the code
 //
 // .cjs on purpose: a project's package.json may say "type": "module", and the
@@ -329,7 +330,8 @@ function cmdAffected(project, cat, baseArg) {
 // --siblings.
 function siblingCatalogs(project, explicit) {
   if (explicit) {
-    return explicit.split(',').filter(Boolean).map((dir) => ({ name: path.basename(dir), cat: loadCatalog(dir) })).filter((s) => s.cat);
+    return explicit.split(',').filter(Boolean)
+      .map((dir) => ({ name: path.basename(dir), base: projectName(dir), dir, cat: loadCatalog(dir) })).filter((s) => s.cat);
   }
   const abs = path.resolve(project);
   const top = git(abs, ['rev-parse', '--show-toplevel'], { allowFail: true }) || abs;
@@ -339,12 +341,12 @@ function siblingCatalogs(project, explicit) {
   // During a bootstrap every sub-project's catalog sits on a branch of the same name, often in
   // a worktree rather than in the sub-project checkout. A sibling worktree on this project's
   // branch wins over the sibling checkout, so a coordinated bootstrap cross-checks itself.
-  const branch = git(abs, ['branch', '--show-current'], { allowFail: true });
-  const out = [];
   // Siblings exist only in an umbrella — a dir whose root holds the workflow install. A
   // standalone project's parent is just a folder of unrelated repos (and of this repo's own
   // worktrees), and none of them is a sibling.
   if (!fs.existsSync(path.join(parent, '.claude', 'skills', 'catalog'))) return [];
+  const branch = git(abs, ['branch', '--show-current'], { allowFail: true });
+  const out = [];
   for (const d of fs.readdirSync(parent)) {
     const dir = path.join(parent, d);
     if (dir === home || dir === top) continue;
@@ -361,7 +363,263 @@ function siblingCatalogs(project, explicit) {
     }
     if (!fs.existsSync(path.join(where, CATALOG_DIR))) continue;
     const cat = loadCatalog(where);
-    if (cat) out.push({ name: where === dir ? d : d + ' (' + path.basename(where) + ')', cat });
+    if (cat) out.push({ name: where === dir ? d : d + ' (' + path.basename(where) + ')', base: d, dir: where, cat });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- umbrella graph
+
+// The umbrella as one graph: this project's catalog plus every sibling's. Nothing here is
+// stored — a route is recomputed from the entries on every call, so it cannot drift from them.
+
+// A worktree is named after the checkout it belongs to, so `api/.worktrees/x` is api.
+function projectName(project) {
+  const abs = path.resolve(project);
+  const common = git(abs, ['rev-parse', '--path-format=absolute', '--git-common-dir'], { allowFail: true });
+  return path.basename(common ? path.dirname(common) : abs);
+}
+
+function loadWorld(project, cat, siblings) {
+  const me = projectName(project);
+  return [{ name: me, base: me, dir: project, cat }].concat(siblingCatalogs(project, siblings));
+}
+
+// A provider id with `*`, or http.ANY, covers other ids: a proxy or gateway.
+const isWild = (id) => id.includes('*') || /^http\.ANY\./.test(id);
+function wildRe(id) {
+  const re = id.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/^http\\\.ANY\\\./, 'http\\.[A-Z]+\\.');
+  return new RegExp('^' + re + '$');
+}
+
+const uniq = (a) => Array.from(new Set(a));
+const escRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function buildGraph(world) {
+  const g = { prov: {}, cons: {}, wild: [], fprov: {}, fcons: {}, contracts: [] };
+  const push = (m, k, v) => (m[k] = m[k] || []).push(v);
+  for (const w of world) {
+    for (const e of w.cat.entries) {
+      const n = { w, e };
+      if (e.type === 'catalog-contract') {
+        g.contracts.push(n);
+        if (e.role === 'provider') {
+          if (isWild(e.id)) g.wild.push(n);
+          else push(g.prov, e.id, n);
+        } else push(g.cons, e.id, n);
+      } else if (e.type === 'catalog-feature') {
+        asList(e.provides).forEach((id) => push(g.fprov, id, n));
+        asList(e.consumes).forEach((id) => push(g.fcons, id, n));
+      }
+    }
+  }
+  return g;
+}
+
+// The features behind a contract, in its own project: those naming it in `provides:` and, with
+// `overlap`, those sharing its files — the middleware that gates a proxy provides nothing, yet
+// it is where the request is decided.
+function implementers(n, g, overlap) {
+  const named = (g.fprov[n.e.id] || []).filter((x) => x.w === n.w);
+  if (named.length && !overlap) return named;
+  const files = new Set(asList(n.e.files));
+  const shared = n.w.cat.entries.filter((e) => e.type === 'catalog-feature' && asList(e.files).some((f) => files.has(f)))
+    .map((e) => ({ w: n.w, e }));
+  const seen = new Set();
+  return named.concat(shared).filter((x) => !seen.has(x.e.rel) && seen.add(x.e.rel));
+}
+
+// One side of an interface, grouped per project: the contract entry there (if any) and the
+// features that implement it.
+function sides(g, id, featMap, contractMap) {
+  const feats = featMap[id] || [];
+  const contracts = contractMap[id] || [];
+  return uniq(feats.map((x) => x.w).concat(contracts.map((x) => x.w))).map((w) => {
+    const f = feats.filter((x) => x.w === w);
+    const c = contracts.find((x) => x.w === w);
+    return { w, contract: c, feats: f.length ? f : c ? implementers(c, g, true) : [] };
+  });
+}
+const providersOf = (g, id) => sides(g, id, g.fprov, g.prov);
+const consumersOf = (g, id) => sides(g, id, g.fcons, g.cons);
+
+// The hops between a consumer and the provider: a wildcard provider in a third project. A
+// consumer in the provider's own project (a tester, a cron job) calls it directly.
+function viaFor(g, id, consumerW, finals) {
+  const fw = finals.map((f) => f.w);
+  if (fw.includes(consumerW)) return [];
+  return g.wild.filter((n) => n.w !== consumerW && !fw.includes(n.w) && wildRe(n.e.id).test(id));
+}
+
+function staleNote(w, e) {
+  const s = staleFiles(w.dir, e);
+  return s && s.length ? '  ⚠ STALE since ' + e['verified-at'] + ': ' + s.join(', ') : '';
+}
+
+// At a hop the request only passes through, the rules that matter are the ones living in the
+// files of the interface it passes through — the gate, not the hop's own database setup.
+function canonIn(e, only) {
+  const all = asList(e.canonical);
+  if (!only) return all;
+  const res = asList(only.e.files).map((f) => new RegExp('(^|[\\s(`])' + escRe(f) + '($|[#\\s,)`])'));
+  return all.filter((l) => res.some((r) => r.test(l)));
+}
+
+function printFeature(indent, w, e, maxCanon, only) {
+  const files = asList(e.files);
+  console.log(indent + e.id + ' — ' + files.slice(0, 3).join(', ') + (files.length > 3 ? ' +' + (files.length - 3) : '') + staleNote(w, e));
+  const canon = canonIn(e, only);
+  canon.slice(0, maxCanon).forEach((l) => console.log(indent + '  trata: ' + l));
+  if (canon.length > maxCanon) console.log(indent + '  (+' + (canon.length - maxCanon) + ' — lookup ' + e.id + ')');
+}
+
+function resolveIds(g, terms) {
+  const known = new Set(g.contracts.map((n) => n.e.id).concat(Object.keys(g.fprov), Object.keys(g.fcons)));
+  if (terms.length === 1 && known.has(terms[0])) return [terms[0]];
+  const res = terms.map((t) => new RegExp(escRe(t), 'i'));
+  // A body that merely mentions the term is no route of it: body-only hits count only when
+  // nothing matched in the frontmatter.
+  const best = {};
+  const inHead = {};
+  for (const { e } of g.contracts) {
+    if (isWild(e.id)) continue;
+    const head = res.filter((r) => r.test([e.id, e.title, e.summary].concat(asList(e.tags), asList(e.files)).join(' '))).length;
+    const score = head * 2 + res.filter((r) => r.test(e.body || '')).length;
+    if (score && !(best[e.id] >= score)) best[e.id] = score;
+    if (head) inHead[e.id] = true;
+  }
+  const ids = Object.keys(best).filter((id) => inHead[id] || !Object.keys(inHead).length);
+  return ids.sort((a, b) => best[b] - best[a] || a.localeCompare(b)).slice(0, 3);
+}
+
+function printRoute(g, id) {
+  const finals = providersOf(g, id);
+  const cons = consumersOf(g, id);
+  const vias = new Map();
+  console.log('\n== ' + id);
+  console.log('de');
+  if (!cons.length) console.log('  (nenhum consumidor catalogado)');
+  for (const c of cons) {
+    const v = viaFor(g, id, c.w, finals);
+    const tag = v.length ? 'via ' + uniq(v.map((n) => n.w.name)).join(', ') : finals.some((f) => f.w === c.w) ? 'interno' : 'direto';
+    console.log('  ' + c.w.name + '  [' + tag + ']');
+    c.feats.forEach((f) => printFeature('    ', c.w, f.e, 3));
+    if (!c.feats.length && c.contract) console.log('    ' + c.contract.e.rel + ' — ' + asList(c.contract.e.files).join(', '));
+    for (const n of v) {
+      const k = n.w.name + '|' + n.e.id;
+      if (vias.has(k)) vias.get(k).from.push(c.w.name);
+      else vias.set(k, { n, from: [c.w.name] });
+    }
+  }
+  for (const { n, from } of vias.values()) {
+    console.log('passa por');
+    console.log('  ' + n.w.name + '  ' + n.e.id + ' — ' + n.e.summary + '  (de ' + from.join(', ') + ')' + staleNote(n.w, n.e));
+    const impl = implementers(n, g, true);
+    impl.forEach((f) => printFeature('    ', n.w, f.e, 4, n));
+    // What this hop needs from other sub-projects — where a change on the route has to land too.
+    for (const f of impl) {
+      for (const d of asList(f.e.consumes)) {
+        for (const p of providersOf(g, d).filter((x) => x.w !== n.w)) {
+          console.log('    depende de ' + d + ' → ' + p.w.name + ' ' + (p.contract ? p.contract.e.rel : p.feats.map((x) => x.e.id).join(', ')));
+        }
+      }
+    }
+  }
+  console.log('até');
+  if (!finals.length) console.log('  (nenhum provedor catalogado' + (vias.size ? ' além do curinga' : '') + ')');
+  for (const p of finals) {
+    console.log('  ' + p.w.name + (p.contract ? '  ' + p.contract.e.rel + staleNote(p.w, p.contract.e) : ''));
+    for (const f of p.feats) {
+      printFeature('    ', p.w, f.e, 4);
+      const deps = asList(f.e.consumes);
+      for (const d of deps.slice(0, 8)) {
+        const where = providersOf(g, d);
+        const cross = where.some((x) => x.w !== p.w) ? ' — segue: path ' + d : '';
+        console.log('      usa ' + d + ' (' + (where.length ? where.map((x) => x.w.name).join(', ') : 'sem provedor catalogado') + ')' + cross);
+      }
+      if (deps.length > 8) console.log('      (+' + (deps.length - 8) + ' consumes)');
+    }
+  }
+}
+
+// Who reaches an interface, two levels up: the features consuming it, and the sub-projects
+// consuming what those features provide. The impact of changing it, before changing it.
+function printReach(g, id) {
+  const cons = consumersOf(g, id);
+  console.log('\n== quem chega a ' + id);
+  if (!cons.length) console.log('  (nenhum consumidor catalogado)');
+  for (const c of cons) {
+    for (const f of c.feats) {
+      console.log('  ' + c.w.name + '  ' + f.e.id + staleNote(c.w, f.e));
+      for (const pid of asList(f.e.provides)) {
+        for (const u of consumersOf(g, pid).filter((x) => x.w !== c.w)) {
+          const v = viaFor(g, pid, u.w, providersOf(g, pid));
+          const tag = v.length ? 'via ' + uniq(v.map((n) => n.w.name)).join(', ') : 'direto';
+          u.feats.forEach((uf) => console.log('    ← ' + u.w.name + '  ' + uf.e.id + '  [' + tag + ' · ' + pid + ']' + staleNote(u.w, uf.e)));
+        }
+      }
+    }
+  }
+}
+
+function cmdPath(project, cat, siblings, terms, reach) {
+  if (!terms.length) {
+    console.error('path needs a term or an interface id');
+    return 1;
+  }
+  const world = loadWorld(project, cat, siblings);
+  const g = buildGraph(world);
+  const ids = resolveIds(g, terms);
+  if (!ids.length) {
+    console.log('no catalogued interface matches: ' + terms.join(' '));
+    return 0;
+  }
+  for (const id of ids) (reach ? printReach : printRoute)(g, id);
+  if (world.length === 1) console.log('\n(no sibling catalog found — this covers ' + world[0].name + ' only)');
+  return 0;
+}
+
+// The route of one interface as one line, from this project's side — what lookup adds under
+// an entry so the planner sees the other hops without asking for them.
+function routeLine(g, id, me) {
+  const finals = providersOf(g, id);
+  const cons = consumersOf(g, id);
+  if (finals.some((f) => f.w === me)) {
+    const others = cons.filter((c) => c.w !== me);
+    if (!others.length) return null;
+    const ups = others.map((c) => {
+      const v = viaFor(g, id, c.w, finals);
+      return c.w.name + (v.length ? ' (via ' + uniq(v.map((n) => n.w.name)).join(', ') + ')' : '');
+    });
+    return { text: ups.join(', ') + ' → ' + me.name, hops: others };
+  }
+  if (!cons.some((c) => c.w === me)) return null;
+  const v = viaFor(g, id, me, finals);
+  if (!v.length && !finals.length) return null;
+  const parts = [me.name].concat(v.map((n) => n.w.name + ' (' + n.e.id + ')'),
+    finals.map((f) => f.w.name + (f.feats.length ? ' ' + f.feats.map((x) => x.e.id).join('/') : '')));
+  return { text: parts.join(' → '), hops: v.map((n) => ({ w: n.w, feats: implementers(n, g, true), only: n })).concat(finals) };
+}
+
+// `espelho de <projeto>:<arquivo>#<símbolo>@<sha>` in a canonical line: this copy mirrors a rule
+// another sub-project owns. One fact, written once, on the mirror's side; the owner's side is
+// computed. The sha is the owner's commit the copy was compared against.
+const MIRROR_RE = /espelho de ([\w.-]+):([^\s#]+)#([A-Za-z_$][\w$]*)(?:@([0-9a-f]{7,40}))?/;
+
+// Shown on the owner's entry that names the mirrored symbol as its canonical source — not on
+// every entry that happens to list the same file.
+function mirrorsOf(world, me, e) {
+  const files = new Set(asList(e.files));
+  const owns = (sym) => asList(e.canonical).some((l) => new RegExp('#' + escRe(sym) + '($|[^\\w$])').test(l));
+  const out = [];
+  for (const w of world) {
+    if (w === me) continue;
+    for (const x of w.cat.entries) {
+      for (const line of asList(x.canonical)) {
+        const m = line.match(MIRROR_RE);
+        if (m && m[1].toLowerCase() === me.base.toLowerCase() && files.has(m[2]) && owns(m[3])) out.push({ w, e: x, sym: m[3], line });
+      }
+    }
   }
   return out;
 }
@@ -436,6 +694,58 @@ function cmdCheck(project, cat, siblings) {
     }
   }
 
+  // A feature providing what this project's own contract says it consumes: one side is wrong,
+  // and every route through the umbrella goes the wrong way at this hop.
+  const roles = {};
+  mine.forEach((c) => (roles[c.id] = roles[c.id] || []).push(c));
+  for (const e of cat.entries.filter((x) => x.type === 'catalog-feature')) {
+    for (const id of asList(e.provides)) {
+      const cs = roles[id] || [];
+      if (cs.length && cs.every((c) => c.role === 'consumer')) {
+        problems.push(['ERROR', e.rel, 'provides `' + id + '`, but ' + cs.map((c) => c.rel).join(', ') +
+          ' says this project consumes it — move it to `consumes:` or make the contract the provider side, whichever the code says']);
+      }
+    }
+  }
+
+  // Mirrors: a copy of a rule another sub-project owns. The owner's symbol must still exist, and
+  // an owner that changed since the copy was compared makes the copy stale — the fix-one-copy
+  // defect, across repos.
+  const world = [{ name: projectName(project), base: projectName(project), dir: project, cat }].concat(sibs);
+  for (const e of cat.entries) {
+    for (const line of asList(e.canonical)) {
+      if (!/espelho de/i.test(line)) continue;
+      const m = line.match(MIRROR_RE);
+      if (!m || !m[4]) {
+        problems.push(['ERROR', e.rel, 'mirror must read `espelho de <projeto>:<arquivo>#<símbolo>@<sha do dono>`: ' + line]);
+        continue;
+      }
+      const [, proj, file, sym, sha] = m;
+      const ref = proj + ':' + file + '#' + sym;
+      const owner = world.find((w) => w.base.toLowerCase() === proj.toLowerCase());
+      if (!owner) {
+        problems.push(['INFO', e.rel, 'mirror owner `' + proj + '` has no catalog among the siblings — cannot verify ' + ref]);
+        continue;
+      }
+      const fp = path.join(owner.dir, file);
+      if (!fs.existsSync(fp)) {
+        problems.push(['ERROR', e.rel, 'mirror owner file does not exist: ' + proj + ':' + file]);
+        continue;
+      }
+      if (!new RegExp('(^|[^\\w$])' + escRe(sym) + '($|[^\\w$])').test(fs.readFileSync(fp, 'utf8'))) {
+        problems.push(['ERROR', e.rel, 'mirror owner symbol not found: ' + ref + ' — renamed or removed; find where the rule lives now']);
+        continue;
+      }
+      if (git(owner.dir, ['cat-file', '-e', sha + '^{commit}'], { allowFail: true }) === null) {
+        problems.push(['ERROR', e.rel, 'mirror @' + sha + ' is not a commit of ' + proj]);
+        continue;
+      }
+      if (git(owner.dir, ['diff', '--name-only', '--no-renames', sha, 'HEAD', '--', file], { allowFail: true })) {
+        problems.push(['STALE', e.rel, 'mirror of ' + ref + ' — the owner changed since ' + sha + ': compare this copy with it again, then move the @sha']);
+      }
+    }
+  }
+
   const ignored = ignorer(cat.overview && cat.overview.ignore);
   const covered = new Set();
   cat.entries.forEach((e) => asList(e.files).forEach((f) => covered.add(f)));
@@ -466,12 +776,12 @@ function report(problems) {
 
 // ---------------------------------------------------------------- lookup
 
-function cmdLookup(project, cat, terms) {
+function cmdLookup(project, cat, terms, siblings) {
   if (!terms.length) {
     console.error('lookup needs at least one term');
     return 1;
   }
-  const res = terms.map((t) => new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+  const res = terms.map((t) => new RegExp(escRe(t), 'i'));
   const scored = cat.entries.map((e) => {
     const hay = [e.id, e.title, e.summary].concat(asList(e.tags), asList(e.canonical), asList(e.files), asList(e.provides), asList(e.consumes)).join(' ');
     const head = res.filter((r) => r.test(hay)).length;
@@ -482,6 +792,10 @@ function cmdLookup(project, cat, terms) {
     console.log('no catalog entry matches: ' + terms.join(' ') + ' — explore the code, and the entry gets written at the end of the story');
     return 0;
   }
+  const world = loadWorld(project, cat, siblings);
+  const me = world[0];
+  const g = buildGraph(world);
+  let routed = false;
   for (const { e, score } of scored) {
     console.log('- ' + path.join(CATALOG_DIR, e.rel) + '  (score ' + score + ')');
     console.log('  ' + e.summary);
@@ -493,7 +807,27 @@ function cmdLookup(project, cat, terms) {
     // story that would refresh it only runs after the plan exists.
     const s = staleFiles(project, e);
     if (s && s.length) console.log('  ⚠ STALE since ' + e['verified-at'] + ': ' + s.join(', ') + ' — confirm in code before relying on it');
+    // A rule mirrored in a sibling changes in both places, or the copies drift.
+    for (const m of mirrorsOf(world, me, e)) {
+      console.log('  espelhado por: ' + m.w.name + ' ' + m.e.rel + ' (' + m.sym + ') — mudar a regra aqui exige mudar lá');
+    }
+    // The other hops of a route that leaves this project, with what each one handles.
+    const ids = e.type === 'catalog-contract' ? [e.id] : asList(e.provides).concat(asList(e.consumes));
+    let shown = 0;
+    for (const id of ids) {
+      if (shown === 2 || isWild(id)) continue;
+      const r = routeLine(g, id, me);
+      if (!r) continue;
+      shown++;
+      routed = true;
+      console.log('  caminho ' + id + ': ' + r.text);
+      for (const h of r.hops.slice(0, 3)) {
+        const lines = [].concat.apply([], h.feats.map((f) => canonIn(f.e, h.only)));
+        lines.slice(0, 3).forEach((c) => console.log('    ' + h.w.name + ' trata: ' + c));
+      }
+    }
   }
+  if (routed) console.log('\ncaminho completo, com o que cada etapa trata: node .claude/skills/catalog/scripts/catalog.cjs path --project ' + project + ' <id>');
   return 0;
 }
 
@@ -633,15 +967,17 @@ function main(argv) {
   let project = '.';
   let base = null;
   let siblings = null;
+  let reach = false;
   const rest = [];
   for (let i = 1; i < argv.length; i++) {
     if (argv[i] === '--project') project = argv[++i];
     else if (argv[i] === '--base') base = argv[++i];
     else if (argv[i] === '--siblings') siblings = argv[++i];
+    else if (argv[i] === '--to') reach = true;
     else rest.push(argv[i]);
   }
-  if (!['index', 'affected', 'check', 'lookup', 'inventory', 'summary'].includes(cmd)) {
-    console.error('usage: catalog.cjs <index|affected|check|lookup|inventory|summary> --project <dir> [--base <ref>] [--siblings <dir,...>] [terms...]');
+  if (!['index', 'affected', 'check', 'lookup', 'path', 'inventory', 'summary'].includes(cmd)) {
+    console.error('usage: catalog.cjs <index|affected|check|lookup|path|inventory|summary> --project <dir> [--base <ref>] [--siblings <dir,...>] [--to] [terms...]');
     return 1;
   }
   // Runs from a SessionStart hook: never fails, never blocks the session.
@@ -665,7 +1001,8 @@ function main(argv) {
   if (cmd === 'index') return cmdIndex(project, cat);
   if (cmd === 'affected') return cmdAffected(project, cat, base);
   if (cmd === 'check') return cmdCheck(project, cat, siblings);
-  return cmdLookup(project, cat, rest);
+  if (cmd === 'path') return cmdPath(project, cat, siblings, rest, reach);
+  return cmdLookup(project, cat, rest, siblings);
 }
 
 try {

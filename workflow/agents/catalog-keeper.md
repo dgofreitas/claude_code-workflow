@@ -62,6 +62,26 @@ and nothing says which is right, list both and say so — that is a finding for 
 The defect this prevents is the same rule computed twice and drifting apart, then fixed in
 one copy only. An entry that lists files but no canonical source has missed its main job.
 
+**The owner lives in a sibling sub-project** — this code repeats on purpose a rule another
+repo of the umbrella enforces (a GUI pre-validating what the API will reject, a display copy of
+a classification), often with a comment saying it mirrors the other side. Then:
+
+1. Open the owner's file in the sibling and read the symbol. Compare the two rule by rule.
+2. End this side's `canonical:` line with `espelho de <projeto>:<arquivo>#<símbolo>@<sha>`, sha
+   = `git -C <sibling dir> rev-parse --short=10 HEAD` at the time you read it. The format is
+   parsed: project = the sibling's directory name, file relative to its root.
+3. Every difference you found goes in your report as a finding, with both symbols — never
+   "fixed" by editing the entry to agree with either side.
+4. Never write the reverse on the owner's entry, and never edit the sibling's catalog: its
+   `lookup` computes "espelhado por" from your line.
+
+### Rule: Proxies are one wildcard contract
+
+A proxy or gateway forwarding a family of interfaces gets ONE provider contract with a wildcard
+id (`http.ANY./api/v1/*`), listing the files that decide what passes (router, auth
+middleware, allowlist). A consumer behind it keeps the final provider's id and never names the
+hop in a field — `catalog.cjs path` deduces it from the wildcard.
+
 ### Rule: Write the Meaning, Not Only the Name
 
 A field name and type do not say what a value means. For every canonical value and contract
@@ -181,7 +201,9 @@ If `affected` printed `CATALOG: no-op`, the tech-lead should not have called you
 ### Mode: refresh — named stale entries
 
 Re-read the files of exactly the entries given, update them and `verified-at:`, run
-`index` + `check`. Do not commit unless the prompt says so.
+`index` + `check`. A STALE mirror (`mirror of <ref> — the owner changed since <sha>`): read the
+owner's symbol again, compare (Rule: Canonical Sources, owner in a sibling), report what now
+differs, and move the `@sha` to the owner's current commit. Do not commit unless the prompt says so.
 
 ---
 

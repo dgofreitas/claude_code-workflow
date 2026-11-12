@@ -1,6 +1,6 @@
 ---
-description: Project catalog (artifacts/catalog/) — help | init | check | lookup | refresh
-argument-hint: [help|init|check|lookup <termos>|refresh <entradas>]
+description: Project catalog (artifacts/catalog/) — help | init | check | lookup | path | refresh
+argument-hint: [help|init|check|lookup <termos>|path [--to] <termos>|refresh <entradas>]
 ---
 
 # /catalog — Project Catalog
@@ -21,6 +21,7 @@ Otherwise use the **catalog** skill with the mode in **$ARGUMENTS** (empty → `
 | `init` | create the catalog for the active project — asks how many batches run in parallel |
 | `check` | stale entries, broken references, contract mismatches with sibling catalogs |
 | `lookup <termos>` | entries matching the terms, canonical sources first |
+| `path <termos\|id>` | the route of an interface across the sub-projects, and what each hop handles (`--to <id>`: who reaches it) |
 | `refresh <entradas>` | re-verify named entries against the code (paths under `artifacts/catalog/`, or `providers` for every provider contract) |
 
 > **Note:** `catalog` is a Skill (runs in the main context, which has the Task tool), not a
@@ -59,6 +60,9 @@ COMANDOS
   /sdlc:catalog check              entradas desatualizadas, referências quebradas e
                                    divergências de contrato com os irmãos
   /sdlc:catalog lookup <termos>    o que já existe sobre um assunto (fontes canônicas primeiro)
+  /sdlc:catalog path <termos|id>   por onde passa uma interface entre os sub-projetos e o que
+                                   cada etapa trata (ex.: web → gateway → api → banco)
+  /sdlc:catalog path --to <id>     quem chega até ela — o impacto de mudá-la
   /sdlc:catalog refresh <entradas> reverifica entradas contra o código
                                    (use `providers` para todos os contratos fornecidos)
 
@@ -91,6 +95,14 @@ O QUE OBSERVAR
       sub-projeto irmão usa. Decida no GATE-MR se pode ir assim.
       "já existia" → divergência antiga entre os projetos; vale abrir uma story.
   - lookup com "⚠ STALE" → a entrada pode estar velha; confirme no código.
+  - lookup com "espelhado por: <irmão>" → outro sub-projeto repete esta regra de propósito;
+    mudar aqui exige mudar lá. Do lado do espelho, o check marca STALE quando o dono mudou.
+
+CAMINHO ENTRE SUB-PROJETOS (automático)
+  O caminho não é escrito em lugar nenhum: o script o calcula a cada consulta a partir dos
+  contratos e features dos catálogos irmãos. Um proxy ou gateway é um contrato curinga
+  (ex.: http.ANY./api/v1/*); quem passa por ele é deduzido, nunca anotado à mão.
+  O lookup que o architect já roda mostra o caminho e o que cada etapa trata.
 
 MUDANÇAS GRANDES (redesenho de telas, refatoração ampla)
   - Feita por uma story do workflow: nada a fazer. O tech-lead divide a atualização do

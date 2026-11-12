@@ -4,10 +4,11 @@ description: >
   Catálogo do projeto em artifacts/catalog/: o que já existe NESTE código e onde —
   funcionalidades, contratos entre sub-projetos, arquivos. Use para criar o catálogo
   pela primeira vez ("criar catálogo", "catalog init", "bootstrap do catálogo"), para
-  conferir se está em dia ("catalog check", "catálogo desatualizado") ou para consultar
-  antes de planejar ("o que já existe sobre X"). A atualização no fim de cada story é
+  conferir se está em dia ("catalog check", "catálogo desatualizado"), para consultar
+  antes de planejar ("o que já existe sobre X") ou para ver o caminho de uma interface
+  entre os sub-projetos ("por onde passa X", "quem chega em X"). A atualização no fim de cada story é
   feita pelo tech-lead, não por este skill.
-argument-hint: [init|check|lookup <termos>|refresh <entradas>]
+argument-hint: [init|check|lookup <termos>|path <termos>|refresh <entradas>]
 allowed-tools: Task Bash Read AskUserQuestion SendMessage
 ---
 
@@ -135,6 +136,11 @@ verified-at: af78a4a664
   consumer code, not the provider's docs). `$S check` reports `MISMATCH` when a consumer
   reads a field its provider does not emit.
 
+- **A proxy or gateway** that forwards a family of interfaces is ONE provider contract with a
+  wildcard id: `*` in the name, or `ANY` as the http method (`http.ANY./api/v1/*`).
+  A consumer behind it keeps the FINAL provider's id and never names the hop: `path` deduces
+  it (a wildcard provider in a third project covering the id). `counterpart:` is a label for
+  people; no script reads it, so the route never depends on its wording.
 ### Rules for every entry
 
 - **Canonical sources are the point.** The defect this catalog exists to prevent is not a rule
@@ -146,6 +152,15 @@ verified-at: af78a4a664
   computes it goes under **Cópias conhecidas** — with the file, so the next story can route
   it to the source. `lookup` prints `canonical:` first.
 - **Semantics travel with the value.** Each `canonical:` line ends with ` — <semantics>`
+- **A mirror of another sub-project's rule says whose.** When this code deliberately repeats a
+  rule a sibling owns (a GUI pre-validating what the API will enforce), its `canonical:` line
+  ends with `espelho de <projeto>:<arquivo>#<símbolo>@<sha>` — the owner's symbol and the
+  owner's commit this copy was compared against. Written once, on the mirror's side; the
+  owner's `lookup` shows "espelhado por" by computing it. `check` fails when the owner's symbol
+  is gone and marks the mirror STALE when the owner's file changed since that sha: a rule fixed
+  on one side of the umbrella and not on the other is the drift this catches. Example, in a
+  `web` sub-project mirroring its `api` sibling:
+  `"limite do nome → src/forms/name.js#parseName — trim, sem controle, ≤ 80 code points; espelho de api:src/names.js#normalizeName@1a2b3c4d5e"`
   whenever the value's name does not say it all, and contracts carry a **Semântica** section.
   Write it for: numbers with a unit or scale (percent vs decimal, cents vs units), money
   (which currency), dates and times (instant vs civil day stored as 00:00 UTC, which time
@@ -176,9 +191,11 @@ what — e.g. "vislic → teco (proxy, allowlist scopeRoutes) → serverLic"), s
 
 | Command | What it does |
 |---|---|
-| `node $S lookup --project $P <terms…>` | entries matching the terms, best first (≤8) |
+| `node $S lookup --project $P <terms…>` | entries matching the terms, best first (≤8); under each, the route of its interfaces through the sibling sub-projects with what each hop handles, and "espelhado por" when a sibling mirrors a rule it owns |
+| `node $S path --project $P <terms…\|id>` | the route of an interface across the umbrella: who consumes it, the hops it passes through (deduced wildcard providers), who provides it — and under every hop, the `canonical:` rules handled there. Computed on each call, never stored |
+| `node $S path --project $P --to <id>` | who reaches an interface, two levels up — the impact of changing it |
 | `node $S affected --project $P [--base <ref>]` | what the branch's diff touched — first line `CATALOG: update` or `CATALOG: no-op` |
-| `node $S check --project $P [--siblings d1,d2]` | ERROR / MISMATCH / STALE / INFO, exit 2 on any non-INFO |
+| `node $S check --project $P [--siblings d1,d2]` | ERROR / MISMATCH / STALE / INFO, exit 2 on any non-INFO. Besides the contract cross-check: a feature that `provides:` what this project's own contract says it consumes (ERROR), and every `espelho de` reference (owner symbol gone → ERROR, owner changed since its sha → STALE) |
 | `node $S index --project $P` | rewrite INDEX.md (refuses while there are ERRORs) |
 | `node $S inventory --project $P` | bootstrap map: files per dir with line counts, routes, env, collections |
 | `node $S summary --project <dir>` | one line per catalogued project with stale entries, nothing when all is current — run by the SessionStart hook; covers every sub-project from an umbrella root |
@@ -246,7 +263,8 @@ dedicated branch (`docs/catalog-bootstrap`), so the bootstrap lands as one revie
 ## Mode: check
 
 `node $S check --project $P`. Relay the output as printed. STALE entries → offer a
-catalog-keeper call in `Mode: refresh` with exactly those entries. In an umbrella, a
+catalog-keeper call in `Mode: refresh` with exactly those entries — a STALE mirror included:
+the refresh compares the copy with the owner again and moves its `@sha`. In an umbrella, a
 sibling's catalog still on an unmerged branch lives in a worktree — pass it with
 `--siblings <worktree dir>` or its contracts read as "no provider catalogued".
 
@@ -261,3 +279,6 @@ in parallel like init. Then `check`. Do not commit unless the user asked.
 ## Mode: lookup
 
 `node $S lookup --project $P <terms>` and relay. Read an entry only if asked.
+
+"por onde passa X" / "quem chega em X" → `node $S path --project $P <terms|id>` (or `--to <id>`)
+and relay. In an umbrella it reads every sibling's catalog by itself.
