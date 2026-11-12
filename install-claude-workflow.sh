@@ -512,7 +512,7 @@ removeLegacyState() {
         [[ -e "${f}" ]] || continue
         rm -f "${f}" && found=1 && logInfo "  Estado antigo removido: ${f#"${targetDir}/"}"
     done
-    [[ "${found}" -eq 1 ]] && logInfo "  Sub-projeto e modo agora são por sessão: defina de novo com /project e /mode"
+    [[ "${found}" -eq 1 ]] && logInfo "  Sub-projeto e modo agora são por sessão: defina de novo com /sdlc:project e /sdlc:mode"
     return 0
 }
 

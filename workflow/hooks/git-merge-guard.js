@@ -265,7 +265,7 @@ function main() {
       if (!publishRepo) {
         deny(
           'A branch do comando existe em mais de um sub-projeto, e nenhum deles é o projeto desta sessão. ' +
-          'Defina o sub-projeto com `/project <nome>` e repita o comando.'
+          'Defina o sub-projeto com `/sdlc:project <nome>` e repita o comando.'
         );
         process.exit(0);
       }
