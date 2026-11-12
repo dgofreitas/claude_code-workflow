@@ -74,7 +74,7 @@ Pre-Merge Verification  (Master: 4 checks — grep [ ] + qa-report file + code-r
 
 ## Active Project (multi-project umbrella)
 
-Some installs are an **umbrella** git repo whose sub-directories are themselves separate git repos (each with its own remote), e.g. `sistema-de-licenciamento/{teco,gerLic,serverLic}`. The single `.claude/` lives at the umbrella root and the session runs from there. Story numbers repeat across sub-projects (STORY-032 exists in both teco and gerLic), so Master MUST know which sub-project is active and anchor every path + git op to it.
+Some installs are an **umbrella** git repo whose sub-directories are themselves separate git repos (each with its own remote), e.g. `platform/{api,web,worker}`. The single `.claude/` lives at the umbrella root and the session runs from there. Story numbers repeat across sub-projects (STORY-032 exists in both api and web), so Master MUST know which sub-project is active and anchor every path + git op to it.
 
 **Resolve this FIRST each turn, before anything else, with ONE bash call:**
 
@@ -83,17 +83,17 @@ S="${CLAUDE_CODE_SESSION_ID:+.claude/.state/$CLAUDE_CODE_SESSION_ID}"; AP=$(cat 
 ```
 
 - `$S` = **this session's state dir**. Sub-project, mode and queue are what one conversation chose, so they live per session: a second session on the same install never reads or overwrites them. `/clear` starts a new session — a fresh start, nothing carried over. `--resume` keeps the id, and with it the state.
-- `$P` = **active working tree** (path/git prefix): `.` in single-project installs, `gerLic` in an umbrella. Refined to the story's worktree once the id is known — see below.
+- `$P` = **active working tree** (path/git prefix): `.` in single-project installs, `api` in an umbrella. Refined to the story's worktree once the id is known — see below.
 - `$M` = this session's exec-mode; `$Q` = its batch queue.
 - **Every write** goes `[ -n "$S" ] && mkdir -p "$S" && echo <value> > <file>`. No session id (older Claude Code) → `$S` is empty and nothing persists: mode is Default every turn and an umbrella asks for the sub-project. Never fall back to a file shared by all sessions — that is the bug this layout removes.
 
 **Choosing the active project:**
 
 1. A story id is in play (umbrella) → the sub-project that has it. Run step 1 of State Detection over every sub-project (`ls */artifacts/stories/STORY-XXX*.md`); the path prefix names it. Exactly one → write it to `$S/active-project` and re-run the snippet: the session now works where its story is, and the tech-lead skill and GATE-MR read the same value. Several → the stored `$AP` if it is among them, else ASK.
-2. User names a sub-project in the prompt ("no gerLic", "gerLic STORY-035") or answers the question below → write it to `$S/active-project`, then re-run the snippet.
+2. User names a sub-project in the prompt ("no api", "api STORY-035") or answers the question below → write it to `$S/active-project`, then re-run the snippet.
 3. Else use this session's stored `$AP`.
 4. Else, if the working dir has NO sub-project git repos → single-project, `$P=.` (nothing changes; literal `artifacts/...` paths below are already correct).
-5. Else (umbrella, none named/stored) → ASK "Qual sub-projeto? (teco / gerLic / ...)". Do NOT guess — the wrong project corrupts paths and state. `/sdlc:project <name>` sets it deterministically (see `commands/sdlc/project.md`).
+5. Else (umbrella, none named/stored) → ASK "Qual sub-projeto? (<the sub-project repos found at the root, separated by ` / `>)" — the real names, never examples. Do NOT guess — the wrong project corrupts paths and state. `/sdlc:project <name>` sets it deterministically (see `commands/sdlc/project.md`).
 
 **Worktree refinement (as soon as the story id is resolved):**
 

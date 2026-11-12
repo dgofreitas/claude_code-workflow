@@ -33,8 +33,8 @@ disagree on a contract, and renders `INDEX.md`.
 - **Never write the catalog under `.claude/`.** Reinstalling the workflow runs
   `rm -rf .claude/context`; anything project-specific there is lost on the next upgrade.
 - context-scout does not read the catalog, and the catalog does not repeat standards.
-- "catalog" may also be a word of the project's own domain (vislic has a *catálogo* of
-  commercial items). The folder is `artifacts/catalog/`; a grep for `catalog` hits both —
+- "catalog" may also be a word of the project's own domain (a store's *catálogo* of
+  products). The folder is `artifacts/catalog/`; a grep for `catalog` hits both —
   scope greps to `artifacts/catalog/` when you mean this one.
 
 ## Layout
@@ -51,24 +51,25 @@ $P/artifacts/catalog/
 
 ### Feature — `features/<slug>.md`
 
-The examples in this section come from a Node + Mongo pair (serverLic, vislic); the format is
-the same for a C daemon, a Python API or a shell toolkit — only the kinds and names change.
+The examples in this section come from a Node + Mongo pair (an `api` and the `web` GUI that
+consumes it); the format is the same for a C daemon, a Python API or a shell toolkit — only
+the kinds and names change.
 
 ```markdown
 ---
-id: feature.sessions-v2-paging
+id: feature.sessions-paging
 type: catalog-feature
-title: Paginação keyset das listas de sessões V2
-summary: Listas activeSessions_V2/cloneSessions_V2 paginadas por cursor keyset sobre o Mongo
+title: Paginação keyset da lista de sessões
+summary: Lista de sessões paginada por cursor keyset sobre o Mongo
 tags: [sessions, mongo, keyset, pagination]
 files:
-  - routes/v0/sessionsSnapshotPage.js
+  - routes/v1/sessionsPage.js
   - common/sessionsCursor.js
-provides: [http.GET./licencaWeb/v0/activeSessions_V2]
-consumes: [mongo.activeSessions]
+provides: [http.GET./api/v1/sessions]
+consumes: [mongo.app.sessions]
 canonical:
-  - "cursor keyset das listas V2 → common/sessionsCursor.js#encodeCursor — opaco, base64 de JSON v3"
-stories: [STORY-012-sessoes-v2-mongo-keyset]
+  - "cursor keyset da lista → common/sessionsCursor.js#encodeCursor — opaco, base64 de JSON v3"
+stories: [STORY-012-sessoes-keyset]
 verified-at: af78a4a664
 ---
 
@@ -84,24 +85,24 @@ verified-at: af78a4a664
 
 ### Contract — `contracts/<slug>.md`
 
-One file per **side**: serverLic's provider entry and vislic's consumer entry share the
+One file per **side**: the `api`'s provider entry and the `web`'s consumer entry share the
 same `id`, and that id is the join key `$S check` uses across sub-projects.
 
 ```markdown
 ---
-id: http.GET./licencaWeb/v0/activeSessions_V2
+id: http.GET./api/v1/sessions
 type: catalog-contract
 role: provider            # provider | consumer
 kind: http                # see the kind table below
-counterpart: vislic       # who is on the other side (consumer: who provides; via teco, external...)
-title: GET activeSessions_V2
+counterpart: web          # a label for people: who is on the other side
+title: GET /api/v1/sessions
 summary: Página de sessões ativas, cursor keyset, campos de sessão + host
 tags: [sessions, http]
 files:
-  - routes/v0/admin.js
-  - routes/v0/sessionsSnapshotPage.js
+  - routes/v1/router.js
+  - routes/v1/sessionsPage.js
 fields: [items, nextCursor, hostID, sessionID, status]
-stories: [STORY-012-sessoes-v2-mongo-keyset]
+stories: [STORY-012-sessoes-keyset]
 verified-at: af78a4a664
 ---
 
@@ -135,23 +136,22 @@ verified-at: af78a4a664
 - **fields**: provider = what it emits; consumer = what it actually READS (grep the
   consumer code, not the provider's docs). `$S check` reports `MISMATCH` when a consumer
   reads a field its provider does not emit.
-
 - **A proxy or gateway** that forwards a family of interfaces is ONE provider contract with a
   wildcard id: `*` in the name, or `ANY` as the http method (`http.ANY./api/v1/*`).
   A consumer behind it keeps the FINAL provider's id and never names the hop: `path` deduces
   it (a wildcard provider in a third project covering the id). `counterpart:` is a label for
   people; no script reads it, so the route never depends on its wording.
+
 ### Rules for every entry
 
 - **Canonical sources are the point.** The defect this catalog exists to prevent is not a rule
   changed on purpose — it is the same domain rule (a position, an exchange rate, a currency
   map, a cache key, a date window) computed again somewhere else, the copies drifting apart,
-  and a fix that patches one copy. Measured on moneyTrackr: 16 of 22 knowledge-gap bugs that
-  reached production. So every value or rule an entry owns goes in `canonical:` (frontmatter,
+  and a fix that patches one copy. Measured on an installed project: 16 of 22 knowledge-gap
+  bugs that reached production. So every value or rule an entry owns goes in `canonical:` (frontmatter,
   `"<what> → <file>#<symbol>"`) and under **Fonte canônica**, and every other place that
   computes it goes under **Cópias conhecidas** — with the file, so the next story can route
   it to the source. `lookup` prints `canonical:` first.
-- **Semantics travel with the value.** Each `canonical:` line ends with ` — <semantics>`
 - **A mirror of another sub-project's rule says whose.** When this code deliberately repeats a
   rule a sibling owns (a GUI pre-validating what the API will enforce), its `canonical:` line
   ends with `espelho de <projeto>:<arquivo>#<símbolo>@<sha>` — the owner's symbol and the
@@ -161,15 +161,16 @@ verified-at: af78a4a664
   on one side of the umbrella and not on the other is the drift this catches. Example, in a
   `web` sub-project mirroring its `api` sibling:
   `"limite do nome → src/forms/name.js#parseName — trim, sem controle, ≤ 80 code points; espelho de api:src/names.js#normalizeName@1a2b3c4d5e"`
+- **Semantics travel with the value.** Each `canonical:` line ends with ` — <semantics>`
   whenever the value's name does not say it all, and contracts carry a **Semântica** section.
   Write it for: numbers with a unit or scale (percent vs decimal, cents vs units), money
   (which currency), dates and times (instant vs civil day stored as 00:00 UTC, which time
-  zone, data-com vs data-ex vs payment date), and records whose kind is not obvious (a live
-  quote vs a historical candle in one collection). Measured on moneyTrackr: the contract bugs
-  that reached production were all of this kind — both sides agreed on the field's name and
-  type and disagreed on its meaning (SGS rate in percent read as decimal, a civil day shown
-  one day early in local time, B3 data-com deduplicated against Yahoo data-ex). Shape-only
-  checks cannot see them; only the written meaning can.
+  zone, which date — event, record, settlement, payment), and records whose kind is not
+  obvious (a live reading vs a historical one in one collection). Measured on the same project:
+  the contract bugs that reached production were all of this kind — both sides agreed on the
+  field's name and type and disagreed on its meaning (a rate in percent read as decimal, a
+  civil day shown one day early in local time, one kind of date deduplicated against another).
+  Shape-only checks cannot see them; only the written meaning can.
 
 - `files:` is mandatory and lists every file the entry describes. It is what makes the
   entry go **stale** mechanically: `$S check` diffs those files from `verified-at` to HEAD.
@@ -179,13 +180,13 @@ verified-at: af78a4a664
 - One feature per entry. A file may appear in several entries; an entry never spans
   unrelated capabilities just to cover files.
 - Do not catalogue tests, build files or artifacts. `overview.md` may extend the default
-  ignore list with an `ignore:` block list of globs (e.g. `crontab/filesLic/**`).
+  ignore list with an `ignore:` block list of globs (e.g. `scripts/legacy/**`).
 
 ### overview.md
 
 Frontmatter: `type: catalog-overview`, `verified-at:`, optional `ignore:`. Body: purpose
 (3 lines), module map (dir → one line), neighbours (who calls us, whom we call, through
-what — e.g. "vislic → teco (proxy, allowlist scopeRoutes) → serverLic"), stack, how to run.
+what — e.g. "web → gateway (proxy, route allowlist) → api"), stack, how to run.
 
 ## Commands
 
@@ -225,7 +226,7 @@ dedicated branch (`docs/catalog-bootstrap`), so the bootstrap lands as one revie
 4. **Ask how many batches run at once** — unless the user's request already named a number.
    Parallelism does not change the total cost, only how fast it is spent: N batches cost the
    same 2 or 20 at a time, but 20 at once can exhaust a plan's usage window in one go (the
-   serverLic/vislic pilot did, twice), while a few at a time spread the spend and let the
+   first pilot did, twice), while a few at a time spread the spend and let the
    window roll over mid-run. Only the user knows their plan and what else they need it for
    today. Use AskUserQuestion, with the measured numbers in the question itself:
 

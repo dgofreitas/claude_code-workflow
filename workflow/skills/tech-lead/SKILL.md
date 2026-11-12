@@ -86,7 +86,7 @@ In an umbrella install (one `.claude/`, several sub-project git repos), resolve 
 S="${CLAUDE_CODE_SESSION_ID:+.claude/.state/$CLAUDE_CODE_SESSION_ID}"; AP=$(cat "$S/active-project" 2>/dev/null); P="${AP:-.}"
 ```
 
-`$P` = active project root — `.` in single-project installs, e.g. `gerLic` in an umbrella. **Every `artifacts/...` path in this skill is shorthand for `$P/artifacts/...`; every git/test command runs under `$P` (`git -C "$P" ...` or `cd "$P"` first); and every path you pass to a subagent is `$P`-prefixed** (so the artifact-frontmatter hook resolves the sibling story correctly, and the report lands in the right sub-project repo). Master writes the sub-project to this session's `$S/active-project` before invoking you — if it is unset in an umbrella, STOP and ask Master which sub-project (story numbers repeat across sub-projects). In single-project installs `$P=.`, so the literal paths below are already correct.
+`$P` = active project root — `.` in single-project installs, e.g. `api` in an umbrella. **Every `artifacts/...` path in this skill is shorthand for `$P/artifacts/...`; every git/test command runs under `$P` (`git -C "$P" ...` or `cd "$P"` first); and every path you pass to a subagent is `$P`-prefixed** (so the artifact-frontmatter hook resolves the sibling story correctly, and the report lands in the right sub-project repo). Master writes the sub-project to this session's `$S/active-project` before invoking you — if it is unset in an umbrella, STOP and ask Master which sub-project (story numbers repeat across sub-projects). In single-project installs `$P=.`, so the literal paths below are already correct.
 
 **Worktree refinement — run this at step 0, immediately after resolving the id:**
 

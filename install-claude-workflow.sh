@@ -383,7 +383,7 @@ installTokscale() {
 }
 
 # Guarda-chuva = a raiz tem sub-diretórios que são repos git próprios
-# (sistema-de-licenciamento/{teco,gerLic}). Mesma detecção que o Master faz em
+# (ex.: platform/{api,web}). Mesma detecção que o Master faz em
 # runtime para resolver $P — ver "Active Project" no CLAUDE.md.
 hasSubProjectRepos() {
     local root="$1" d

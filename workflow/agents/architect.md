@@ -105,7 +105,7 @@ that restates the impacted-components table earns nothing.
 - **Canonical sources first** — fill `## Fontes Canônicas` before planning the change.
   The defect that most often reaches production in these projects is a domain rule
   computed a second time and drifting from the first (16 of 22 knowledge-gap bugs measured
-  on moneyTrackr), and the plan is the last point where it is cheap to prevent: once a
+  on an installed project), and the plan is the last point where it is cheap to prevent: once a
   developer writes the copy, review has to catch it and the fix has to find every copy.
 - Analyze technical complexity and risks
 - Identify impacted components (from code analysis)
@@ -165,8 +165,8 @@ Every domain value or rule this story reads, computes or changes (a position, a 
 conversion, a currency/country map, a date window, a cache key, a classification) → the ONE
 symbol that computes it today: `<value> → <file>#<symbol> — <semantics>` (from `catalog.cjs
 lookup` `canonical:` lines, or found by grep). Semantics = what the name does not say: unit or
-scale (percent vs decimal), currency, instant vs civil day and time zone, which date (data-com,
-data-ex, payment), what a record represents. Take it from the producing code; when the story
+scale (percent vs decimal), currency, instant vs civil day and time zone, which date (event,
+record, settlement, payment), what a record represents. Take it from the producing code; when the story
 moves a value across a boundary in a different unit or zone, say where the conversion happens. Developers USE these, never compute them again. No
 source yet → name the symbol this story creates as the source. Known copies that compute the
 same thing → say whether this story routes them to the source or leaves them (and why).

@@ -7,7 +7,7 @@ argument-hint: [<sub-project>|status|clear|list]
 
 Deterministic override for the sub-project Master otherwise infers from the prompt (see
 `CLAUDE.md` → Active Project). Use this in an **umbrella** install (one `.claude/` at the root,
-several sub-project git repos like `teco` / `gerLic`) so every artifact path and git op anchors
+several sub-project git repos like `api` / `web`) so every artifact path and git op anchors
 to the right sub-project. The choice belongs to **this session** (`.claude/.state/<session>/active-project`), so a second session on the same install keeps its own.
 
 Single-project installs don't need this: with no active project, `$P = .` and everything works as before.
@@ -35,7 +35,7 @@ Parse `$ARGUMENTS` (case-insensitive):
 
 - Switching the active project mid-session does not touch an in-flight `tech-lead` invocation — it changes anchoring only for turns after this command.
 - Mode and batch queue are per session too, not per project: switching projects keeps them.
-- Story numbers repeat across sub-projects (STORY-032 in teco AND gerLic) — this pointer disambiguates a request with no story id. With an id, Master finds the sub-project that has it. When neither settles it, Master asks before acting.
+- Story numbers repeat across sub-projects (STORY-032 in api AND web) — this pointer disambiguates a request with no story id. With an id, Master finds the sub-project that has it. When neither settles it, Master asks before acting.
 
 ## Output
 

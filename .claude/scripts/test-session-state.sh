@@ -35,24 +35,24 @@ guard() {    # $1 sessão, $2 comando
 state() { mkdir -p "${U}/.claude/.state/$1"; echo "$2" > "${U}/.claude/.state/$1/active-project"; }
 
 mkdir -p "${U}"; git init -q -b main "${U}"
-subrepo serverLic; subrepo docker-compose; subrepo teco
-branch docker-compose feat/STORY-010-compose
-branch serverLic feat/STORY-020-dup; branch docker-compose feat/STORY-020-dup
+subrepo api; subrepo deploy; subrepo gateway
+branch deploy feat/STORY-010-compose
+branch api feat/STORY-020-dup; branch deploy feat/STORY-020-dup
 
-# O incidente: a sessão está em serverLic, a branch é do docker-compose.
-state sess-a serverLic
+# O incidente: a sessão está em api, a branch é do deploy.
+state sess-a api
 check "branch de outro sub-projeto é validada no repo dela" \
     '[[ -z "$(guard sess-a "gh pr merge feat/STORY-010-compose --merge")" ]]'
 
-git -C "${U}/docker-compose" checkout -q feat/STORY-010-compose
-touch "${U}/docker-compose/sujo.txt"
+git -C "${U}/deploy" checkout -q feat/STORY-010-compose
+touch "${U}/deploy/sujo.txt"
 check "árvore suja no repo dono da branch é negada" \
     'guard sess-a "gh pr merge feat/STORY-010-compose --merge" | grep -q "working tree suja"'
-rm "${U}/docker-compose/sujo.txt"; git -C "${U}/docker-compose" checkout -q main
+rm "${U}/deploy/sujo.txt"; git -C "${U}/deploy" checkout -q main
 
 check "branch em dois sub-projetos: desempata pelo projeto da sessão" \
     '[[ -z "$(guard sess-a "gh pr merge feat/STORY-020-dup --merge")" ]]'
-state sess-t teco
+state sess-t gateway
 check "branch em dois sub-projetos, nenhum da sessão: nega" \
     'guard sess-t "gh pr merge feat/STORY-020-dup --merge" | grep -q "mais de um sub-projeto"'
 check "branch que não existe: nega" \
@@ -60,7 +60,7 @@ check "branch que não existe: nega" \
 check "sessão sem estado continua funcionando" \
     '[[ -z "$(guard sess-nova "gh pr merge feat/STORY-010-compose --merge")" ]]'
 
-state sess-p serverLic
+state sess-p api
 check "push direto na main do repo da sessão pede confirmação" \
     'guard sess-p "git push origin main" | grep -q "\"ask\""'
 
@@ -86,11 +86,11 @@ check "mantém sessão de 40 dias com transcript (resume depois de semanas)" '[[
 check "apaga diretório sem registro com mais de 30 dias" '[[ ! -d "${S}/sem-registro-velho" ]]'
 check "mantém diretório sem registro com 10 dias" '[[ -d "${S}/sem-registro-novo" ]]'
 
-echo batch-auto > "${S}/vivo/exec-mode"; echo serverLic > "${S}/vivo/active-project"
+echo batch-auto > "${S}/vivo/exec-mode"; echo api > "${S}/vivo/active-project"
 echo '{"queue":["STORY-1","STORY-2","STORY-3"],"current":1}' > "${S}/vivo/batch-queue.json"
 out="$(hook vivo "${TMP}/vivo.jsonl" resume)"
 check "resume mostra projeto, modo e fila" \
-    '[[ "${out}" == *"projeto: serverLic"* && "${out}" == *"modo: batch-auto"* && "${out}" == *"2 na fila"* ]]'
+    '[[ "${out}" == *"projeto: api"* && "${out}" == *"modo: batch-auto"* && "${out}" == *"2 na fila"* ]]'
 check "/clear começa do zero, sem linha" '[[ -z "$(hook sess-limpa "${TMP}/limpa.jsonl" clear)" ]]'
 check "id inválido não cria nada" '[[ -z "$(hook "../fora" "${TMP}/x.jsonl" startup)" && ! -d "${U}/.claude/fora" ]]'
 

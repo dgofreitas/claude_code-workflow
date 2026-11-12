@@ -15,7 +15,7 @@ Pass `$ARGUMENTS` through to the scan script **verbatim** — it owns the parsin
 
 | Form | Scope |
 |------|-------|
-| `src/teco.js` | that one file |
+| `src/server.js` | that one file |
 | `src/` or `compose/` | every source file under it, recursively |
 | `src/*.py` | **non-recursive** — only that extension directly in that directory |
 | `.yml` / `*.yml` / `yml` | every file with that extension in the repo |

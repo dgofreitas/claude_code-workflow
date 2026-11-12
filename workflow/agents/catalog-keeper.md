@@ -40,9 +40,9 @@ built from memory or from another entry's text is the failure this catalog canno
   that "could" be there, a schema guess, or anything read from a consumer's entry. A field
   only the consumer side names is exactly what `check` exists to flag; listing it on the
   provider side to be thorough hides a real bug (it happened: a provider entry listed a
-  `licenceFile_3` no code writes, and the consumer's dead "Anterior 3" slot went unreported).
+  field no code writes, and the consumer's dead slot that read it went unreported).
 - Consumer `fields:` = what the consumer actually reads (grep its property accesses).
-- The `id` is the full wire path after every mount/prefix (`http.GET./licencaWeb/v0/x`),
+- The `id` is the full wire path after every mount/prefix (`http.GET./api/v1/x`),
   so both sides compute the same one. Resolve the prefix — open the file that mounts it.
 - **Any interface something calls gets a provider contract** — whether the caller is another
   project or a tool in this same repo (a CLI tester, a load bot, a cron script). Before
@@ -91,7 +91,7 @@ field where they could be misread, write the semantics as the code establishes i
 - numbers with a unit or scale: percent vs decimal, cents vs units, per-day vs per-year;
 - money: which currency, and whether mixed currencies can appear in one list;
 - dates and times: an instant or a civil day (and how it is stored — 00:00 UTC?), which time
-  zone, and WHICH date (data-com, data-ex, payment, settlement, record time);
+  zone, and WHICH date (event, record, settlement, payment);
 - records: what one document represents when a collection holds several kinds.
 
 Take it from the code that produces the value (the conversion, the parser, the schema), never
