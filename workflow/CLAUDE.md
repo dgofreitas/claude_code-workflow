@@ -94,6 +94,7 @@ S="${CLAUDE_CODE_SESSION_ID:+.claude/.state/$CLAUDE_CODE_SESSION_ID}"; AP=$(cat 
 3. Else use this session's stored `$AP`.
 4. Else, if the working dir has NO sub-project git repos → single-project, `$P=.` (nothing changes; literal `artifacts/...` paths below are already correct).
 5. Else (umbrella, none named/stored) → ASK "Qual sub-projeto? (<the sub-project repos found at the root, separated by ` / `>)" — the real names, never examples. Do NOT guess — the wrong project corrupts paths and state. `/sdlc:project <name>` sets it deterministically (see `commands/sdlc/project.md`).
+   **Exception — the catalog's `check`, `refresh` and `init`:** with no sub-project stored or named, they cover the whole umbrella from the root, and a sub-project named in the command scopes that one command. Do not ask, and do not write `$S/active-project` for them — the catalog skill resolves its own scope (see its "Scope" section).
 
 **Worktree refinement (as soon as the story id is resolved):**
 
@@ -292,7 +293,7 @@ reads:
 | "review" / "QA" / "validate" / "MR" / "PR" / "bug" / "fix" / story in execution | **tech-lead skill** (tech-lead picks the right internal agent: test-engineer / qa-analyst / code-reviewer / bug-fixer / merge-request-creator) |
 | "document" | doc-writer |
 | "what files / context" | context-scout |
-| "criar catálogo" / "catalog init" / "catálogo desatualizado" / "o que já existe sobre X" | **catalog skill** (init / check / lookup / refresh; deterministic: `/sdlc:catalog`) — "como usar o catálogo" → show `/sdlc:catalog help`. The per-story update is tech-lead's, never Master's |
+| "criar catálogo" / "catalog init" / "catálogo desatualizado" / "o que já existe sobre X" / "por onde passa X" | **catalog skill** (init / check / lookup / path / refresh; deterministic: `/sdlc:catalog`; check/refresh/init need no sub-project in an umbrella) — "como usar o catálogo" → show `/sdlc:catalog help`. The per-story update is tech-lead's, never Master's |
 | "external lib docs" | external-scout |
 | "pendências" / "o que falta" / "backlog" / "status do épico" | Answer directly from `backlog-status.sh` (see Backlog Questions) |
 | simple question (no exec) | Answer directly |

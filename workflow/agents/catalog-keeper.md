@@ -167,6 +167,11 @@ change is large — a part (`parte i de n`, with the entries of that part) or `f
    For every contract this story touched, also compare its **Semântica** with the
    counterpart's (as in finalize, step 3): a semantic mismatch the story introduced — a field
    that now holds percent where the consumer still reads decimal — goes under `NOVO nesta story:`.
+   `INFO possible undeclared mirror` on an entry this story touched (it is in the `affected`
+   output) is yours now, while you have the entry open: apply Rule: Canonical Sources, owner in
+   a sibling — declare the mirror, or, when the line does not copy a sibling's rule, leave it and
+   say why in one line of your report. On entries the story did not touch, leave it: `check`
+   offers their refresh.
 5. Commit ONLY `artifacts/catalog/` on the story branch:
    `git -C "$P" add artifacts/catalog && git -C "$P" commit -m "docs(catalog): STORY-XXX"`.
 6. Mark `[x] CATALOG` in `$P/artifacts/stories/STORY-XXX-checkpoint.md` and commit it.

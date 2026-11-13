@@ -8,6 +8,10 @@
 //   node catalog.cjs check     --project P            stale entries, broken refs, contracts
 //   node catalog.cjs lookup    --project P term...    entries matching the terms
 //   node catalog.cjs path      --project P [--to] term|id   the route of an interface across the umbrella
+//   node catalog.cjs plan      --project P|ROOT       what refresh/init would do, one line per sub-project
+//   node catalog.cjs prepare   --project P --branch B [--base R]   worktree a root-level refresh writes in
+//   node catalog.cjs sync      --project ROOT [names…]   fast-forward the checkouts where that is safe
+// From an umbrella root (not a repo), check and plan cover every sub-project, fetching first.
 //   node catalog.cjs inventory --project P            bootstrap aid: candidate units in the code
 //
 // .cjs on purpose: a project's package.json may say "type": "module", and the
@@ -124,6 +128,8 @@ function forkBase(project) {
     const ahead = Number(git(project, ['rev-list', '--count', mb + '..HEAD']));
     if (!best || ahead < best.ahead) best = { ref, mb, ahead };
   }
+  // origin/HEAD names no branch a person can recognise; the branch it points at does.
+  if (best && best.ref === 'origin/HEAD') best.ref = git(project, ['rev-parse', '--abbrev-ref', 'origin/HEAD'], { allowFail: true }) || best.ref;
   return best;
 }
 
@@ -626,7 +632,7 @@ function mirrorsOf(world, me, e) {
   return out;
 }
 
-function cmdCheck(project, cat, siblings) {
+function collectCheck(project, cat, siblings) {
   const problems = validate(cat);
   for (const e of cat.entries) {
     for (const f of asList(e.files)) {
@@ -714,6 +720,23 @@ function cmdCheck(project, cat, siblings) {
   // an owner that changed since the copy was compared makes the copy stale — the fix-one-copy
   // defect, across repos.
   const world = [{ name: projectName(project), base: projectName(project), dir: project, cat }].concat(sibs);
+  // A copy named only in prose ("cópia de api ...") is a mirror nobody watches. Heuristic,
+  // hence INFO: a sibling's name next to copy wording, with no `espelho de` to check. Not a
+  // sibling: `gateway.timeoutMs` (a config key). Not a copy: a line whose `→` already points at
+  // the sibling — that declares the owner, and nothing here recomputes it.
+  const sibNames = uniq(sibs.map((s) => s.base)).filter((b) => b.toLowerCase() !== world[0].base.toLowerCase());
+  const copyWord = /c[óo]pia|espelh|replica|mirror/i;
+  for (const e of cat.entries) {
+    for (const line of asList(e.canonical)) {
+      if (/espelho de/i.test(line) || !copyWord.test(line)) continue;
+      const source = (line.split('→')[1] || '').trim().toLowerCase();
+      const named = sibNames.filter((b) => !source.startsWith(b.toLowerCase()) &&
+        new RegExp('(^|[^\\w-])' + escRe(b) + '($|[^\\w.-]|\\.(?!\\w))', 'i').test(line));
+      if (named.length) {
+        problems.push(['INFO', e.rel, 'possible undeclared mirror of ' + named.join(', ') + ' — if this copies a sibling\'s rule, write `espelho de <projeto>:<arquivo>#<símbolo>@<sha>` (refresh): ' + line]);
+      }
+    }
+  }
   for (const e of cat.entries) {
     for (const line of asList(e.canonical)) {
       if (!/espelho de/i.test(line)) continue;
@@ -754,18 +777,187 @@ function cmdCheck(project, cat, siblings) {
   const src = git(project, ['ls-files']).split('\n').filter((f) => f && !ignored(f) && SOURCE_RE.test(f));
   const unc = src.filter((f) => !covered.has(f));
   const pct = src.length ? Math.round((100 * (src.length - unc.length)) / src.length) : 100;
-  // A large rewrite done outside the workflow: refreshing entry by entry costs more and ends
-  // worse than rebuilding — the old entries' boundaries no longer match the code.
-  const hit = new Set(problems.filter((x) => x[0] === 'STALE' || (x[0] === 'ERROR' && /file does not exist/.test(x[2]))).map((x) => x[1]));
-  const ratio = cat.entries.length ? hit.size / cat.entries.length : 0;
-  if (hit.size) {
-    problems.push(['INFO', '(remedy)', hit.size + ' of ' + cat.entries.length + ' entries (' + Math.round(ratio * 100) + '%) stale or pointing at removed files — ' +
-      (ratio > 0.3 ? 'above 30%: rebuild with `/sdlc:catalog init` rather than refresh' : '`/sdlc:catalog refresh` them')]);
+  const t = remedyOf(problems, cat);
+  if (t.rebuild) {
+    problems.push(['INFO', '(remedy)', t.hit + ' of ' + cat.entries.length + ' entries (' + t.pct + '%) stale or pointing at removed files — above 30%: rebuild with `/sdlc:catalog init ' + projectName(project) + '` rather than refresh']);
+  } else if (t.entries.length) {
+    problems.push(['INFO', '(remedy)', t.entries.length + ' entr' + (t.entries.length > 1 ? 'ies' : 'y') + ' to refresh: `/sdlc:catalog refresh ' + projectName(project) + ' ' + t.entries.join(' ') + '`']);
   }
   problems.push(['INFO', '(coverage)', pct + '% of ' + src.length + ' source files are in some entry' + (sibs.length ? ' | siblings with a catalog: ' + sibs.map((s) => s.name).join(', ') : '')]);
+  return problems;
+}
 
+// What a refresh fixes, from the problems check found: entries that are stale, point at removed
+// files, break a rule, or may hide a mirror. MISMATCH is not here — it is a finding about the
+// code, never the keeper's to silence. A large rewrite done outside the workflow: refreshing
+// entry by entry costs more and ends worse than rebuilding — the old boundaries no longer match.
+function remedyOf(problems, cat) {
+  const onEntry = (x) => /^(features|contracts)\//.test(x[1]);
+  const hit = new Set(problems.filter((x) => onEntry(x) && (x[0] === 'STALE' || (x[0] === 'ERROR' && /file does not exist/.test(x[2])))).map((x) => x[1]));
+  const entries = uniq(problems.filter((x) => onEntry(x) && (x[0] === 'STALE' || x[0] === 'ERROR' ||
+    (x[0] === 'INFO' && /^possible undeclared mirror/.test(x[2])))).map((x) => x[1])).sort();
+  const ratio = cat.entries.length ? hit.size / cat.entries.length : 0;
+  return { entries, hit: hit.size, pct: Math.round(ratio * 100), rebuild: ratio > 0.3 };
+}
+
+function cmdCheck(project, cat, siblings) {
+  const problems = collectCheck(project, cat, siblings);
   report(problems);
   return problems.some((p) => p[0] !== 'INFO') ? 2 : 0;
+}
+
+// ---------------------------------------------------------------- umbrella root
+
+// Every sub-project repo under an umbrella root, with where its catalog is: on disk, only on
+// the integration branch (a checkout behind its remote — re-running init there would pay for a
+// catalog that already exists), or nowhere.
+function subProjects(root, fetch) {
+  const out = [];
+  for (const d of fs.readdirSync(root).sort()) {
+    const dir = path.join(root, d);
+    try {
+      if (d.startsWith('.') || !fs.statSync(dir).isDirectory()) continue;
+    } catch (e) {
+      continue;
+    }
+    if (git(dir, ['rev-parse', '--show-toplevel'], { allowFail: true }) !== path.resolve(dir)) continue;
+    if (fetch) git(dir, ['fetch', '-q', 'origin'], { allowFail: true });
+    const base = forkBase(dir);
+    const local = fs.existsSync(path.join(dir, CATALOG_DIR));
+    const remote = !local && base && git(dir, ['ls-tree', '-d', '--name-only', base.ref, CATALOG_DIR], { allowFail: true });
+    out.push(Object.assign({ name: d, dir, base: base ? base.ref : null, local, remote: remote ? base.ref : null }, checkoutState(dir, base)));
+  }
+  return out;
+}
+
+// Where a checkout stands against its integration branch. Only a clean checkout ON that branch,
+// merely behind it, is safe to fast-forward: one on another branch may be a story another
+// session is working on right now, and switching it under that session breaks its work.
+function checkoutState(dir, base) {
+  const branch = git(dir, ['branch', '--show-current'], { allowFail: true }) || '';
+  if (!base) return { branch, state: 'no-base', note: 'no integration branch found on origin' };
+  const baseName = base.ref.replace(/^origin\//, '');
+  const dirty = !!git(dir, ['status', '--porcelain', '--untracked-files=no'], { allowFail: true });
+  const behind = Number(git(dir, ['rev-list', '--count', 'HEAD..' + base.ref], { allowFail: true }) || 0);
+  const ahead = Number(git(dir, ['rev-list', '--count', base.ref + '..HEAD'], { allowFail: true }) || 0);
+  const where = (branch || 'detached HEAD') + ', ' + (behind ? behind + ' behind ' : 'level with ') + base.ref + (ahead ? ', ' + ahead + ' ahead' : '') + (dirty ? ', uncommitted changes' : ', clean');
+  let state = 'current';
+  if (branch !== baseName) state = 'other-branch';
+  else if (dirty && behind) state = 'dirty';
+  else if (ahead && behind) state = 'diverged';
+  else if (behind) state = 'can-sync';
+  const note = { current: '', 'can-sync': ' → safe to fast-forward (`catalog.cjs sync`)', 'other-branch': ' → not the integration branch: checked as it is, not switched',
+    dirty: ' → behind, with uncommitted changes: not touched', diverged: ' → local commits not on ' + base.ref + ': not touched' }[state];
+  return { branch, baseName, behind, state, note: where + note };
+}
+
+// The only write the root modes make on a checkout, and only on request: a fast-forward of a
+// clean checkout already on its integration branch. Everything else is reported and left alone.
+function cmdSync(root, only) {
+  for (const s of subProjects(root, true)) {
+    if (only.length && !only.includes(s.name)) continue;
+    if (s.state !== 'can-sync') {
+      if (s.state !== 'current') console.log('SKIPPED ' + s.name + ' — ' + s.note);
+      continue;
+    }
+    const from = git(s.dir, ['rev-parse', '--short=10', 'HEAD']);
+    const ok = git(s.dir, ['merge', '-q', '--ff-only', s.base], { allowFail: true }) !== null;
+    console.log(ok ? 'SYNCED ' + s.name + ' ' + from + '..' + git(s.dir, ['rev-parse', '--short=10', 'HEAD']) : 'SKIPPED ' + s.name + ' — fast-forward refused by git');
+  }
+  return 0;
+}
+
+const isUmbrellaRoot = (dir) => git(dir, ['rev-parse', '--git-dir'], { allowFail: true }) === null &&
+  fs.existsSync(path.join(dir, '.claude', 'skills', 'catalog'));
+
+function cmdCheckRoot(root, siblings, fetch) {
+  let code = 0;
+  for (const s of subProjects(root, fetch)) {
+    console.log('## ' + s.name + ' — ' + s.note);
+    if (!s.local) {
+      console.log((s.remote ? 'INFO     catalog on ' + s.remote + ' but not in this checkout — bring the checkout up to date before checking it'
+        : 'INFO     no catalog — `/sdlc:catalog init ' + s.name + '` creates one') + '\n');
+      continue;
+    }
+    const problems = collectCheck(s.dir, loadCatalog(s.dir), siblings);
+    report(problems);
+    console.log('');
+    if (problems.some((p) => p[0] !== 'INFO')) code = 2;
+  }
+  return code;
+}
+
+// The work the skill runs for `refresh` / `init` with no entries named, one line per item, so
+// what gets refreshed is decided here and the same twice in a row:
+//   SYNC <name> <base> <n>        checkout safely fast-forwardable — offer `sync` first
+//   WARN <name> <state>           checkout not at its integration state: findings reflect it
+//   REFRESH <name> <base> <entry…>   INIT <name> <base> <why>
+function cmdPlan(project, siblings, fetch) {
+  const one = () => {
+    const base = forkBase(project);
+    return Object.assign({ name: projectName(project), dir: project, base: base ? base.ref : null, local: fs.existsSync(path.join(project, CATALOG_DIR)), remote: null }, checkoutState(project, base));
+  };
+  const subs = isUmbrellaRoot(project) ? subProjects(project, fetch) : [one()];
+  let n = 0;
+  for (const s of subs) {
+    if (s.state === 'can-sync') {
+      n++;
+      console.log('SYNC ' + s.name + ' ' + s.base + ' ' + s.behind);
+    } else if (s.state !== 'current') console.log('WARN ' + s.name + ' ' + s.note);
+    if (!s.local) {
+      // A catalog only on the remote is brought by the sync, never rebuilt by init.
+      if (s.remote) {
+        if (s.state !== 'can-sync') console.log('WARN ' + s.name + ' catalog only on ' + s.remote + ', and the checkout cannot be fast-forwarded safely — update it by hand');
+        continue;
+      }
+      n++;
+      console.log('INIT ' + s.name + ' ' + (s.base || '-') + ' no catalog');
+      continue;
+    }
+    const cat = loadCatalog(s.dir);
+    const t = remedyOf(collectCheck(s.dir, cat, siblings), cat);
+    if (t.rebuild) {
+      n++;
+      console.log('INIT ' + s.name + ' ' + (s.base || '-') + ' ' + t.pct + '% of entries stale');
+    } else if (t.entries.length) {
+      n++;
+      console.log('REFRESH ' + s.name + ' ' + (s.base || '-') + ' ' + t.entries.join(' '));
+    }
+  }
+  console.log('PLAN: ' + (n ? n + ' item(s)' : 'nothing to do'));
+  return 0;
+}
+
+// The tree a root-level refresh writes in: a worktree of the sub-project on a docs branch from
+// its integration branch — never the checkout, where another session may have a story checked
+// out. Reused when the branch already has one, so a second run continues the first.
+function cmdPrepare(project, branch, baseRef) {
+  const abs = path.resolve(project);
+  const root = path.dirname(abs);
+  if (!isUmbrellaRoot(root)) {
+    console.error('prepare is for a sub-project of an umbrella — in a single project, refresh runs in the project itself');
+    return 1;
+  }
+  const wl = git(abs, ['worktree', 'list', '--porcelain'], { allowFail: true }) || '';
+  for (const block of wl.split('\n\n')) {
+    const wt = (block.match(/^worktree (.+)$/m) || [])[1];
+    const br = (block.match(/^branch refs\/heads\/(.+)$/m) || [])[1];
+    if (wt && br === branch) {
+      console.log('WORKTREE ' + wt + ' ' + branch + ' ' + git(wt, ['rev-parse', '--short=10', 'HEAD']) + ' (reused)');
+      return 0;
+    }
+  }
+  git(abs, ['fetch', '-q', 'origin'], { allowFail: true });
+  const dest = path.join(root, '.worktrees', path.basename(abs) + '-' + branch.split('/').pop());
+  const exists = git(abs, ['rev-parse', '--verify', '-q', 'refs/heads/' + branch], { allowFail: true }) !== null;
+  const ref = baseRef || (forkBase(abs) || {}).ref;
+  if (!exists && !ref) {
+    console.error('cannot find the integration branch — pass --base <ref>');
+    return 1;
+  }
+  git(abs, exists ? ['worktree', 'add', '-q', dest, branch] : ['worktree', 'add', '-q', '-b', branch, dest, ref]);
+  console.log('WORKTREE ' + dest + ' ' + branch + ' ' + git(dest, ['rev-parse', '--short=10', 'HEAD']));
+  return 0;
 }
 
 function report(problems) {
@@ -970,17 +1162,39 @@ function main(argv) {
   let base = null;
   let siblings = null;
   let reach = false;
+  let branch = null;
+  let fetch = true;
   const rest = [];
   for (let i = 1; i < argv.length; i++) {
     if (argv[i] === '--project') project = argv[++i];
     else if (argv[i] === '--base') base = argv[++i];
     else if (argv[i] === '--siblings') siblings = argv[++i];
+    else if (argv[i] === '--branch') branch = argv[++i];
     else if (argv[i] === '--to') reach = true;
+    else if (argv[i] === '--no-fetch') fetch = false;
     else rest.push(argv[i]);
   }
-  if (!['index', 'affected', 'check', 'lookup', 'path', 'inventory', 'summary'].includes(cmd)) {
-    console.error('usage: catalog.cjs <index|affected|check|lookup|path|inventory|summary> --project <dir> [--base <ref>] [--siblings <dir,...>] [--to] [terms...]');
+  const cmds = ['index', 'affected', 'check', 'lookup', 'path', 'inventory', 'summary', 'plan', 'prepare', 'sync'];
+  if (!cmds.includes(cmd)) {
+    console.error('usage: catalog.cjs <' + cmds.join('|') + '> --project <dir> [--base <ref>] [--siblings <dir,...>] [--branch <b>] [--to] [--no-fetch] [terms|names...]');
     return 1;
+  }
+  // From an umbrella root — not a repo itself — check and plan cover every sub-project, after
+  // fetching, so "behind" means behind the remote as it is now.
+  if ((cmd === 'check' || cmd === 'plan' || cmd === 'sync') && isUmbrellaRoot(project)) {
+    if (cmd === 'sync') return cmdSync(project, rest);
+    return cmd === 'check' ? cmdCheckRoot(project, siblings, fetch) : cmdPlan(project, siblings, fetch);
+  }
+  if (cmd === 'sync') {
+    console.error('sync runs from an umbrella root');
+    return 1;
+  }
+  if (cmd === 'prepare') {
+    if (!branch) {
+      console.error('prepare needs --branch <name>');
+      return 1;
+    }
+    return cmdPrepare(project, branch, base);
   }
   // Runs from a SessionStart hook: never fails, never blocks the session.
   if (cmd === 'summary') {
@@ -996,6 +1210,7 @@ function main(argv) {
   }
   const cat = loadCatalog(project);
   if (cmd === 'inventory') return cmdInventory(project, cat);
+  if (cmd === 'plan') return cmdPlan(project, siblings, fetch);
   if (!cat) {
     console.error('no catalog at ' + path.join(project, CATALOG_DIR) + ' — bootstrap it with the catalog skill');
     return 3;

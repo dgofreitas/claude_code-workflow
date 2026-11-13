@@ -196,16 +196,48 @@ what — e.g. "web → gateway (proxy, route allowlist) → api"), stack, how to
 | `node $S path --project $P <terms…\|id>` | the route of an interface across the umbrella: who consumes it, the hops it passes through (deduced wildcard providers), who provides it — and under every hop, the `canonical:` rules handled there. Computed on each call, never stored |
 | `node $S path --project $P --to <id>` | who reaches an interface, two levels up — the impact of changing it |
 | `node $S affected --project $P [--base <ref>]` | what the branch's diff touched — first line `CATALOG: update` or `CATALOG: no-op` |
-| `node $S check --project $P [--siblings d1,d2]` | ERROR / MISMATCH / STALE / INFO, exit 2 on any non-INFO. Besides the contract cross-check: a feature that `provides:` what this project's own contract says it consumes (ERROR), and every `espelho de` reference (owner symbol gone → ERROR, owner changed since its sha → STALE) |
+| `node $S check --project $P [--siblings d1,d2]` | ERROR / MISMATCH / STALE / INFO, exit 2 on any non-INFO. Besides the contract cross-check: a feature that `provides:` what this project's own contract says it consumes (ERROR), and every `espelho de` reference (owner symbol gone → ERROR, owner changed since its sha → STALE). INFO `possible undeclared mirror` for a `canonical:` line naming a sibling next to copy wording with no `espelho de` — a heuristic: refresh the entry and let the keeper decide |
 | `node $S index --project $P` | rewrite INDEX.md (refuses while there are ERRORs) |
 | `node $S inventory --project $P` | bootstrap map: files per dir with line counts, routes, env, collections |
 | `node $S summary --project <dir>` | one line per catalogued project with stale entries, nothing when all is current — run by the SessionStart hook; covers every sub-project from an umbrella root |
+| `node $S check --project <ROOT>` | from an umbrella root: fetches, then one block per sub-project — a header with where its checkout stands (branch, behind/ahead its integration branch, clean or not) and that project's check, with its own `(remedy)` line |
+| `node $S plan --project <ROOT\|P>` | what refresh/init would do, one line per item: `SYNC <name> <base> <n>` (checkout safely fast-forwardable), `WARN <name> <state>`, `REFRESH <name> <base> <entry…>`, `INIT <name> <base> <why>`, then `PLAN: …` |
+| `node $S sync --project <ROOT> [names…]` | fast-forwards the checkouts that are clean, on their integration branch and only behind it; prints `SYNCED` / `SKIPPED <why>`. Never switches a branch, never touches a dirty or diverged checkout |
+| `node $S prepare --project <ROOT>/<name> --branch <b> [--base <ref>]` | fetches and creates (or reuses) the worktree `<ROOT>/.worktrees/<name>-<last segment of b>` on branch `b` from the integration branch; prints `WORKTREE <path> <branch> <sha>` |
 
 `lookup` marks every stale result inline (`⚠ STALE since <sha>: <files>`), because the
 moment someone reads an entry to plan is when a stale one does harm — before any story has
 had the chance to refresh it.
 
+## Scope: umbrella root, a named sub-project, or named entries
+
+`/sdlc:catalog <mode> [<sub-projeto>] [<entradas>…]`. The scope comes from the arguments, never
+from a question the user did not need:
+
+| Arguments | Scope |
+|---|---|
+| a sub-project name first (a directory of the umbrella) | that sub-project, **for this command only** — the session's active sub-project is not changed |
+| none, in an umbrella | `check`, `refresh` and `init` cover the whole umbrella (below); `lookup`/`path` use the session's active sub-project, or ask |
+| none, single project | `$P` |
+| entries after the name | exactly those entries |
+
+**State first, at the root.** `check`, `refresh` and `init` without a sub-project start with
+`node $S plan --project <ROOT>` (it fetches). `SYNC` lines → ask ONCE, listing them: "N
+repositórios estão só atrás da branch de integração, limpos — atualizar (fast-forward)?". Yes
+→ `node $S sync --project <ROOT> <names>`, relay `SYNCED`/`SKIPPED`, then re-run `plan`. Never
+switch a branch, pull a dirty checkout or touch one on another branch — a checkout on a story
+branch may be another session's work in progress; `WARN` lines say so, and are relayed as they
+are. Refresh and init do not depend on it: they write in fresh worktrees (`prepare`).
+
 ## Mode: init (first time)
+
+**At the root, no sub-project named:** after the state step, the `INIT` lines are the
+candidates. Ask which (AskUserQuestion, multiSelect, one option per `INIT` line with its
+reason) — never init them all unasked: init is the costliest operation, done once per project.
+A catalog that exists only on the remote is a `SYNC`/`WARN`, never an `INIT`: rebuilding it
+pays for one that already exists. Then, per chosen sub-project, one at a time: `node $S
+prepare --project <ROOT>/<name> --branch docs/catalog-bootstrap`, `$P` = the printed worktree,
+and the steps below.
 
 Run from the main session. Never in the sub-project checkout's own branch — use a
 dedicated branch (`docs/catalog-bootstrap`), so the bootstrap lands as one reviewable MR.
@@ -263,11 +295,14 @@ dedicated branch (`docs/catalog-bootstrap`), so the bootstrap lands as one revie
 
 ## Mode: check
 
-`node $S check --project $P`. Relay the output as printed. STALE entries → offer a
-catalog-keeper call in `Mode: refresh` with exactly those entries — a STALE mirror included:
-the refresh compares the copy with the owner again and moves its `@sha`. In an umbrella, a
-sibling's catalog still on an unmerged branch lives in a worktree — pass it with
-`--siblings <worktree dir>` or its contracts read as "no provider catalogued".
+`node $S check --project $P` — or, at the root with no sub-project named, the state step and
+then `node $S check --project <ROOT>`. Relay the output as printed. Each `(remedy)` line names
+the entries to refresh — STALE ones (a STALE mirror included: the refresh compares the copy
+with the owner again and moves its `@sha`), ones breaking a rule, and `possible undeclared
+mirror` ones (the keeper decides whether the copy is a sibling's rule and declares it). Offer
+that refresh, per sub-project, as written in the line. In an umbrella, a sibling's catalog
+still on an unmerged branch lives in a worktree — pass it with `--siblings <worktree dir>` or
+its contracts read as "no provider catalogued".
 
 ## Mode: refresh
 
@@ -276,6 +311,21 @@ found wrong, or after the keeper's rules changed (e.g. provider fields now come 
 code writes). One `catalog-keeper` call in `Mode: refresh` with exactly the entries named —
 `providers` expands to every `role: provider` contract; batch them (≤ 15 entries per call),
 in parallel like init. Then `check`. Do not commit unless the user asked.
+
+**No entries named** — the entries are the ones `plan` lists, decided by the script, not by
+reading entries:
+
+1. The state step (above), then `node $S plan --project <ROOT or P>`. No `REFRESH` line →
+   say so and stop.
+2. At the root: show the `REFRESH` lines (sub-project → entries) and ask which sub-projects
+   (AskUserQuestion, multiSelect, `Todos` first). A sub-project named in the arguments skips
+   the question. Then the parallelism question of init step 4, with N = Σ⌈entries/15⌉ calls.
+3. Per chosen sub-project: `node $S prepare --project <ROOT>/<name> --branch docs/catalog-refresh`
+   — never write in the checkout. `$P` = the printed worktree; the keeper calls get
+   `Mode: refresh. Project: $P. Entries: <the REFRESH line's entries, ≤ 15 per call>`.
+   Different sub-projects are different repos: their calls run in parallel safely, and their
+   worktrees share one branch name, so each one's check sees the others' in-flight entries.
+4. `node $S check --project $P` in each worktree, relay, report the branch per sub-project.
 
 ## Mode: lookup
 

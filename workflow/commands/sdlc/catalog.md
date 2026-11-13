@@ -1,13 +1,15 @@
 ---
 description: Project catalog (artifacts/catalog/) — help | init | check | lookup | path | refresh
-argument-hint: [help|init|check|lookup <termos>|path [--to] <termos>|refresh <entradas>]
+argument-hint: [help|init|check|lookup <termos>|path [--to] <termos>|refresh] [<sub-projeto>] [<entradas>]
 ---
 
 # /catalog — Project Catalog
 
 Deterministic entry to the **catalog** skill: what exists in this project and where — features,
-their canonical sources and semantics, and the contracts between sub-projects. In an umbrella,
-set the sub-project first (`/sdlc:project <name>`); the catalog belongs to one sub-project.
+their canonical sources and semantics, and the contracts between sub-projects. Each catalog
+belongs to one sub-project; in an umbrella, `check`, `refresh` and `init` with no sub-project
+named cover all of them, and a sub-project named right after the mode scopes that one command
+(the session's active sub-project is not changed). `lookup` and `path` use the active one.
 
 ## Action
 
@@ -18,11 +20,11 @@ Otherwise use the **catalog** skill with the mode in **$ARGUMENTS** (empty → `
 
 | $ARGUMENTS | Mode |
 |---|---|
-| `init` | create the catalog for the active project — asks how many batches run in parallel |
-| `check` | stale entries, broken references, contract mismatches with sibling catalogs |
+| `init [<sub-projeto>]` | create a catalog — at the umbrella root, lists the sub-projects without one and asks which; asks how many batches run in parallel |
+| `check [<sub-projeto>]` | where each checkout stands, stale entries, broken references, contract mismatches, possible undeclared mirrors — each with the refresh to run |
 | `lookup <termos>` | entries matching the terms, canonical sources first |
 | `path <termos\|id>` | the route of an interface across the sub-projects, and what each hop handles (`--to <id>`: who reaches it) |
-| `refresh <entradas>` | re-verify named entries against the code (paths under `artifacts/catalog/`, or `providers` for every provider contract) |
+| `refresh [<sub-projeto>] [<entradas>]` | re-verify entries against the code — the named ones (paths under `artifacts/catalog/`, or `providers`), or, with none, the ones `check` points at, asking which sub-projects at the root |
 
 > **Note:** `catalog` is a Skill (runs in the main context, which has the Task tool), not a
 > subagent — do not invoke it via `Task(subagent_type=...)`. It delegates every write to
@@ -30,8 +32,8 @@ Otherwise use the **catalog** skill with the mode in **$ARGUMENTS** (empty → `
 
 ## Before `init`
 
-- The active project's checkout is on a dedicated branch (e.g. `docs/catalogo` from the
-  integration branch): the bootstrap lands as one reviewable MR, never on a story branch.
+- The bootstrap lands on a dedicated branch (`docs/catalog-bootstrap` from the integration
+  branch, in a worktree the script prepares), as one reviewable MR — never on a story branch.
 - The catalog only takes effect for stories once that MR is merged into the branch stories
   start from — the tech-lead's catalog step looks for `artifacts/catalog/INDEX.md` in the
   story's own tree.
@@ -56,26 +58,37 @@ O QUE É
 
 COMANDOS
   /sdlc:catalog help               este guia
-  /sdlc:catalog init               cria o catálogo do projeto ativo (uma vez)
-  /sdlc:catalog check              entradas desatualizadas, referências quebradas e
-                                   divergências de contrato com os irmãos
+  /sdlc:catalog init [<sub>]       cria o catálogo (uma vez); na raiz, lista os sub-projetos
+                                   sem catálogo e pergunta quais
+  /sdlc:catalog check [<sub>]      estado de cada checkout, entradas desatualizadas, referências
+                                   quebradas, divergências de contrato, possíveis espelhos —
+                                   cada achado com o refresh a rodar
   /sdlc:catalog lookup <termos>    o que já existe sobre um assunto (fontes canônicas primeiro)
   /sdlc:catalog path <termos|id>   por onde passa uma interface entre os sub-projetos e o que
                                    cada etapa trata (ex.: web → gateway → api → banco)
   /sdlc:catalog path --to <id>     quem chega até ela — o impacto de mudá-la
-  /sdlc:catalog refresh <entradas> reverifica entradas contra o código
-                                   (use `providers` para todos os contratos fornecidos)
+  /sdlc:catalog refresh [<sub>] [<entradas>]
+                                   reverifica entradas contra o código: as nomeadas (ou
+                                   `providers`), ou, sem nenhuma, as que o check apontou —
+                                   na raiz, pergunta de quais sub-projetos
 
-  Num guarda-chuva, escolha o sub-projeto antes: /sdlc:project <nome>
+  NUM GUARDA-CHUVA, NA RAIZ (sem /sdlc:project)
+    check, refresh e init cobrem todos os sub-projetos. Antes, o script busca o remoto e
+    mostra onde cada checkout está; os que estão só atrás da branch de integração, limpos,
+    ele oferece atualizar (fast-forward) — e pergunta. Checkout em outra branch ou com
+    alterações nunca é tocado: pode ser o trabalho de outra sessão.
+    Um nome depois do modo restringe só aquele comando:  /sdlc:catalog refresh web
+    refresh e init escrevem num worktree docs/... de cada sub-projeto, nunca no checkout.
 
 PRIMEIRA VEZ (init)
-  1. Deixe o sub-projeto atualizado com a branch de integração (ex.: alpha).
-  2. /sdlc:project <nome>  →  /sdlc:catalog init
-     - ele cria uma branch docs/catalogo (num worktree, se o checkout estiver em outra)
+  1. Na raiz:  /sdlc:catalog init   (ou  /sdlc:catalog init <sub>)
+     - mostra quem não tem catálogo e pergunta quais criar; um catálogo que só existe no
+       remoto é para atualizar o checkout, nunca para recriar
+     - cria a branch docs/catalog-bootstrap num worktree
      - pergunta quantos lotes em paralelo: a escolha muda velocidade, não qualidade
-  3. Num guarda-chuva, faça todos os sub-projetos que conversam entre si: o cruzamento de
+  2. Num guarda-chuva, faça todos os sub-projetos que conversam entre si: o cruzamento de
      contratos só funciona entre catálogos que existem.
-  4. Revise, commite e faça o MR de docs/catalogo para a branch de integração.
+  3. Revise, commite e faça o MR de docs/catalog-bootstrap para a branch de integração.
      O catálogo só passa a valer nas stories DEPOIS desse merge.
 
 NO DIA A DIA (automático, você não faz nada)
@@ -97,6 +110,10 @@ O QUE OBSERVAR
   - lookup com "⚠ STALE" → a entrada pode estar velha; confirme no código.
   - lookup com "espelhado por: <irmão>" → outro sub-projeto repete esta regra de propósito;
     mudar aqui exige mudar lá. Do lado do espelho, o check marca STALE quando o dono mudou.
+  - check com "possible undeclared mirror" → uma linha canônica diz, em texto, que copia
+    algo de um irmão, sem a referência que o check confere. A linha "(remedy)" traz o
+    refresh pronto; o catalog-keeper decide se é espelho e o declara. Nas entradas que a
+    story tocou, ele resolve sozinho no fim da story.
 
 CAMINHO ENTRE SUB-PROJETOS (automático)
   O caminho não é escrito em lugar nenhum: o script o calcula a cada consulta a partir dos
@@ -108,10 +125,11 @@ MUDANÇAS GRANDES (redesenho de telas, refatoração ampla)
   - Feita por uma story do workflow: nada a fazer. O tech-lead divide a atualização do
     catálogo em lotes paralelos quando a story toca muitas entradas; telas que deixaram
     de existir têm a entrada apagada, telas que só mudaram de arquivo são reapontadas.
-  - Feita fora do workflow: o /sdlc:catalog check diz qual caminho seguir —
-      até 30% das entradas atingidas  →  /sdlc:catalog refresh <entradas>
-      acima de 30%                    →  /sdlc:catalog init (recriar; os limites antigos
-                                         das entradas já não batem com o código)
+  - Feita fora do workflow: o /sdlc:catalog check diz qual caminho seguir, na linha
+    "(remedy)" de cada sub-projeto —
+      até 30% das entradas atingidas  →  /sdlc:catalog refresh <sub> <entradas>
+      acima de 30%                    →  /sdlc:catalog init <sub> (recriar; os limites
+                                         antigos das entradas já não batem com o código)
 
 QUANDO USAR O REFRESH
   - Uma entrada se mostrou errada (ex.: lista um campo que o código não produz).
