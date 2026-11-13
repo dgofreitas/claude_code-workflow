@@ -517,13 +517,15 @@ function printRoute(g, id) {
     const impl = implementers(n, g, true);
     impl.forEach((f) => printFeature('    ', n.w, f.e, 4, n));
     // What this hop needs from other sub-projects — where a change on the route has to land too.
+    const deps = new Set();
     for (const f of impl) {
       for (const d of asList(f.e.consumes)) {
         for (const p of providersOf(g, d).filter((x) => x.w !== n.w)) {
-          console.log('    depende de ' + d + ' → ' + p.w.name + ' ' + (p.contract ? p.contract.e.rel : p.feats.map((x) => x.e.id).join(', ')));
+          deps.add('    depende de ' + d + ' → ' + p.w.name + ' ' + (p.contract ? p.contract.e.rel : p.feats.map((x) => x.e.id).join(', ')));
         }
       }
     }
+    deps.forEach((l) => console.log(l));
   }
   console.log('até');
   if (!finals.length) console.log('  (nenhum provedor catalogado' + (vias.size ? ' além do curinga' : '') + ')');
