@@ -20,11 +20,12 @@ once, first thing, walking up from `$P`:
 
 ```bash
 C=$(d=$(cd "$P" && pwd); while [ "$d" != / ] && [ ! -f "$d/.claude/skills/catalog/SKILL.md" ]; do d=$(dirname "$d"); done; [ "$d" != / ] && echo "$d/.claude")
-S="$C/skills/catalog/scripts/catalog.cjs"
+S="$C/skills/catalog/scripts/catalog.cjs"; [ -n "$C" ] && cat "$C/skills/catalog/SKILL.md" || echo "SKILL.md not found above $P"
 ```
 
-Then read `$C/skills/catalog/SKILL.md`. `C` empty → STOP and report `SKILL.md not found above
-$P` — never write an entry from what other entries look like.
+Run it as your first command, as written: finding the format and reading it are one step, and
+what it prints IS the format. `SKILL.md not found` → STOP and report it — never write an entry
+from what other entries look like.
 
 ---
 
@@ -218,8 +219,9 @@ If `affected` printed `CATALOG: no-op`, the tech-lead should not have called you
 
 ### Mode: refresh — named stale entries
 
-1. `node $S check --project "$P"` FIRST. Every non-MISMATCH line on an entry you were given is
-   part of this refresh — it is usually why the refresh was asked for:
+1. The prompt's `Check says:` block lists what `check` reported on your entries — usually why
+   the refresh was asked for (no block → run `node $S check --project "$P"` and take the lines
+   on your entries). Every non-MISMATCH line there is part of this refresh:
    - STALE (files changed) → re-read the files and update the entry.
    - STALE mirror (`mirror of <ref> — the owner changed since <sha>`) → read the owner's symbol
      again, compare (Rule: Canonical Sources, owner in a sibling), report what now differs,

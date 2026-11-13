@@ -314,6 +314,20 @@ code writes). One `catalog-keeper` call in `Mode: refresh` with exactly the entr
 `providers` expands to every `role: provider` contract; batch them (≤ 15 entries per call),
 in parallel like init. Then `check`. Do not commit unless the user asked.
 
+In an umbrella the call writes in the worktree `node $S prepare --project <ROOT>/<name>
+--branch docs/catalog-refresh` prints — never in the checkout. Every keeper call carries what
+`check` says about its entries, so the keeper starts from why it was called instead of having
+to remember to look: run `node $S check --project <worktree>` first and paste, verbatim, its
+lines whose path is one of the call's entries:
+
+```
+Mode: refresh. Project: <worktree>. Entries: <entries>.
+Check says:
+<check lines on these entries, or "nothing">
+```
+
+Nothing else — no hint of what you expect the keeper to find: the code and the owners decide.
+
 **No entries named** — the entries are the ones `plan` lists, decided by the script, not by
 reading entries:
 
@@ -323,8 +337,8 @@ reading entries:
    (AskUserQuestion, multiSelect, `Todos` first). A sub-project named in the arguments skips
    the question. Then the parallelism question of init step 4, with N = Σ⌈entries/15⌉ calls.
 3. Per chosen sub-project: `node $S prepare --project <ROOT>/<name> --branch docs/catalog-refresh`
-   — never write in the checkout. `$P` = the printed worktree; the keeper calls get
-   `Mode: refresh. Project: $P. Entries: <the REFRESH line's entries, ≤ 15 per call>`.
+   — never write in the checkout. `$P` = the printed worktree; each keeper call is the
+   prompt above, with ≤ 15 of the `REFRESH` line's entries and their `Check says:` lines.
    Different sub-projects are different repos: their calls run in parallel safely, and their
    worktrees share one branch name, so each one's check sees the others' in-flight entries.
 4. `node $S check --project $P` in each worktree, relay, report the branch per sub-project.
