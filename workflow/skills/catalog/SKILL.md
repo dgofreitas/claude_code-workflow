@@ -155,7 +155,9 @@ verified-at: af78a4a664
 - **A mirror of another sub-project's rule says whose.** When this code deliberately repeats a
   rule a sibling owns (a GUI pre-validating what the API will enforce), its `canonical:` line
   ends with `espelho de <projeto>:<arquivo>#<símbolo>@<sha>` — the owner's symbol and the
-  owner's commit this copy was compared against. Written once, on the mirror's side; the
+  owner's commit this copy was compared against. The symbol may be a dotted key path in a data
+  file (`#roles.client.web`); an owner with no symbol — a document — is named by file alone
+  (`espelho de api:docs/GLOSSARY.md@<sha>`), and goes STALE when that file changes. Written once, on the mirror's side; the
   owner's `lookup` shows "espelhado por" by computing it. `check` fails when the owner's symbol
   is gone and marks the mirror STALE when the owner's file changed since that sha: a rule fixed
   on one side of the umbrella and not on the other is the drift this catches. Example, in a

@@ -10,11 +10,21 @@ model: claude-sonnet-5-5
 > You describe code that exists. You never change it, and you never prescribe how new code
 > should be written — that is `.claude/context/`'s job.
 
-The format, the boundary with `.claude/context/` and every command are in
-`.claude/skills/catalog/SKILL.md`. **Read it first, every invocation** — it is the contract
-`catalog.cjs` parses, and an entry that breaks it is rejected by `index`.
+The format, the boundary with `.claude/context/` and every command are in the catalog skill's
+`SKILL.md`. **Read it first, every invocation** — it is the contract `catalog.cjs` parses, and
+an entry that breaks it is rejected by `index`.
 
-`S=.claude/skills/catalog/scripts/catalog.cjs`, `$P` = the project root you were given.
+`$P` = the project root you were given. **`.claude/` is not under `$P`** in an umbrella: it
+lives at the umbrella root, above every sub-project and every `.worktrees/` tree. Resolve it
+once, first thing, walking up from `$P`:
+
+```bash
+C=$(d=$(cd "$P" && pwd); while [ "$d" != / ] && [ ! -f "$d/.claude/skills/catalog/SKILL.md" ]; do d=$(dirname "$d"); done; [ "$d" != / ] && echo "$d/.claude")
+S="$C/skills/catalog/scripts/catalog.cjs"
+```
+
+Then read `$C/skills/catalog/SKILL.md`. `C` empty → STOP and report `SKILL.md not found above
+$P` — never write an entry from what other entries look like.
 
 ---
 
@@ -68,8 +78,11 @@ a classification), often with a comment saying it mirrors the other side. Then:
 
 1. Open the owner's file in the sibling and read the symbol. Compare the two rule by rule.
 2. End this side's `canonical:` line with `espelho de <projeto>:<arquivo>#<símbolo>@<sha>`, sha
-   = `git -C <sibling dir> rev-parse --short=10 HEAD` at the time you read it. The format is
-   parsed: project = the sibling's directory name, file relative to its root.
+   = the owner's commit you read (`git -C <sibling dir> rev-parse --short=10 <ref you read>`).
+   The format is parsed: project = the sibling's directory name, file relative to its root.
+   The symbol is a code symbol, or a dotted key path in a data file (`roles.client.web` in a
+   JSON/YAML). An owner with no symbol to name — a document, a whole config — has none:
+   `espelho de <projeto>:<arquivo>@<sha>`. Never borrow a word that merely appears in the file.
 3. Every difference you found goes in your report as a finding, with both symbols — never
    "fixed" by editing the entry to agree with either side.
 4. Never write the reverse on the owner's entry, and never edit the sibling's catalog: its
@@ -205,10 +218,23 @@ If `affected` printed `CATALOG: no-op`, the tech-lead should not have called you
 
 ### Mode: refresh — named stale entries
 
-Re-read the files of exactly the entries given, update them and `verified-at:`, run
-`index` + `check`. A STALE mirror (`mirror of <ref> — the owner changed since <sha>`): read the
-owner's symbol again, compare (Rule: Canonical Sources, owner in a sibling), report what now
-differs, and move the `@sha` to the owner's current commit. Do not commit unless the prompt says so.
+1. `node $S check --project "$P"` FIRST. Every non-MISMATCH line on an entry you were given is
+   part of this refresh — it is usually why the refresh was asked for:
+   - STALE (files changed) → re-read the files and update the entry.
+   - STALE mirror (`mirror of <ref> — the owner changed since <sha>`) → read the owner's symbol
+     again, compare (Rule: Canonical Sources, owner in a sibling), report what now differs,
+     move the `@sha` to the owner's current commit.
+   - `INFO possible undeclared mirror` → open the owner the line names in the sibling (fetch
+     it; read `origin/<integration branch>:<file>`, the checkout may be behind or on another
+     branch), compare, and either declare the mirror or, when the line copies no sibling rule,
+     reword it so it stops claiming a copy and say why in the report.
+   - ERROR → fix it.
+2. Re-read the files of every entry given — also the ones `check` had nothing to say about —
+   and update them and `verified-at:`. When what you learn contradicts a line of the entry
+   (a "literal copy" that turns out not to be literal), rewrite that line: never leave two
+   lines of one entry saying opposite things.
+3. `index` + `check`. A line from step 1 still there on an entry you were given → you are not
+   done. Do not commit unless the prompt says so.
 
 ---
 

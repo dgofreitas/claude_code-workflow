@@ -609,10 +609,16 @@ function routeLine(g, id, me) {
   return { text: parts.join(' → '), hops: v.map((n) => ({ w: n.w, feats: implementers(n, g, true), only: n })).concat(finals) };
 }
 
-// `espelho de <projeto>:<arquivo>#<símbolo>@<sha>` in a canonical line: this copy mirrors a rule
+// `espelho de <projeto>:<arquivo>[#<símbolo>]@<sha>` in a canonical line: this copy mirrors a rule
 // another sub-project owns. One fact, written once, on the mirror's side; the owner's side is
-// computed. The sha is the owner's commit the copy was compared against.
-const MIRROR_RE = /espelho de ([\w.-]+):([^\s#]+)#([A-Za-z_$][\w$]*)(?:@([0-9a-f]{7,40}))?/;
+// computed. The sha is the owner's commit the copy was compared against. The symbol is a code
+// symbol or a dotted key path (`roles.client.web`); an owner that is a document has none.
+const MIRROR_RE = /espelho de ([\w.-]+):([^\s#@]+)(?:#([A-Za-z_$][\w$.-]*))?(?:@([0-9a-f]{7,40}))?/;
+
+// Every segment of a dotted path must appear in the file, as a whole word.
+function hasSymbol(text, sym) {
+  return sym.split('.').filter(Boolean).every((seg) => new RegExp('(^|[^\\w$-])' + escRe(seg) + '($|[^\\w$-])').test(text));
+}
 
 // Shown on the owner's entry that names the mirrored symbol as its canonical source — not on
 // every entry that happens to list the same file.
@@ -625,7 +631,7 @@ function mirrorsOf(world, me, e) {
     for (const x of w.cat.entries) {
       for (const line of asList(x.canonical)) {
         const m = line.match(MIRROR_RE);
-        if (m && m[1].toLowerCase() === me.base.toLowerCase() && files.has(m[2]) && owns(m[3])) out.push({ w, e: x, sym: m[3], line });
+        if (m && m[1].toLowerCase() === me.base.toLowerCase() && files.has(m[2]) && (!m[3] || owns(m[3]))) out.push({ w, e: x, sym: m[3] || m[2], line });
       }
     }
   }
@@ -742,11 +748,11 @@ function collectCheck(project, cat, siblings) {
       if (!/espelho de/i.test(line)) continue;
       const m = line.match(MIRROR_RE);
       if (!m || !m[4]) {
-        problems.push(['ERROR', e.rel, 'mirror must read `espelho de <projeto>:<arquivo>#<símbolo>@<sha do dono>`: ' + line]);
+        problems.push(['ERROR', e.rel, 'mirror must read `espelho de <projeto>:<arquivo>[#<símbolo>]@<sha do dono>`: ' + line]);
         continue;
       }
       const [, proj, file, sym, sha] = m;
-      const ref = proj + ':' + file + '#' + sym;
+      const ref = proj + ':' + file + (sym ? '#' + sym : '');
       const owner = world.find((w) => w.base.toLowerCase() === proj.toLowerCase());
       if (!owner) {
         problems.push(['INFO', e.rel, 'mirror owner `' + proj + '` has no catalog among the siblings — cannot verify ' + ref]);
@@ -757,7 +763,7 @@ function collectCheck(project, cat, siblings) {
         problems.push(['ERROR', e.rel, 'mirror owner file does not exist: ' + proj + ':' + file]);
         continue;
       }
-      if (!new RegExp('(^|[^\\w$])' + escRe(sym) + '($|[^\\w$])').test(fs.readFileSync(fp, 'utf8'))) {
+      if (sym && !hasSymbol(fs.readFileSync(fp, 'utf8'), sym)) {
         problems.push(['ERROR', e.rel, 'mirror owner symbol not found: ' + ref + ' — renamed or removed; find where the rule lives now']);
         continue;
       }
