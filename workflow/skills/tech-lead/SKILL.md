@@ -34,7 +34,7 @@ Every story follows this exact sequence. No shortcuts, no skipping, no reorderin
 3. IMPLEMENT         → delegate domains in parallel (backend + frontend)
    ╰─ GATE 1: DOMAIN COMPLETION   — ALL backend/frontend/shared items [x]
 4. TEST              → test-engineer
-   ╰─ GATE 2: TESTS               — checkpoint shows [x] TESTS
+   ╰─ GATE 2: TESTS               — checkpoint shows [x] TESTS (a TESTS line with `E<n> contestada:` → STOP)
 5. QA                → qa-analyst → saves qa-report.md
    ╰─ GATE 3: QA                  — file exists AND checkpoint shows [x] QA AND Status: PASSED
    ╰─ If REQUIRES FIXES → loop back to step 3, do NOT skip retest
@@ -51,7 +51,7 @@ Every story follows this exact sequence. No shortcuts, no skipping, no reorderin
 **Gate vocabulary** (these are the ONLY gate names — do not invent variations):
 
 - `GATE 1: DOMAIN COMPLETION` — all implementation items `[x]` before test-engineer
-- `GATE 2: TESTS` — checkpoint `[x] TESTS` before qa-analyst
+- `GATE 2: TESTS` — checkpoint `[x] TESTS` before qa-analyst. A `- [ ] TESTS — E<n> contestada:` line instead → `Rule: Fix Agent Selection` (`E<n> contestada` row), never a re-run
 - `GATE 3: QA` — qa-report.md exists + checkpoint `[x] QA` + Status PASSED before code-reviewer
 - `GATE 4: CODE REVIEW` — code-review.md exists + checkpoint `[x] CODE REVIEW` + VERDICT APPROVED before merge-request-creator
 - `GATE 5: MR` — PR created before reporting DONE
@@ -346,6 +346,7 @@ When rework is needed (QA REQUIRES FIXES or Review BLOCKED), pick the fix agent 
 | Test gap only (implementation OK, coverage missing) | **test-engineer** |
 | Security vulnerability | **bug-fixer (by language)** — security findings are bugs |
 | Comment Budget findings, and nothing else | **comment-sanitizer** — see `Rule: Comment-Only Rework`. Never a developer: they would restart the whole cycle to delete comment lines |
+| `E<n> contestada` (the expected table itself is disputed) | **Nobody.** STOP the story: return `STORY-XXX-BLOCKED` with `Reason:` = that TESTS line verbatim (it carries the row's input and expected value). Master asks the user, then has the architect rewrite or confirm the row. A developer would bend correct code to a wrong row |
 
 If unsure → default to **original developer** (they own the code).
 
@@ -560,7 +561,7 @@ TodoWrite:
 [GATE 1] 12. ⛔ GATE 1: DOMAIN COMPLETION — verify ALL backend/frontend/shared items [x]
 
 [TEST]   13. test-engineer: comprehensive test suites — ALL domains
-[GATE 2] 14. ⛔ GATE 2: TESTS — verify [x] TESTS in checkpoint
+[GATE 2] 14. ⛔ GATE 2: TESTS — verify [x] TESTS in checkpoint (`E<n> contestada:` → STOP)
 [QA]     15. qa-analyst: validate → saves qa-report.md → marks [x] QA
 [GATE 3] 16. ⛔ GATE 3: QA — verify qa-report.md exists AND [x] QA AND Status: PASSED
 [REV]    17. code-reviewer: review → saves code-review.md → marks [x] CODE REVIEW
@@ -609,6 +610,7 @@ Domains implemented this story:
 - BACKEND: [files]
 - FRONTEND: [files]
 Coverage target: ≥ 90% per file (story-specific only, ignore global).
+Expected table: artifacts/stories/STORY-XXX-technical-analysis.md — ## Contrato de Teste only.
 After testing: update checkpoint — mark [x] TESTS with results.
 ```
 
@@ -635,7 +637,8 @@ After testing: update checkpoint — mark [x] TESTS with results.
 >
 > GATE 2 therefore opens exactly once, on the last batch, against the full suite.
 
-> **⚠ STRICT LIMIT**: list files + coverage target ONLY.
+> **⚠ STRICT LIMIT**: list files + coverage target + the expected-table pointer ONLY — a
+> pointer to one section, never its rows copied into the prompt.
 > NEVER include test case descriptions, mock strategies, assertions, or implementation hints.
 > test-engineer reads the source files and decides how to test them.
 > Detailed instructions = test-engineer loads all files at once = pipeline freeze.

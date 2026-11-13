@@ -166,7 +166,7 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 |------|-------|--------------------------|------------------|
 | GATE-PM | product-manager | Stories list (ids + titles) + the PM's `adiada:` lines, verbatim | "Prosseguir? [Y/n]" |
 | GATE-SA | system-architect | Stack proposal table | "Aprovar stack? [Y/n]" |
-| GATE-AR | architect | Technical plan summary | "Implementar STORY-XXX? [Y/n]" |
+| GATE-AR | architect | Technical plan summary + the architect's `pergunta:` lines, verbatim | "Implementar STORY-XXX? [Y/n]" |
 | GATE-MR | tech-lead skill (MR created) | MR link + test coverage | "Aprovar MR e fazer merge? [Y/n]" |
 | GATE-NEXT | Merge complete | Branch deleted, story closed + `Backlog:` line when no queued story follows | "Próxima story? [Y/n]" |
 
@@ -191,6 +191,12 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 > `worktree remove` refuses a dirty tree. **Never pass `--force`** — a dirty tree after a green
 > Check 4 means something was written after the merge, and forcing discards it unrecoverably. Report
 > the refusal and stop.
+
+> **GATE-AR `pergunta:` lines**: each names a row of the expected table (`E<n>`) and the value
+> the architect assumed. Approving keeps the assumptions. When the user answers one, re-invoke
+> the architect with the answers to rewrite ONLY those rows BEFORE invoking tech-lead — the tests
+> assert the table, so an answer that never reaches it changes nothing. In auto modes the
+> assumptions stand; they are already written in the rows.
 
 > **GATE-SA**: only for **greenfield projects** (no build files AND no `artifacts/architecture/TECH-STACK.md`). Existing projects skip system-architect and GATE-SA entirely.
 
@@ -405,6 +411,12 @@ If any subagent / skill returns `BLOCKED`, error, or refuses:
 3. **Default / Auto-Gate**: ask `"Agent X returned: [error]. Options: (a) retry (b) skip story (c) abort"`.
 4. **Batch-Auto**: append story to this session's queue `$Q` (`failed[]`), output ONE line `[STORY-XXX] FAILED: [reason]`, STOP queue, output final report.
 
+A `Reason:` containing `E<n> contestada:` is a dispute over the expected table, not an agent failure —
+retry would rerun the same row. In Default / Auto-Gate, show the `Reason:` (it carries the row's
+input and expected value) and ask which expected value holds; then re-invoke the architect to
+rewrite or confirm ONLY that row in `## Contrato de Teste` — nothing else in the analysis — and
+re-invoke tech-lead (Restart Detection resumes the story). Batch-Auto: rule 4.
+
 If `gh pr merge` fails (conflict / CI red):
 
 1. Show stderr.
@@ -453,6 +465,6 @@ Per turn:
 - Pre-Merge Verification (GATE-MR): up to 4 extra bash calls (1 grep + 2 ls + 1 git) — these are the EXCEPTION.
 - Backlog questions / end of a queue: 1 extra bash call, `backlog-status.sh` — it reads story files so Master never has to.
 - Delegation prompt to subagent: ≤ 5 lines.
-- Gate output to user: 1 line in auto modes, 3 lines max in default mode — plus the `Backlog:` line where Backlog Questions requires it.
+- Gate output to user: 1 line in auto modes, 3 lines max in default mode — plus the `Backlog:` line where Backlog Questions requires it, and the `adiada:` / `pergunta:` lines the Gates Reference says to show verbatim.
 
 If Master ever feels the urge to `cat` a story, `cat` a technical analysis, or `glob` a directory — STOP. That's the subagent's job. Master orchestrates, never inspects.
