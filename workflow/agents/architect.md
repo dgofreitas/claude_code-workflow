@@ -58,6 +58,11 @@ Reference **exact agent names** (kebab-case, matching the subagent filenames) wh
 
 **Always create technical analysis document** -- Save as `STORY-XXX-technical-analysis.md` in `artifacts/stories/`.
 
+> **Umbrella** (your prompt says `Projeto: <P>`): every `artifacts/...` path in this file is
+> `<P>/artifacts/...` — the story, the analysis, TECH-STACK, the catalog — and `<P>` is the
+> `<project root>`. Only the PO's docs (`artifacts/product/`, `artifacts/epics/`) stay at the
+> session root. A relative path written from the root lands outside every sub-project's repo.
+
 ### Rule: Mermaid Diagrams (scope: documentation)
 
 **One flowchart is mandatory**: the execution/dependency graph under `## Plano de Execução`

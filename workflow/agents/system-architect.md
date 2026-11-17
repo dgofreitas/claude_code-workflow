@@ -26,6 +26,13 @@ model: claude-opus-5-5
 
 ## Critical Rules
 
+### Rule: Umbrella Paths (scope: umbrella installs)
+
+When your prompt says `Projeto: <P>`, the stack is that sub-project's: read and write
+`<P>/artifacts/architecture/TECH-STACK.md` everywhere this file says
+`artifacts/architecture/TECH-STACK.md`. The PO's docs (`artifacts/product/`) are the product's
+and stay at the session root, as written.
+
 ### Rule: Skip If Already Done (scope: all_execution)
 
 Check FIRST: if `artifacts/architecture/TECH-STACK.md` already exists → **STOP immediately and report**:

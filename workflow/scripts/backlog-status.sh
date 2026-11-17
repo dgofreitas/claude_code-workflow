@@ -97,6 +97,9 @@ git -C "${ROOT}" rev-parse --verify -q "${REF}^{commit}" >/dev/null \
     || die 5 "ref não existe: ${REF}"
 
 readonly STORY_DIR="artifacts/stories"
+# Nome do checkout principal, não de ROOT: com --project apontando para um worktree,
+# ROOT é `.worktrees/api-STORY-x` e o summary diz `api`.
+SUBPROJECT="$(basename "$(git -C "${ROOT}" worktree list --porcelain | sed -n '1s/^worktree //p')")"
 readonly META_RE='^(type|title|created|development|epic):|^\*\*(Priority|Estimate)\*\*:'
 
 REF_DESC="$(git -C "${ROOT}" log -1 --format='%h %cs' "${REF}")"
@@ -166,6 +169,14 @@ collect() {
         while read -r wt; do
             cat "${wt}/${STORY_DIR}"/BACKLOG-SUMMARY*.md 2>/dev/null || true
         done < <(git -C "${ROOT}" worktree list --porcelain | sed -n 's/^worktree //p')
+        # Num guarda-chuva o summary é um por development, na raiz, e lista stories de vários
+        # sub-projetos — onde os números se repetem. Só conta a linha cuja célula de
+        # sub-projeto é este; senão o STORY-032 de outro repo cala o alerta do nosso.
+        if [[ "$(pwd -P)" != "${ROOT}" ]]; then
+            awk -F'|' -v want="${SUBPROJECT}" '{
+                for (i = 2; i < NF; i++) { c = $i; gsub(/^[ \t]+|[ \t]+$/, "", c); if (c == want) { print; next } }
+            }' artifacts/epics/BACKLOG-SUMMARY*.md 2>/dev/null || true
+        fi
     } | grep -o -E 'STORY(-[0-9]+)+' | sed 's/^/SUM\t/' || true
 
     forgeRecords
