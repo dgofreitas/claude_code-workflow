@@ -11,7 +11,7 @@
 //   node catalog.cjs plan      --project P|ROOT       what refresh/init would do, one line per sub-project
 //   node catalog.cjs prepare   --project P --branch B [--base R]   worktree a root-level refresh writes in
 //   node catalog.cjs sync      --project ROOT [names…]   fast-forward the checkouts where that is safe
-// From an umbrella root (not a repo), check and plan cover every sub-project, fetching first.
+// From an umbrella root, check and plan cover every sub-project, fetching first.
 //   node catalog.cjs inventory --project P            bootstrap aid: candidate units in the code
 //
 // .cjs on purpose: a project's package.json may say "type": "module", and the
@@ -356,6 +356,8 @@ function siblingCatalogs(project, explicit) {
   for (const d of fs.readdirSync(parent)) {
     const dir = path.join(parent, d);
     if (dir === home || dir === top) continue;
+    // A plain folder of a versioned umbrella root answers with the root's repo: not a sibling.
+    if (git(dir, ['rev-parse', '--show-toplevel'], { allowFail: true }) !== path.resolve(dir)) continue;
     const theirs = git(dir, ['rev-parse', '--path-format=absolute', '--git-common-dir'], { allowFail: true });
     if (theirs === null || (common && theirs === common)) continue; // not a repo, or a worktree of this one
     let where = dir;
@@ -821,12 +823,7 @@ function subProjects(root, fetch) {
   const out = [];
   for (const d of fs.readdirSync(root).sort()) {
     const dir = path.join(root, d);
-    try {
-      if (d.startsWith('.') || !fs.statSync(dir).isDirectory()) continue;
-    } catch (e) {
-      continue;
-    }
-    if (git(dir, ['rev-parse', '--show-toplevel'], { allowFail: true }) !== path.resolve(dir)) continue;
+    if (!isSubProject(root, d)) continue;
     if (fetch) git(dir, ['fetch', '-q', 'origin'], { allowFail: true });
     const base = forkBase(dir);
     const local = fs.existsSync(path.join(dir, CATALOG_DIR));
@@ -873,8 +870,23 @@ function cmdSync(root, only) {
   return 0;
 }
 
-const isUmbrellaRoot = (dir) => git(dir, ['rev-parse', '--git-dir'], { allowFail: true }) === null &&
-  fs.existsSync(path.join(dir, '.claude', 'skills', 'catalog'));
+// A sub-project is a child that is the top of its own repo and that the root does not track as
+// a submodule. The root itself may be a repo — it versions the product layer — so "the root is
+// not a repo" tells nothing: a project with submodules is a repo with nested repos too.
+function isSubProject(root, name) {
+  const dir = path.join(root, name);
+  try {
+    if (name.startsWith('.') || !fs.statSync(dir).isDirectory()) return false;
+  } catch (e) {
+    return false;
+  }
+  if (git(dir, ['rev-parse', '--show-toplevel'], { allowFail: true }) !== path.resolve(dir)) return false;
+  const staged = git(root, ['ls-files', '--stage', '--', name], { allowFail: true }) || '';
+  return !/^160000 /m.test(staged);
+}
+
+const isUmbrellaRoot = (dir) => fs.existsSync(path.join(dir, '.claude', 'skills', 'catalog')) &&
+  fs.readdirSync(dir).some((d) => isSubProject(dir, d));
 
 function cmdCheckRoot(root, siblings, fetch) {
   let code = 0;
@@ -1035,7 +1047,7 @@ function cmdLookup(project, cat, terms, siblings) {
 
 // One line per catalogued project for the SessionStart hook, and nothing when all is well —
 // a line every session that says "ok" is noise the user learns to skip. In an umbrella the
-// session runs from a root that is not a repo: every sub-project with a catalog is covered.
+// session runs from the root: every sub-project with a catalog is covered.
 function cmdSummary(root) {
   const projects = [];
   if (fs.existsSync(path.join(root, CATALOG_DIR))) projects.push(root);
@@ -1185,7 +1197,7 @@ function main(argv) {
     console.error('usage: catalog.cjs <' + cmds.join('|') + '> --project <dir> [--base <ref>] [--siblings <dir,...>] [--branch <b>] [--to] [--no-fetch] [terms|names...]');
     return 1;
   }
-  // From an umbrella root — not a repo itself — check and plan cover every sub-project, after
+  // From an umbrella root, check and plan cover every sub-project, after
   // fetching, so "behind" means behind the remote as it is now.
   if ((cmd === 'check' || cmd === 'plan' || cmd === 'sync') && isUmbrellaRoot(project)) {
     if (cmd === 'sync') return cmdSync(project, rest);

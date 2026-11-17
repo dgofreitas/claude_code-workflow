@@ -127,6 +127,14 @@ resolveRoot() {
 ROOT="$(resolveRoot)"
 [[ -d "${ROOT}" ]] || die 3 "raiz não existe: ${ROOT}"
 
+# A raiz de um guarda-chuva pode ser repo (versiona a camada de produto): sem sub-projeto, o
+# scan cairia nela e acharia "nada" no lugar errado.
+if [[ "${ROOT}" == "." ]]; then
+    subs=""
+    for d in */; do [[ -e "${d}.git" ]] && subs="${subs} ${d%/}"; done
+    [[ -z "${subs}" ]] || die 3 "guarda-chuva sem sub-projeto definido: rode com --root <um de:${subs}> ou defina o sub-projeto com /project"
+fi
+
 TOPLEVEL="$(git -C "${ROOT}" rev-parse --show-toplevel 2>/dev/null)" \
     || die 3 "não é um repositório git: ${ROOT} (numa instalação umbrella, rode com --root <sub-projeto> ou defina o sub-projeto com /project)"
 
