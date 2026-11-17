@@ -64,6 +64,12 @@ artifacts/epics/     EPICS-SUMMARY-<dev>.md
 artifacts/stories/   BACKLOG-SUMMARY-<dev>.md
 ```
 
+In an **umbrella** the product layer is the umbrella's, not a sub-project's: `artifacts/product/`
+and `artifacts/epics/` sit at the umbrella root, and `BACKLOG-SUMMARY-<dev>.md` moves next to
+the epics (`artifacts/epics/`), one per development. Stories and their reports stay in the
+sub-project whose code they change. Name product docs by wikilink (`[[NFRS-<dev>]]`), never by
+path — no relative path from a sub-project's story reaches the root.
+
 `artifacts/architecture/TECH-STACK.md` (`type: tech-stack`, system-architect) is project-wide,
 not per-development, so it keeps a bare name. Other files under `artifacts/architecture/` are
 `type: design` — the architect's API designs, data flows, folder structures and test strategies.

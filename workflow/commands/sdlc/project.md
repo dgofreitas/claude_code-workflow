@@ -28,7 +28,7 @@ Parse `$ARGUMENTS` (case-insensitive):
 - `list` → `for d in */; do [ -d "$d/.git" ] && echo "${d%/}"; done`. List candidate sub-projects (dirs that are their own git repo).
 - `clear` / `none` / `root` → `rm -f "$S/active-project"`. Confirm: "Projeto ativo: nenhum (projeto único, \$P=.)."
 - `<name>` → validate it is a sub-project git repo: `[ -d "<name>/.git" ]`.
-  - valid → `mkdir -p "$S" && echo "<name>" > "$S/active-project"`. Confirm: "Projeto ativo nesta sessão: `<name>` — artefatos em `<name>/artifacts/`."
+  - valid → `mkdir -p "$S" && echo "<name>" > "$S/active-project"`. Confirm: "Projeto ativo nesta sessão: `<name>` — artefatos em `<name>/artifacts/` (visão, épicos e backlog-summary seguem na raiz)."
   - invalid → `[ -d "<name>" ] && echo "'<name>' não é um git repo próprio" || echo "'<name>' não existe"`; then run `list` and ask the user to pick one.
 
 ## Safety notes

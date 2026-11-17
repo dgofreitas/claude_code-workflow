@@ -111,6 +111,30 @@ Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/st
 - **No epic** (legacy / direct request) → pick ONE kebab-case label from the request theme and reuse it for EVERY story in this batch (e.g. `development: catalogo-recursos`). This is what lets stories be grouped even without epics.
 - `title` = the story title; `epic` = Parent Epic id (omit the line if none); `id` = the story id (see below); `created` = today's date.
 
+### Rule: Umbrella Placement (scope: umbrella installs)
+
+When your prompt says `Guarda-chuva: <sub-projects>`, the session root is the umbrella repo and
+each sub-project is its own git repo. The PO's docs (`artifacts/product/`, `artifacts/epics/`)
+are at the root — the paths above are already right.
+
+- **Each story lives in ONE sub-project** — the one whose code it changes:
+  `<sub>/artifacts/stories/STORY-XXX.md`. Work that changes N sub-projects is N stories, same
+  `development` and `epic`, chained by `Blocked by`. Never a story at the root, never one story
+  for two repos: its branch, tech-lead run and MR exist in one repo only. Without a clear target,
+  default to `ativo:`; with none, ask.
+- **Numbers are per sub-project** (STORY-032 exists in several): take the next free one from
+  `ls <sub>/artifacts/stories/`.
+- **One `BACKLOG-SUMMARY-<dev>.md` per development, at the root** in `artifacts/epics/` — never a
+  copy per sub-project (copies diverge). Every story row carries its sub-project in a cell of
+  its own, spelled as the directory: `| api | [[STORY-032-x]] | ... |`. `backlog-status.sh`
+  matches the story only on a row naming its sub-project, because numbers repeat across them.
+- **Name product docs, never path them**: `[[NFRS-<dev>]]`, `[[PERSONAS-<dev>]]`. A path written
+  in a sub-project's story points into that repo, where the PO's docs do not exist.
+- **Reorder on add**: run `backlog-status.sh --project <sub> --development <dev>` once for each
+  sub-project the development touches.
+- When done: `.claude/scripts/commit-product-docs.sh <dev>` — it commits the root summary. The
+  stories go with their story branch, as always.
+
 ---
 
 ## Priority 1: Core Competencies
@@ -187,10 +211,11 @@ Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/st
 
 ### 7. Documentation and Handoff
 
-- **Save EACH story** using Write tool to `/artifacts/stories/STORY-XXX.md` — begin the file with the YAML frontmatter (see **Rule: Story Frontmatter**), then the story body
+- **Save EACH story** using Write tool to `artifacts/stories/STORY-XXX.md` — begin the file with the YAML frontmatter (see **Rule: Story Frontmatter**), then the story body
 - After ALL stories, create a **backlog summary** at
-  `/artifacts/stories/BACKLOG-SUMMARY-<dev>.md` — `<dev>` is the `development` slug you own, so
-  two efforts in one project never overwrite each other's backlog:
+  `artifacts/stories/BACKLOG-SUMMARY-<dev>.md` — `<dev>` is the `development` slug you own, so
+  two efforts in one project never overwrite each other's backlog (umbrella: stories and summary
+  go where **Rule: Umbrella Placement** says):
   - Frontmatter: `type: summary`, `id: BACKLOG-SUMMARY-<dev>` (= the filename), `title`,
     `development: <dev>`, `epics: [EPIC-<dev>]`, `generated_by: product-manager`,
     `schema_version: 1`, `created`
@@ -203,7 +228,7 @@ Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/st
   - Suggested implementation order — see **Reorder on add**
 
 **Reorder on add.** When the development already has stories, run `.claude/scripts/backlog-status.sh
---development <dev>` first (no `--project`: it reads the active project itself) and rewrite the
+--development <dev>` first (single project: no `--project` needed) and rewrite the
 **whole** suggested order from its PENDING/PLANNED rows plus your new stories. Never append a new
 section with its own "can go now" order: that is how old Must Have stories slid down for weeks with
 nobody deciding it. For every new story placed ahead of a pending Must Have, add one line
@@ -318,8 +343,8 @@ created: [YYYY-MM-DD]
 - **Each** story contains all required fields
 - Acceptance criteria verified and aligned with business (3-8 per story)
 - Dependencies and risks documented (within and across stories)
-- **Each** story file saved at `/artifacts/stories/STORY-XXX.md`
-- Backlog summary saved at `/artifacts/stories/BACKLOG-SUMMARY-<dev>.md` (when multiple stories)
+- **Each** story file saved at `artifacts/stories/STORY-XXX.md`
+- Backlog summary saved at `artifacts/stories/BACKLOG-SUMMARY-<dev>.md` (when multiple stories)
 - Stories approved and ready for **architect**
 - No single story exceeds 21 story points
 - No single story has more than 8 acceptance criteria

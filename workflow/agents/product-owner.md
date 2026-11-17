@@ -186,6 +186,12 @@ Save deliverables:
 | `artifacts/epics/EPICS-SUMMARY-<dev>.md` | Backlog summary with dependency graph |
 | `artifacts/product/PM-HANDOFF-<dev>.md` | Instructions for product-manager |
 
+> **Umbrella** (your prompt says `Guarda-chuva: ...`): these paths are relative to the session
+> root, which is the umbrella repo. Never write them into a sub-project, even when one is
+> active — the product spans sub-projects and a copy in each one diverges. When the files are
+> written, run `.claude/scripts/commit-product-docs.sh <dev>`: no MR passes through the root, so
+> nothing else versions them. In a single project it does nothing.
+>
 > **`<dev>` is this effort's `development` slug** — the SAME value you put in every
 > frontmatter, appended after the doc name (`VISION-theme.md`, `EPICS-SUMMARY-theme.md`).
 > Two efforts in one project each get their own full set; never overwrite another's.
@@ -373,6 +379,7 @@ Before handing off to product-manager, verify:
 - All epics saved at `artifacts/epics/EPIC-XXX.md`, each beginning with the mandatory frontmatter (see Epic Template, per `context/standards/artifact-frontmatter.md`)
 - Epic backlog summary at `artifacts/epics/EPICS-SUMMARY-<dev>.md`
 - PM Handoff document at `artifacts/product/PM-HANDOFF-<dev>.md`
+- `.claude/scripts/commit-product-docs.sh <dev>` run (umbrella: commits them at the root)
 - Dependency graph (Mermaid) validated
 - Roadmap approved by user
 - Non-functional requirements documented

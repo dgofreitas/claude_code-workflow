@@ -95,6 +95,7 @@ S="${CLAUDE_CODE_SESSION_ID:+.claude/.state/$CLAUDE_CODE_SESSION_ID}"; AP=$(cat 
 4. Else, if the working dir has NO sub-project git repos → single-project, `$P=.` (nothing changes; literal `artifacts/...` paths below are already correct).
 5. Else (umbrella, none named/stored) → ASK "Qual sub-projeto? (<the sub-project repos found at the root, separated by ` / `>)" — the real names, never examples. Do NOT guess — the wrong project corrupts paths and state. `/sdlc:project <name>` sets it deterministically (see `commands/sdlc/project.md`).
    **Exception — the catalog's `check`, `refresh` and `init`:** with no sub-project stored or named, they cover the whole umbrella from the root, and a sub-project named in the command scopes that one command. Do not ask, and do not write `$S/active-project` for them — the catalog skill resolves its own scope (see its "Scope" section).
+   **Exception — product-owner and product-manager:** they work on the product, not on one repo. Do not ask; pass the sub-project list and `$AP` (if stored) in the delegation — the PM picks each story's sub-project itself.
 
 **Worktree refinement (as soon as the story id is resolved):**
 
@@ -113,6 +114,8 @@ WT=$(git -C "$P" worktree list 2>/dev/null | grep -E "\[[^]]*STORY-XXX(-[^]]*)?\
 > Fold this into the State Detection call that already uses the resolved id (step 2) — it adds **no** bash call.
 
 **THE ANCHORING RULE:** every `artifacts/...` path in this file is shorthand for **`$P/artifacts/...`**, and every `git` / `ls` / `cat` on project content runs under **`$P`** (`git -C "$P" ...`). In single-project installs `$P=.`, so the literal paths are already correct.
+
+**The one exception — the product layer:** `artifacts/product/` and `artifacts/epics/` describe the whole product, so they live at the **session root**, never under `$P`. In an umbrella that root is the umbrella repo, and the development's `BACKLOG-SUMMARY-<dev>.md` lives there too (in `artifacts/epics/`), once — not a copy per sub-project. In single-project installs the root is `.`, so nothing changes. Stories are never product layer: each lives in the one sub-project whose code it changes.
 
 > **`$P` is derived, never persisted.** Master is stateless between turns and re-derives it every turn from `$S/active-project` + the story's branch. There is no "active worktree" for Master to remember, so there is nothing to go stale.
 
@@ -343,6 +346,10 @@ Follow the State Detection section above. Hard budget: 2 bash calls (mix of `ls`
 - **In-story execution**: invoke the **`tech-lead` skill** (NOT `Task`). Pass the story ID + 1-line task.
 
 Delegation prompt: max 5 lines. Pass story ID + 1-line task. The subagent reads the story file itself — do NOT inline the story content.
+
+In an umbrella, one of those lines anchors the subagent — it runs from the root and writes relative paths there otherwise:
+- architect / system-architect / doc-writer → `Projeto: $P` (worktree-refined).
+- product-owner / product-manager → `Guarda-chuva: <sub-projects>; ativo: <$AP or nenhum>`.
 
 ### 6. Gate Handling
 

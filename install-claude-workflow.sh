@@ -402,8 +402,8 @@ installBoard() {
 
     # O vault deve ser a pasta que contém SÓ markdown. Num projeto único isso é
     # artifacts/ — abrir a raiz faria o Obsidian indexar node_modules/ e o grafo
-    # viraria ruído. Num guarda-chuva os artifacts moram em cada sub-projeto, então
-    # o vault é a raiz e o board carrega a coluna Projeto.
+    # viraria ruído. Num guarda-chuva as stories moram em cada sub-projeto e a camada de
+    # produto na raiz, então o vault é a raiz e o board carrega a coluna Projeto.
     if hasSubProjectRepos "${projectRoot}"; then
         layout="guarda-chuva"
         src="${targetDir}/templates/story-board-umbrella.base"
@@ -499,6 +499,23 @@ updateGitignore() {
     grep -qxF ".obsidian/" "${gitignoreFile}" 2>/dev/null || echo ".obsidian/" >> "${gitignoreFile}"
     # Estado efêmero por sessão (nunca deve ser commitado)
     grep -qxF ".claude/.state/" "${gitignoreFile}" 2>/dev/null || echo ".claude/.state/" >> "${gitignoreFile}"
+
+    # Num guarda-chuva o repo da raiz guarda só a camada de produto (visão, épicos,
+    # backlog-summary — scripts/commit-product-docs.sh). Cada sub-projeto e cada worktree
+    # do catalog tem repo próprio e não pode entrar no da raiz.
+    if hasSubProjectRepos "${projectRoot}"; then
+        local d entry
+        for d in "${projectRoot}"/*/; do
+            [[ -d "${d}.git" ]] || continue
+            entry="/$(basename "${d}")/"
+            grep -qxF "${entry}" "${gitignoreFile}" 2>/dev/null || echo "${entry}" >> "${gitignoreFile}"
+        done
+        grep -qxF "/.worktrees/" "${gitignoreFile}" 2>/dev/null || echo "/.worktrees/" >> "${gitignoreFile}"
+        if [[ "$(git -C "${projectRoot}" rev-parse --show-toplevel 2>/dev/null)" != "$(cd "${projectRoot}" && pwd -P)" ]]; then
+            logWarn "  A raiz do guarda-chuva não é um repositório git: visão, épicos e backlog-summary"
+            logWarn "  ficariam sem versão. Rode 'git init' em ${projectRoot} (o .gitignore já ignora os sub-projetos)"
+        fi
+    fi
 
     logSuccess ".gitignore atualizado"
 }
