@@ -192,7 +192,7 @@ function basename(p) { sub(/.*\//, "", p); sub(/\.md$/, "", p); return p }
 function baseOf(name,   b) {
     b = name
     sub(/-r[0-9]+$/, "", b)
-    sub(/-(checkpoint|technical-analysis|code-analysis|ux-spec|test-report|qa-report|code-review|impl-report[A-Za-z0-9_-]*)$/, "", b)
+    sub(/-(checkpoint|technical-analysis|code-analysis|ux-spec|test-report|qa-report|code-review|cost-report|impl-report[A-Za-z0-9_-]*)$/, "", b)
     if (b !~ /^STORY-/) return ""
     return b
 }

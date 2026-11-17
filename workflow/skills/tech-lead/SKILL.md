@@ -43,6 +43,7 @@ Every story follows this exact sequence. No shortcuts, no skipping, no reorderin
    ╰─ If BLOCKED → loop back to step 3, do NOT skip retest+QA
    ╰─ EXCEPT when every blocking finding is a Comment Budget one → Rule: Comment-Only Rework
 6b. CATALOG          → only if the checkpoint has a CATALOG item → Rule: Catalog Update
+6c. COST             → story-cost.cjs, right before every merge-request-creator call → Rule: Cost Report
 7. MERGE REQUEST     → merge-request-creator (ONLY after all 4 gates green, and [x] CATALOG when present)
    ╰─ GATE 5: MR                  — PR URL returned
 8. DONE              → report back to Master
@@ -165,7 +166,7 @@ Before starting work, check current state to detect mid-story restart:
 
 0. **Resolve the id.** Handed a partial id? Run `ls artifacts/stories/<partial>*.md`, strip
    the report suffix (`-checkpoint`, `-test-report`, `-qa-report`, `-code-review`,
-   `-technical-analysis`, `-code-analysis`, `-ux-spec`, `-impl-report-*`, `-rN`) from each
+   `-technical-analysis`, `-code-analysis`, `-ux-spec`, `-impl-report-*`, `-cost-report`, `-rN`) from each
    match, dedupe. Exactly one base left → that is the id, slug included; build every path from
    it. Zero, or more than one → STOP and ask Master: `STORY-005-3` reduces to ten stories and
    guessing runs the pipeline on the wrong one. (Strip-and-dedupe, not "find the bare story
@@ -456,7 +457,7 @@ an entry written against a diff that later moves is wrong on arrival.
    same message (`Mode: update, parte i de n` + its entries + the full `affected` output for
    context). When all return, one more call with `Mode: update, finalização` regenerates the
    INDEX, checks, commits and marks `[x] CATALOG`.
-4. Verify per Checkpoint Sanity Check item 3, then merge-request-creator.
+4. Verify per Checkpoint Sanity Check item 3, then `Rule: Cost Report`, then merge-request-creator.
 
 - Not a quality gate: a catalog failure never reopens fix → test → QA → review. It follows
   the 2-Strike Rule; a second failure → `STORY-XXX-BLOCKED` with `At gate: CATALOG`.
@@ -472,6 +473,23 @@ Mode: update. Project: $P. Story: STORY-XXX.
 Output of `catalog.cjs affected`: <paste verbatim>
 Technical analysis: $P/artifacts/stories/STORY-XXX-technical-analysis.md
 ```
+
+### Rule: Cost Report (scope: before every merge-request-creator call) — MANDATORY
+
+```bash
+node .claude/scripts/story-cost.cjs STORY-XXX --tree "$P" --commit
+```
+
+One call, with the resolved id. The script reads the session logs, writes
+`$P/artifacts/stories/STORY-XXX-cost-report.md` (tokens and $ per phase, per agent + model, per
+run, and the share spent in rework cycles) and commits that one file as `docs(cost): STORY-XXX`.
+merge-request-creator pushes it and copies its summary into the MR description.
+
+- Run it before **every** merge-request-creator delegation, including a push-only re-delegation:
+  the commit must exist before the push, or Master's Check 4 finds the branch ahead of its remote.
+- The script commits its own file. TechLead still never runs `git commit`.
+- Never a gate: any problem prints `story-cost: aviso: …`, leaves the tree clean and exits 0.
+  Note the warning in the handoff and go on to merge-request-creator. No retry, no agent call.
 
 ---
 
@@ -566,6 +584,7 @@ TodoWrite:
 [GATE 3] 16. ⛔ GATE 3: QA — verify qa-report.md exists AND [x] QA AND Status: PASSED
 [REV]    17. code-reviewer: review → saves code-review.md → marks [x] CODE REVIEW
 [GATE 4] 18. ⛔ GATE 4: CODE REVIEW — verify code-review.md exists AND [x] CODE REVIEW AND VERDICT: APPROVED
+[COST]   18b. story-cost.cjs --commit → cost-report.md committed (never blocks)
 [MR]     19. merge-request-creator: create PR → marks [x] Merge Request
 [GATE 5] 20. ⛔ GATE 5: MR — PR URL returned
 [DONE]   21. Report DONE to Master

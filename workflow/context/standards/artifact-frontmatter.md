@@ -50,6 +50,7 @@ created: 2026-07-07        # immutable
 | `qa-report` | `STORY-XXX-qa-report[-rN].md` | qa-analyst |
 | `code-review` | `STORY-XXX-code-review[-rN].md` | code-reviewer |
 | `impl-report` | `STORY-XXX-impl-report.md` | backend/frontend developer, bug-fixer |
+| `cost-report` | `STORY-XXX-cost-report.md` | `scripts/story-cost.cjs` (run by tech-lead before the MR; regenerated on each MR call, `created` kept) |
 
 **Product layer** (`artifacts/product/`, `artifacts/epics/`) — `id` is the filename itself.
 Same rule as stories/epics: **doc type first, development slug second**, so every VISION sorts

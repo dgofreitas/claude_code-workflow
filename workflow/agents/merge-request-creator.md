@@ -109,6 +109,7 @@ After creating the MR (PR URL returned successfully), you MUST update the story 
    `git status --porcelain` = only working-tree check here (`git diff main..HEAD` = committed history only). Non-empty = would be silently dropped from MR.
 
 3. **Agent Reports**: code-reviewer, qa-analyst, backend-developer, frontend-developer, test agents
+   — and `artifacts/stories/STORY-XXX-cost-report.md` when it exists (tech-lead's script commits it just before calling you)
 4. **CI/CD Status** (if available)
 
 ### 2. Pre-MR Validation
@@ -248,6 +249,9 @@ Generate MR descriptions in **caveman style** — terse, no fluff, only substanc
 - CodeReview: APPROVED
 - QA: PASS
 
+## Custo
+[everything between `<!-- mr:begin -->` and `<!-- mr:end -->` of STORY-XXX-cost-report.md, verbatim]
+
 ## Metrics
 | Commits | Files | +/-lines |
 |---------|-------|----------|
@@ -271,6 +275,7 @@ Generate MR descriptions in **caveman style** — terse, no fluff, only substanc
 - One-line changes: `File → what changed`
 - No verbose explanations — severity/impact implied by section
 - Tables over prose. Bullet lists over paragraphs.
+- `## Custo` is the exception: copy it verbatim, no caveman, no rounding, no reordering — the numbers come from a script. No cost report → omit the section, never estimate one.
 
 ---
 

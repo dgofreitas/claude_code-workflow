@@ -235,7 +235,7 @@ If user gave a vague request ("continue", "build X"):
 > re-build a path from what the user typed.
 >
 > To get it: strip the report suffix (`-checkpoint`, `-technical-analysis`, `-code-analysis`,
-> `-ux-spec`, `-test-report`, `-qa-report`, `-code-review`, `-impl-report-*`, `-rN`) from every
+> `-ux-spec`, `-test-report`, `-qa-report`, `-code-review`, `-impl-report-*`, `-cost-report`, `-rN`) from every
 > match, then dedupe. **Exactly one** distinct base remains → that is the id, slug included.
 > Strip-and-dedupe rather than looking for the bare story file: hotfixes and older stories
 > legitimately have a checkpoint and no `STORY-XXX.md`.
