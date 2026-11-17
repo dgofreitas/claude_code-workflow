@@ -34,7 +34,7 @@ Every story follows this exact sequence. No shortcuts, no skipping, no reorderin
 3. IMPLEMENT         → delegate domains in parallel (backend + frontend)
    ╰─ GATE 1: DOMAIN COMPLETION   — ALL backend/frontend/shared items [x]
 4. TEST              → test-engineer
-   ╰─ GATE 2: TESTS               — checkpoint shows [x] TESTS
+   ╰─ GATE 2: TESTS               — checkpoint shows [x] TESTS (a TESTS line with `E<n> contestada:` → STOP)
 5. QA                → qa-analyst → saves qa-report.md
    ╰─ GATE 3: QA                  — file exists AND checkpoint shows [x] QA AND Status: PASSED
    ╰─ If REQUIRES FIXES → loop back to step 3, do NOT skip retest
@@ -43,6 +43,7 @@ Every story follows this exact sequence. No shortcuts, no skipping, no reorderin
    ╰─ If BLOCKED → loop back to step 3, do NOT skip retest+QA
    ╰─ EXCEPT when every blocking finding is a Comment Budget one → Rule: Comment-Only Rework
 6b. CATALOG          → only if the checkpoint has a CATALOG item → Rule: Catalog Update
+6c. COST             → story-cost.cjs, right before every merge-request-creator call → Rule: Cost Report
 7. MERGE REQUEST     → merge-request-creator (ONLY after all 4 gates green, and [x] CATALOG when present)
    ╰─ GATE 5: MR                  — PR URL returned
 8. DONE              → report back to Master
@@ -51,7 +52,7 @@ Every story follows this exact sequence. No shortcuts, no skipping, no reorderin
 **Gate vocabulary** (these are the ONLY gate names — do not invent variations):
 
 - `GATE 1: DOMAIN COMPLETION` — all implementation items `[x]` before test-engineer
-- `GATE 2: TESTS` — checkpoint `[x] TESTS` before qa-analyst
+- `GATE 2: TESTS` — checkpoint `[x] TESTS` before qa-analyst. A `- [ ] TESTS — E<n> contestada:` line instead → `Rule: Fix Agent Selection` (`E<n> contestada` row), never a re-run
 - `GATE 3: QA` — qa-report.md exists + checkpoint `[x] QA` + Status PASSED before code-reviewer
 - `GATE 4: CODE REVIEW` — code-review.md exists + checkpoint `[x] CODE REVIEW` + VERDICT APPROVED before merge-request-creator
 - `GATE 5: MR` — PR created before reporting DONE
@@ -165,7 +166,7 @@ Before starting work, check current state to detect mid-story restart:
 
 0. **Resolve the id.** Handed a partial id? Run `ls artifacts/stories/<partial>*.md`, strip
    the report suffix (`-checkpoint`, `-test-report`, `-qa-report`, `-code-review`,
-   `-technical-analysis`, `-code-analysis`, `-ux-spec`, `-impl-report-*`, `-rN`) from each
+   `-technical-analysis`, `-code-analysis`, `-ux-spec`, `-impl-report-*`, `-cost-report`, `-rN`) from each
    match, dedupe. Exactly one base left → that is the id, slug included; build every path from
    it. Zero, or more than one → STOP and ask Master: `STORY-005-3` reduces to ten stories and
    guessing runs the pipeline on the wrong one. (Strip-and-dedupe, not "find the bare story
@@ -346,6 +347,7 @@ When rework is needed (QA REQUIRES FIXES or Review BLOCKED), pick the fix agent 
 | Test gap only (implementation OK, coverage missing) | **test-engineer** |
 | Security vulnerability | **bug-fixer (by language)** — security findings are bugs |
 | Comment Budget findings, and nothing else | **comment-sanitizer** — see `Rule: Comment-Only Rework`. Never a developer: they would restart the whole cycle to delete comment lines |
+| `E<n> contestada` (the expected table itself is disputed) | **Nobody.** STOP the story: return `STORY-XXX-BLOCKED` with `Reason:` = that TESTS line verbatim (it carries the row's input and expected value). Master asks the user, then has the architect rewrite or confirm the row. A developer would bend correct code to a wrong row |
 
 If unsure → default to **original developer** (they own the code).
 
@@ -455,7 +457,7 @@ an entry written against a diff that later moves is wrong on arrival.
    same message (`Mode: update, parte i de n` + its entries + the full `affected` output for
    context). When all return, one more call with `Mode: update, finalização` regenerates the
    INDEX, checks, commits and marks `[x] CATALOG`.
-4. Verify per Checkpoint Sanity Check item 3, then merge-request-creator.
+4. Verify per Checkpoint Sanity Check item 3, then `Rule: Cost Report`, then merge-request-creator.
 
 - Not a quality gate: a catalog failure never reopens fix → test → QA → review. It follows
   the 2-Strike Rule; a second failure → `STORY-XXX-BLOCKED` with `At gate: CATALOG`.
@@ -471,6 +473,23 @@ Mode: update. Project: $P. Story: STORY-XXX.
 Output of `catalog.cjs affected`: <paste verbatim>
 Technical analysis: $P/artifacts/stories/STORY-XXX-technical-analysis.md
 ```
+
+### Rule: Cost Report (scope: before every merge-request-creator call) — MANDATORY
+
+```bash
+node .claude/scripts/story-cost.cjs STORY-XXX --tree "$P" --commit
+```
+
+One call, with the resolved id. The script reads the session logs, writes
+`$P/artifacts/stories/STORY-XXX-cost-report.md` (tokens and $ per phase, per agent + model, per
+run, and the share spent in rework cycles) and commits that one file as `docs(cost): STORY-XXX`.
+merge-request-creator pushes it and copies its summary into the MR description.
+
+- Run it before **every** merge-request-creator delegation, including a push-only re-delegation:
+  the commit must exist before the push, or Master's Check 4 finds the branch ahead of its remote.
+- The script commits its own file. TechLead still never runs `git commit`.
+- Never a gate: any problem prints `story-cost: aviso: …`, leaves the tree clean and exits 0.
+  Note the warning in the handoff and go on to merge-request-creator. No retry, no agent call.
 
 ---
 
@@ -560,11 +579,12 @@ TodoWrite:
 [GATE 1] 12. ⛔ GATE 1: DOMAIN COMPLETION — verify ALL backend/frontend/shared items [x]
 
 [TEST]   13. test-engineer: comprehensive test suites — ALL domains
-[GATE 2] 14. ⛔ GATE 2: TESTS — verify [x] TESTS in checkpoint
+[GATE 2] 14. ⛔ GATE 2: TESTS — verify [x] TESTS in checkpoint (`E<n> contestada:` → STOP)
 [QA]     15. qa-analyst: validate → saves qa-report.md → marks [x] QA
 [GATE 3] 16. ⛔ GATE 3: QA — verify qa-report.md exists AND [x] QA AND Status: PASSED
 [REV]    17. code-reviewer: review → saves code-review.md → marks [x] CODE REVIEW
 [GATE 4] 18. ⛔ GATE 4: CODE REVIEW — verify code-review.md exists AND [x] CODE REVIEW AND VERDICT: APPROVED
+[COST]   18b. story-cost.cjs --commit → cost-report.md committed (never blocks)
 [MR]     19. merge-request-creator: create PR → marks [x] Merge Request
 [GATE 5] 20. ⛔ GATE 5: MR — PR URL returned
 [DONE]   21. Report DONE to Master
@@ -609,6 +629,7 @@ Domains implemented this story:
 - BACKEND: [files]
 - FRONTEND: [files]
 Coverage target: ≥ 90% per file (story-specific only, ignore global).
+Expected table: artifacts/stories/STORY-XXX-technical-analysis.md — ## Contrato de Teste only.
 After testing: update checkpoint — mark [x] TESTS with results.
 ```
 
@@ -635,7 +656,8 @@ After testing: update checkpoint — mark [x] TESTS with results.
 >
 > GATE 2 therefore opens exactly once, on the last batch, against the full suite.
 
-> **⚠ STRICT LIMIT**: list files + coverage target ONLY.
+> **⚠ STRICT LIMIT**: list files + coverage target + the expected-table pointer ONLY — a
+> pointer to one section, never its rows copied into the prompt.
 > NEVER include test case descriptions, mock strategies, assertions, or implementation hints.
 > test-engineer reads the source files and decides how to test them.
 > Detailed instructions = test-engineer loads all files at once = pipeline freeze.

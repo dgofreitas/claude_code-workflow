@@ -107,6 +107,11 @@ that restates the impacted-components table earns nothing.
   computed a second time and drifting from the first (16 of 22 knowledge-gap bugs measured
   on an installed project), and the plan is the last point where it is cheap to prevent: once a
   developer writes the copy, review has to catch it and the fix has to find every copy.
+- **Expected values before code** — fill `## Contrato de Teste` from the story and the
+  producers' real code, not from a plan of how to build it. Replayed blind on 20 bugs that
+  reached production, a table written this way from the story alone failed on 8 of them; the
+  tests actually written caught none. They missed because the expected value came from the code, the
+  boundary was mocked with an invented format, or the crossed scenario was never exercised.
 - Analyze technical complexity and risks
 - Identify impacted components (from code analysis)
 - Determine required technology stack changes
@@ -176,7 +181,36 @@ the whole project — not only the one the bug report cites. Each one is in scop
 
 ## Contrato de Teste
 
-What test-engineer must cover: behaviours, edge cases, coverage target.
+The expected table, written now — before any code exists — from the story's acceptance
+criteria, the domain, and the real code of whoever produces and consumes what this story
+touches. Never from what an implementation returns: an expected value copied from the code's
+output confirms the defect instead of catching it. test-engineer turns every row into a test.
+
+| # | cenário | entrada concreta | esperado concreto | origem do esperado |
+| - | ------- | ---------------- | ----------------- | ------------------ |
+| E1 | | | | AC<n> / domínio / `<file>#<symbol>` |
+
+- Concrete values in both columns — never "a valid value" or "returns correctly".
+- At a boundary with another service or repo of the project, the input is what the REAL
+  producer emits: read its code for type, unit, `''` vs `null`, string vs number. Never the
+  format the consumer would like to receive. Producer in a sibling repo → copy a real sample of
+  its output into `entrada` verbatim: test-engineer cannot run code outside this repo.
+- `AC<n>` in `origem` = the n-th acceptance criterion of the story, in order.
+- Beyond the acceptance-criteria path, cover: the crossed scenario (another currency, time
+  zone, record type, media, profile); state that already exists (editing what already has a
+  value, a record that moved to another owner or group, an operation in progress); and the
+  input edges the parser accepts.
+- **Fix stories:** one row with the defect's trigger and the correct expected value, plus one
+  row per copy listed in `## Fontes Canônicas`.
+- A row verifiable only in a real environment (hardware, a third party with no recording) →
+  say so in `origem` and name the traffic to record.
+
+Then the open questions, one per line, only where neither the criteria nor the domain decide a
+row's `esperado` AND the answer would change it:
+`pergunta: E<n> — <the doubt> — assumido: <the expected value the row carries>`
+A question that changes no row does not go here. None → `perguntas: nenhuma`.
+
+Coverage target: ≥ 90% of new/modified files.
 
 ## Foco de QA
 
@@ -213,7 +247,8 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 > follows the canonical template in `Priority 2 §4`, whose section titles are fixed.
 > Never carry the headings below into `STORY-XXX-technical-analysis.md`: mixing the two
 > is what makes downstream agents read the whole document instead of their own section.
-> The reply is a summary plus a pointer to the file.
+> The reply is a summary plus a pointer to the file. End it with the `pergunta:` lines of
+> `## Contrato de Teste`, verbatim (or `perguntas: nenhuma`): Master shows them at GATE-AR.
 
 ### Task Analysis
 

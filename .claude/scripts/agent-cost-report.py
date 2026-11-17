@@ -14,6 +14,7 @@ project on the machine; installing a copy anywhere would measure the same data t
     python3 .claude/scripts/agent-cost-report.py --agent test-engineer --runs
     python3 .claude/scripts/agent-cost-report.py --agent test-engineer --files
     python3 .claude/scripts/agent-cost-report.py --agent architect --runs --match 'vislic|serverLic'
+    python3 .claude/scripts/agent-cost-report.py --model haiku   # only runs on a model (regex)
 
 Two measurement traps this script exists to avoid:
 
@@ -43,6 +44,7 @@ import time
 from collections import defaultdict
 
 # (input, output, 5m cache write, 1h cache write, cache read) in $/Mtok.
+# Same table as workflow/scripts/story-cost.cjs (the per-story report) — change both together.
 # No long-context tier: 4.6+ models bill the whole 1M window at these rates.
 PRICES = {
     'claude-opus-5-5': (4, 20, 5, 8, 0.20),
@@ -110,7 +112,16 @@ def price(requests):
     return total, peak, over
 
 
-def collect(hours, match=None, project=None):
+def run_model(requests):
+    """Models of one run, most-used first, 'claude-' dropped: 'opus-5-5', 'sonnet-5+haiku-4-5'."""
+    count = defaultdict(int)
+    for r in requests:
+        count[r[0]] += 1
+    names = sorted(count, key=lambda m: -count[m])
+    return '+'.join(m.removeprefix('claude-') for m in names)
+
+
+def collect(hours, match=None, project=None, model=None):
     """match: regex over the delegation prompt — the log path names only the session's
     project, so in an umbrella the sub-project shows up in the prompt, not the path."""
     cutoff = time.time() - hours * 3600 if hours else 0
@@ -140,10 +151,13 @@ def collect(hours, match=None, project=None):
                 unknown[r[0]] += 1
         if not requests or unknown:
             continue
+        mdl = run_model(requests)
+        if model and not re.search(model, mdl):
+            continue
         cost, peak, over = price(requests)
         files = len(set(re.findall(r'[\w./-]+\.' + SOURCE_EXT + r'\b', deleg)))
         runs.append({
-            'agent': agent or '?', 'cost': cost, 'reqs': len(requests),
+            'agent': agent or '?', 'model': mdl, 'cost': cost, 'reqs': len(requests),
             'peak': peak, 'over': over, 'files': files,
             'baseline': sum(requests[0][1:5]), 'path': path,
         })
@@ -157,9 +171,10 @@ def collect(hours, match=None, project=None):
 
 
 def per_agent(runs):
+    """One row per (agent, model): an agent that changed tier shows its before and after."""
     agg = defaultdict(lambda: {'runs': 0, 'reqs': 0, 'cost': 0.0, 'peak': 0, 'over': 0, 'worst': 0.0})
     for r in runs:
-        a = agg[r['agent']]
+        a = agg[(r['agent'], r['model'])]
         a['runs'] += 1
         a['reqs'] += r['reqs']
         a['cost'] += r['cost']
@@ -167,13 +182,13 @@ def per_agent(runs):
         a['peak'] = max(a['peak'], r['peak'])
         a['worst'] = max(a['worst'], r['cost'])
     total = sum(v['cost'] for v in agg.values()) or 1
-    print(f"{'agent':26} {'runs':>5} {'reqs':>6} {'cost$':>9} {'%':>6} "
+    print(f"{'agent':26} {'model':18} {'runs':>5} {'reqs':>6} {'cost$':>9} {'%':>6} "
           f"{'avg$':>7} {'worst$':>8} {'peak ctx':>10} {'>200k':>6}")
-    for name, v in sorted(agg.items(), key=lambda kv: -kv[1]['cost']):
-        print(f"{name:26} {v['runs']:5d} {v['reqs']:6d} {v['cost']:9.2f} "
+    for (name, mdl), v in sorted(agg.items(), key=lambda kv: -kv[1]['cost']):
+        print(f"{name:26} {mdl:18} {v['runs']:5d} {v['reqs']:6d} {v['cost']:9.2f} "
               f"{100 * v['cost'] / total:5.1f}% {v['cost'] / v['runs']:7.2f} "
               f"{v['worst']:8.2f} {v['peak']:10,} {v['over']:6d}")
-    print(f"\n{'TOTAL':26} {len(runs):5d} {sum(r['reqs'] for r in runs):6d} {total:9.2f}")
+    print(f"\n{'TOTAL':26} {'':18} {len(runs):5d} {sum(r['reqs'] for r in runs):6d} {total:9.2f}")
 
 
 def per_run(runs, agent):
@@ -189,12 +204,20 @@ def per_run(runs, agent):
     reqs = sorted(r['reqs'] for r in sel)
     peaks = sorted(r['peak'] for r in sel)
     print(f"  median {reqs[len(reqs) // 2]} reqs/run | median peak ctx {peaks[len(peaks) // 2]:,}")
+    models = defaultdict(list)
+    for r in sel:
+        models[r['model']].append(r)
+    if len(models) > 1:
+        for mdl, rs in sorted(models.items(), key=lambda kv: -len(kv[1])):
+            rq = sorted(r['reqs'] for r in rs)
+            print(f"    {mdl:18} {len(rs):4d} runs  ${sum(r['cost'] for r in rs):8.2f}  "
+                  f"median {rq[len(rq) // 2]} reqs/run")
     for k in (5, 10, 20):
         if k < len(costs):
             print(f"  top {k:2d} runs = ${sum(costs[:k]):7.2f} ({100 * sum(costs[:k]) / total:4.1f}% of the agent)")
-    print(f"\n  {'cost$':>8} {'reqs':>5} {'files':>6} {'baseline':>9} {'peak ctx':>10}")
+    print(f"\n  {'cost$':>8} {'reqs':>5} {'files':>6} {'baseline':>9} {'peak ctx':>10}  model")
     for r in sel[:12]:
-        print(f"  {r['cost']:8.2f} {r['reqs']:5d} {r['files']:6d} {r['baseline']:9,} {r['peak']:10,}")
+        print(f"  {r['cost']:8.2f} {r['reqs']:5d} {r['files']:6d} {r['baseline']:9,} {r['peak']:10,}  {r['model']}")
 
 
 def per_files(runs, agent):
@@ -228,10 +251,11 @@ def main():
     ap.add_argument('--runs', action='store_true', help='with --agent: per-run distribution')
     ap.add_argument('--files', action='store_true', help='with --agent: cost by files per delegation')
     ap.add_argument('--match', help='only runs whose delegation prompt matches this regex')
+    ap.add_argument('--model', help='only runs whose model (e.g. opus-5-5, sonnet-5+haiku-4-5) matches this regex')
     ap.add_argument('--project', help='only runs whose log path (the session\'s project dir) matches this regex')
     args = ap.parse_args()
 
-    runs = collect(args.hours, args.match, args.project)
+    runs = collect(args.hours, args.match, args.project, args.model)
     if not runs:
         print('no subagent logs found under ~/.claude/projects')
         return

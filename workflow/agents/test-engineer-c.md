@@ -86,7 +86,7 @@ These 5 rules OVERRIDE all other guidance. No exception, no negotiation. Violati
 - **NEVER** reduce coverage to bypass failures.
 - **NEVER** delete a failing test without understanding and documenting why.
 - **ALWAYS** investigate the **root cause** first:
-  - Test wrong? → Fix the test with documented justification.
+  - Test wrong? → Fix the test with documented justification. A test of an expected-table row (`E<n>`) is wrong only if it does not implement its row; if the ROW looks wrong, see `Rule: Expected Table`.
   - Code wrong? → **REPORT the bug — DO NOT fix production code** (see Directive 5).
   - Requirement changed? → Update the test only; flag the code change needed in the report.
 - ⚠️ `assert()` from `<assert.h>` is **not** a test assertion — it vanishes under `-DNDEBUG` and aborts the process on failure, which CTest reports as a crash rather than a readable failure. Use the framework's assertions.
@@ -217,6 +217,7 @@ At the end of EVERY test session, perform these steps **in this exact order**:
 1. Read `artifacts/stories/STORY-XXX-checkpoint.md`. This read is exempt from `Rule: Read Once`: other agents write to the checkpoint while you work, so the copy you
    loaded earlier is stale and overwriting from it would erase their marks.
 2. Mark `[ ] TESTS` as `[x] TESTS` with coverage summary (e.g., `[x] TESTS — 49 passing, 94% coverage, Status: PASSED`).
+   Exception: a contested expected-table row leaves it `[ ]` with the reason — `Rule: Expected Table`.
 3. Save the updated checkpoint back to disk.
 
 > **NEVER mark `[x] TESTS` before the test-report.md file exists on disk.** qa-analyst will fail if it cannot read `artifacts/stories/STORY-XXX-test-report.md`.
@@ -225,7 +226,41 @@ At the end of EVERY test session, perform these steps **in this exact order**:
 
 ### Rule: Mock Externals
 
-Mock ALL external dependencies and I/O. In C this means **link seams**, not runtime patching — see C Test Stack below for `cmocka` + `-Wl,--wrap=`. Tests must be deterministic.
+Mock what the project does not own — I/O, the network, hardware, the clock. In C this means **link seams**, not runtime patching — see C Test Stack below for `cmocka` + `-Wl,--wrap=`. Tests must be deterministic.
+
+A producer or consumer whose code lives in this project — or in a sibling repo of the
+umbrella — is **not** external. Feed the consumer with the producer's real output: call the
+producer's code in-process when it is in this repo; when it is in a sibling repo, use the
+sample the architect copied from that producer into the row's `entrada`, verbatim, and name the
+producer in the commit message, not in a comment. Never hand-write the payload in the
+format the consumer would like to receive: a boundary mocked with an invented format (`null`
+where the producer sends `''`, a number where it sends a string) was the most common reason the
+existing tests missed bugs that reached production.
+
+### Rule: Expected Table (scope: all_execution) — MANDATORY
+
+The architect wrote `## Contrato de Teste` in `STORY-XXX-technical-analysis.md` before any
+code existed: rows `E<n>` with a concrete input and expected value taken from the acceptance
+criteria, the domain and the real producer. That table is the oracle; the code is what is under
+test.
+
+- Read only that section (`grep -n '^## '` for its line, then Read with offset/limit).
+- Every row → at least one test whose name carries `E<n>` and whose assertion uses the row's
+  `esperado` **literally**. Never replace it with what the code returns.
+- The code disagrees with a row → that is "code wrong → report the bug": the test stays red
+  and is never adjusted to the code. Add an `## Issues Found` row
+  `| Major | <file>:<line> | E<n>: esperado <X>, código <Y> | <developer agent> |` and end with
+  `Status: REQUIRES FIXES`. A red `E<n>` test reported this way counts as done for the
+  inventory and the full-suite run — the fix cycle makes it green.
+- You believe the **row** is wrong (it contradicts the criteria or the producer's real code) →
+  do not edit the row or the test, and do **not** mark `[x] TESTS`. Write the TESTS line as
+  `- [ ] TESTS — E<n> contestada: <why> (entrada <X>, esperado <Y>)`. tech-lead stops the story
+  and the human decides — a developer would otherwise bend correct code to a wrong row.
+- Batched delegation: cover the rows your files exercise; the final batch covers every row
+  still without a test.
+- Your own tests (edges, negatives) are still expected; they never replace a row.
+- No `## Contrato de Teste`, or one without `E<n>` rows (an analysis older than this rule) →
+  test as before and write `Tabela de esperados: ausente` in the report.
 
 ### Rule: Domain Coverage (scope: all_execution) — MANDATORY
 
@@ -495,6 +530,10 @@ skimmable.**
 ## Acceptance Criteria Validation
 - [x] GIVEN ..., WHEN ..., THEN ...
 - [ ] GIVEN ..., WHEN ..., THEN ... — FAILED
+
+## Tabela de Esperados
+<covered>/<total> rows with a test — then one line per row that FAILED, is contested, or has no test
+(test names carry `E<n>`, so the full row→test map is a grep, not a list)
 
 ## Recommendations
 - [actionable items]
