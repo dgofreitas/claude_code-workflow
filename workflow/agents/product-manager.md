@@ -133,7 +133,7 @@ are at the root — the paths above are already right.
 - **Reorder on add**: run `backlog-status.sh --project <sub> --development <dev>` once for each
   sub-project the development touches.
 - When done: `.claude/scripts/commit-product-docs.sh <dev>` — it commits the root summary. The
-  stories go with their story branch, as always.
+  stories are versioned by Master once GATE-PM approves them.
 
 ---
 
@@ -261,7 +261,9 @@ graph TD
     class S004 couldHave
 ```
 
-- Notify user that stories are ready for **architect** planning
+- Notify user that stories are ready for **architect** planning. End the report with one line
+  `development: <dev>` — Master versions the approved stories by it at GATE-PM. Leave the story
+  files where you wrote them; never `git add` or commit them yourself.
 
 ---
 

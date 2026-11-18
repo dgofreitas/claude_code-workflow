@@ -167,12 +167,19 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 
 | Gate | After | Output to user (default) | Default question |
 |------|-------|--------------------------|------------------|
-| GATE-PM | product-manager | Stories list (ids + titles) + the PM's `adiada:` lines, verbatim | "Prosseguir? [Y/n]" |
+| GATE-PM | product-manager | Stories list (ids + titles) + the PM's `adiada:` and `development:` lines, verbatim | "Prosseguir? [Y/n]" |
 | GATE-SA | system-architect | Stack proposal table | "Aprovar stack? [Y/n]" |
 | GATE-AR | architect | Technical plan summary + the architect's `pergunta:` lines, verbatim | "Implementar STORY-XXX? [Y/n]" |
 | GATE-MR | tech-lead skill (MR created) | MR link + test coverage | "Aprovar MR e fazer merge? [Y/n]" |
 | GATE-NEXT | Merge complete | Branch deleted, story closed + `Backlog:` line when no queued story follows | "Próxima story? [Y/n]" |
 
+> **GATE-PM action**: on approval (manual or auto), ONE call before routing on —
+> `.claude/scripts/version-stories.sh --development <dev>`, with the PM's `development:` value — and
+> relay its lines verbatim. It commits the approved stories and opens a `docs/stories-<dev>` MR in
+> each sub-project they live in; without it they stay outside git until each story starts. A
+> `version-stories: aviso:` line is a finding for the user, never a stop. Rejected → re-invoke the
+> PM; nothing to undo, nothing was versioned.
+>
 > **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — four checks). All four must pass. (2) THEN on approval (manual or auto) → merge **naming the branch**, `gh pr merge <feature-branch> --merge` (GitLab: `glab mr merge <feature-branch>`) → **release the tree, then delete the branch** → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
 >
 > **Name the branch, not the MR URL.** `git-merge-guard.js` re-checks the publish boundary in code,
