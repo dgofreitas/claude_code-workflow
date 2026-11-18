@@ -157,6 +157,10 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 - **Stop conditions** (non-overridable, even in batch-auto):
   - Any agent returns BLOCKED, error, or refuses task.
   - `gh pr merge` fails (conflict, CI red).
+  - `gh pr merge` refused because the MR still needs approvals (a team repo): not a defect. Report
+    the MR as `aguardando aprovação` in the final table — not as failed — and stop: the next story
+    branches from the base and may depend on this one. After the approval and merge, the same
+    queue resumes.
   - 2-strike rule from the tech-lead skill bubbles up as story failure.
 - **Final report**: when queue exhausted OR stop condition hit, output ONE table: `| STORY | Status | MR | Notes |`, then the `Backlog:` and `Must Have não iniciadas:` lines of a fresh `backlog-status.sh` run (see Backlog Questions).
 - **Per-gate output** in batch-auto: ONE line, format `[STORY-XXX] GATE-MR ✅ auto-merged #PR_NUMBER`. No explanations.
@@ -412,7 +416,7 @@ ls "$P"/artifacts/stories/STORY-XXX-qa-report*.md 2>/dev/null
 ls "$P"/artifacts/stories/STORY-XXX-code-review*.md 2>/dev/null
 
 # Check 4: branch fully pushed — nothing uncommitted, nothing ahead of remote
-git -C "$P" status --porcelain
+.claude/scripts/tree-status.sh "$P"   # git status --porcelain, minus other stories' untracked files
 git -C "$P" rev-list "@{u}..HEAD" --count 2>/dev/null
 ```
 
@@ -425,7 +429,7 @@ git -C "$P" rev-list "@{u}..HEAD" --count 2>/dev/null
 | empty | missing | — | ❌ ABORT — `[x] QA` lied (no artifact): re-invoke tech-lead skill with "checkpoint marked QA done but qa-report.md missing" |
 | empty | exists | missing | ❌ ABORT — `[x] CODE REVIEW` lied (no artifact): re-invoke tech-lead skill |
 
-**Check 4 decision**: `git status --porcelain` output must be empty AND `rev-list @{u}..HEAD --count` must be `0`. Any output on either → ❌ ABORT — do NOT merge. `gh pr merge` operates on the **remote** branch; any commit made after merge-request-creator's last push (e.g. a checkpoint fix TechLead makes after returning to Master) is invisible to it and gets silently left out of the merge. Re-invoke the tech-lead skill: `"Uncommitted or unpushed changes on <branch> — push before merging"` — tech-lead re-delegates to merge-request-creator's `2.1 Push & Verify` step (or commits first via `Rule: Uncommitted Work Rework` if Check 4's first half is also dirty).
+**Check 4 decision**: `tree-status.sh` output must be empty (other stories' approved files sit untracked in the checkout until their own MR; everything else counts) AND `rev-list @{u}..HEAD --count` must be `0`. Any output on either → ❌ ABORT — do NOT merge. `gh pr merge` operates on the **remote** branch; any commit made after merge-request-creator's last push (e.g. a checkpoint fix TechLead makes after returning to Master) is invisible to it and gets silently left out of the merge. Re-invoke the tech-lead skill: `"Uncommitted or unpushed changes on <branch> — push before merging"` — tech-lead re-delegates to merge-request-creator's `2.1 Push & Verify` step (or commits first via `Rule: Uncommitted Work Rework` if Check 4's first half is also dirty).
 
 > **Check 4 is now belt-and-suspenders, not the only line of defense**: the `git-merge-guard.js` hook denies the actual `gh pr merge` / `glab mr merge` Bash call at the tool-call level when the named branch is dirty or unpushed — Check 4 exists to catch it earlier, with a clearer diagnostic, before Master even attempts the merge. The two are independent: Check 4 is Master following a prompt, the hook is code that runs whether or not Master did.
 

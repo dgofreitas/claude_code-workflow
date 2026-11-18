@@ -19,7 +19,7 @@ model: claude-sonnet-5-5
 
 ### Rule: Uncommitted Work Gate (scope: pre_review) — MANDATORY
 
-FIRST step, before context-scout: `git status --porcelain`.
+FIRST step, before context-scout: `.claude/scripts/tree-status.sh "$P"` — `$P` is the story's tree from your prompt (in an umbrella the session root is a repo of its own; a bare `git status` there checks the wrong tree). It is `git status --porcelain` minus other stories' untracked files, which wait for their own MR.
 
 - Empty → proceed to Context First.
 - Dirty → STOP, skip review. Report as usual: `VERDICT: BLOCKED — requires rework`, one Rework Delegation row per dirty file (`artifacts/stories/*` → test-engineer/qa-analyst, source → backend-developer-c or bug-fixer-c), raw `git status --porcelain` in appendix. Normal Report Persistence + Checkpoint Update.
@@ -169,7 +169,7 @@ Any path containing `rtk/tee/` is forbidden to read — no exceptions.
 
 ## Priority 1: Critical Operations
 
-- **Uncommitted Work Gate**: `git status --porcelain` FIRST, before context-scout — dirty tree → BLOCKED, no exceptions
+- **Uncommitted Work Gate**: `.claude/scripts/tree-status.sh "$P"` FIRST, before context-scout — dirty tree → BLOCKED, no exceptions
 - **Context First**: context-scout ALWAYS before reviewing
 - **Read Only**: Never modify source code — suggest only
 - **Security Priority**: Security findings first, always

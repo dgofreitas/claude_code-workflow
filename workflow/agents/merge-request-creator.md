@@ -101,7 +101,7 @@ After creating the MR (PR URL returned successfully), you MUST update the story 
    BASE=$(.claude/scripts/base-branch.sh "$P")   # main in one repo, alpha in another — never assume
    git -C "$P" fetch -q origin
    git -C "$P" branch --show-current
-   git -C "$P" status --porcelain
+   .claude/scripts/tree-status.sh "$P"   # status --porcelain, minus other stories' untracked files
    git -C "$P" log --oneline "origin/$BASE..HEAD"
    git -C "$P" diff --stat "origin/$BASE..HEAD"
    git -C "$P" diff "origin/$BASE..HEAD" --shortstat
@@ -112,7 +112,7 @@ After creating the MR (PR URL returned successfully), you MUST update the story 
    a hardcoded `main` sends the MR of a repo that integrates in `alpha` past it, and compares the
    description against a branch the story never forked from.
 
-   `git status --porcelain` = only working-tree check here (`git diff origin/$BASE..HEAD` = committed history only). Non-empty = would be silently dropped from MR.
+   `tree-status.sh` = only working-tree check here (other stories waiting untracked in the checkout are not this MR's) (`git diff origin/$BASE..HEAD` = committed history only). Non-empty = would be silently dropped from MR.
 
 3. **Agent Reports**: code-reviewer, qa-analyst, backend-developer, frontend-developer, test agents
    — and `artifacts/stories/STORY-XXX-cost-report.md` when it exists (tech-lead's script commits it just before calling you)
@@ -124,7 +124,7 @@ merge-request-creator runs AFTER tech-lead's GATE 4. Four bolded artifact/checkp
 
 | Check | Source | Status |
 |-------|--------|--------|
-| **Working tree clean (nothing uncommitted/untracked)** | `git status --porcelain` returns empty | PASS / FAIL |
+| **Working tree clean (nothing uncommitted/untracked)** | `.claude/scripts/tree-status.sh "$P"` returns empty | PASS / FAIL |
 | Acceptance criteria met | PM Story | PASS / FAIL |
 | Tests passing | `npm run test` (Node) / `pytest` (Python) / `ctest` (C) — NEVER `yarn test` / `npm test` (AGENTS.md) | PASS / FAIL |
 | Coverage >= 90% | Coverage report (test-engineer test-report.md) | PASS / FAIL |
@@ -139,7 +139,7 @@ merge-request-creator runs AFTER tech-lead's GATE 4. Four bolded artifact/checkp
 
 > **If any artifact-file check fails** — STOP. Do NOT create the MR. Report to the tech-lead skill: "Pre-MR validation failed: <which check>". tech-lead will re-delegate the missing agent.
 >
-> **If "Working tree clean" fails** — last gate before push, risk of outright loss. Do NOT commit it yourself (not your files, not your commit message). Report: "Pre-MR validation failed: uncommitted files found" + raw `git status --porcelain` output. tech-lead maps path → owning agent, re-delegates commit.
+> **If "Working tree clean" fails** — last gate before push, risk of outright loss. Do NOT commit it yourself (not your files, not your commit message). Report: "Pre-MR validation failed: uncommitted files found" + raw `tree-status.sh` output. tech-lead maps path → owning agent, re-delegates commit.
 >
 > **This check now has a code-enforced backstop**: the `git-merge-guard.js` hook denies `gh pr create|merge` and `glab mr create|merge` outright when the named branch is dirty or has unpushed commits, regardless of whether this table was actually run. It inspects the working tree that actually holds that branch, which may be a worktree rather than the sub-project checkout. If you get a tool-call denial with that reason instead of a normal error, it means this validation step was skipped — `git push` (and commit first if needed), then retry.
 

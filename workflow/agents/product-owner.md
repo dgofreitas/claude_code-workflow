@@ -229,7 +229,7 @@ created: [YYYY-MM-DD]
 
 # EPIC-XXX: [Outcome-Focused Title]
 
-**Status**: [Draft / Approved / In Progress / Done / Cancelled]
+**Approval**: [Draft / Approved / Cancelled]   <!-- progress is never written: `backlog-status.sh --epic EPIC-x` -->
 **Priority**: [Must Have / Should Have / Could Have / Won't Have]
 **Estimate**: [XS / S / M / L / XL]
 **Target Release**: [MVP / V1.1 / V2.0]

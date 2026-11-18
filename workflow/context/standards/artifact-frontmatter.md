@@ -128,11 +128,16 @@ at the docs of its OWN development (`sources: [VISION-theme, PERSONAS-theme]`).
 | `in-qa` | GATE 2 passed (tests green), QA pending/running | tech-lead |
 | `in-review` | GATE 3 passed (QA PASSED), review pending/running | tech-lead |
 | `ready` | GATE 4 passed (review APPROVED), MR pending / DONE handoff | tech-lead |
-| `merged` | MR created (the delivery milestone) | merge-request-creator |
+| `merged` | MR **created** (the delivery milestone) — not merged on the forge yet | merge-request-creator |
 | `blocked` | any gate BLOCKED / story blocked | tech-lead |
 
 > `status`/`coverage`/`updated` are the ONLY frontmatter values that ever change, and only
 > in the checkpoint. This keeps a single source of truth while giving the board live data.
+>
+> `merged` is the last value anyone writes: after the forge merge no agent touches the
+> checkpoint (Master never writes files), so the board column cannot tell an open MR from a
+> merged one. Whether a story is really merged — for a teammate deciding what to pick up, say —
+> comes from `backlog-status.sh`, which asks the forge.
 
 ## Who writes the frontmatter (source vs derived)
 

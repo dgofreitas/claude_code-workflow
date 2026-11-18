@@ -426,9 +426,9 @@ After code-reviewer report, read the `VERDICT` before doing ANYTHING else.
 
 ### Rule: Uncommitted Work Rework — Commit-Only Fix (scope: rework) — MANDATORY
 
-code-reviewer / merge-request-creator gate on clean working tree (`git status --porcelain`). Report of this failure ≠ content rework (bug/missing feature/coverage gap) — work already exists, just never committed. Do NOT restart fix → test → QA → review.
+code-reviewer / merge-request-creator gate on clean working tree (`.claude/scripts/tree-status.sh "$P"` — `git status --porcelain` minus other stories' untracked files, which wait for their own MR and are never committed here). Report of this failure ≠ content rework (bug/missing feature/coverage gap) — work already exists, just never committed. Do NOT restart fix → test → QA → review.
 
-1. Read reported `git status --porcelain` output.
+1. Read reported `tree-status.sh` output.
 2. Map path → owning agent: `*-test-report*` → test-engineer, `*-qa-report*` → qa-analyst, `*-code-review*` → code-reviewer, source → backend/frontend-developer (or active bug-fixer).
 3. Re-delegate COMMIT ONLY of the file(s) already on disk — say so explicitly in the prompt (e.g. "git add + commit artifacts/stories/STORY-XXX-code-review.md as-is, do NOT re-review"). Even when the dirty file is the reporting agent's own report (e.g. code-reviewer's own code-review.md), this is STILL commit-only — NEVER re-run that agent's full workflow (review/test/QA) to "fix" an uncommitted file. A redo produces a NEW file version, which starts right back at zero commits.
 4. Return directly to the agent that reported the failure once its file is committed — do not restart the fix → test → QA → review cycle.

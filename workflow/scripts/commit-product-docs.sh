@@ -57,6 +57,8 @@ fi
 
 paths=()
 for p in artifacts/product artifacts/epics; do [[ -d "${p}" ]] && paths+=("${p}"); done
+# A lista de sub-projetos (instalador) é o que deixa um clone novo da raiz montar o guarda-chuva.
+[[ -f subprojects.tsv ]] && paths+=(subprojects.tsv)
 [[ ${#paths[@]} -gt 0 ]] || { echo "product-docs: nada em artifacts/product nem artifacts/epics"; exit 0; }
 
 git add -- "${paths[@]}" || warn "git add falhou"
