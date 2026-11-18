@@ -136,7 +136,7 @@ function withAuthor(text, author) {
 // revision, layer, schema_version, created, updated, generated_by — those are what
 // the Bases board (`story-board.base`) filters and groups on, and what agents/greps
 // read. Wrapping them would change behaviour; wrapping these does not.
-const LINK_FIELDS = new Set(['story', 'epic', 'parent', 'parent_epic', 'depends_on', 'blocks', 'supersedes']);
+const LINK_FIELDS = new Set(['story', 'epic', 'parent', 'parent_epic', 'depends_on', 'independent_of', 'blocks', 'supersedes']);
 
 // Fields whose values are DOCUMENT names rather than entity ids — the product layer
 // (`sources: [VISION, PERSONAS]`) and the summary hubs (`epics:`, `stories:`). These have no
@@ -200,6 +200,23 @@ function linkifyFrontmatter(text, selfId) {
   return '---' + out.join('\n') + rest;
 }
 
+// An epic must say what it depends on, even "nothing" (`depends_on: []`): an absent field is
+// indistinguishable from a forgotten one, and a forgotten dependency is an order nobody
+// enforces (backlog-status blocks the epic's stories until it is declared). Refusing the Write
+// makes the product-owner answer while the epic is still in its hands.
+function epicWithoutDependsOn(filePath, content) {
+  if (!/(^|\/)artifacts\/epics\/EPIC-[^/]*\.md$/.test(filePath)) return false;
+  if (!content.startsWith('---')) return true;
+  const end = content.indexOf('\n---', 3);
+  return end === -1 || !/^depends_on:/m.test(content.slice(3, end));
+}
+
+function deny(reason) {
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason },
+  }));
+}
+
 function emit(ti, content) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
@@ -228,6 +245,15 @@ function main() {
 
   // Only markdown files inside an `artifacts/` tree.
   if (!/(^|\/)artifacts\//.test(filePath) || !filePath.endsWith('.md')) process.exit(0);
+
+  if (epicWithoutDependsOn(filePath, content)) {
+    log('DENY_EPIC_NO_DEPENDS_ON', filePath);
+    deny('Épico sem `depends_on` no frontmatter. Declare os épicos dos quais este depende, ou ' +
+      '`depends_on: []` se nenhum — campo ausente bloqueia as stories dele. Antes, rode ' +
+      '`.claude/scripts/backlog-status.sh --epics` e decida a relação com cada épico aberto ' +
+      '(depends_on, ou independent_of se nenhum depende do outro).');
+    return;
+  }
 
   // Already has frontmatter → source artifact (epic/story/checkpoint) or hand-authored.
   // We never touch its fields (identity stays the author's), but we DO run the linkify

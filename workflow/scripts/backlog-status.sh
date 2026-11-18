@@ -16,7 +16,13 @@
 #   BLOCKED      PENDING/PLANNED com dependência aberta: uma story de `depends_on`, ou o épico
 #                dela depende (`depends_on` no EPIC-x) de um épico com story não DONE. A ordem
 #                vem do grafo, nunca do número. Começada mesmo assim, fica IN-PROGRESS com o
-#                alerta BLOCKED-BY — e o GATE-MR espera.
+#                alerta BLOCKED-BY — e o GATE-MR espera. Épico sem `depends_on` também bloqueia:
+#                ausente é "ninguém pensou"; "não depende de nada" se escreve `depends_on: []`.
+#
+# --epics: o grafo dos épicos, para o PO e para o Master antes do PM. Além do depends_on de
+# cada um, lista os pares de épicos abertos sem relação declarada — nem dependência (direta ou
+# por caminho) nem `independent_of` num dos dois. É o que pega o esquecimento: o épico novo
+# precisa responder, para cada aberto, "depende", "é base dele" ou "independente".
 #
 # Nunca deriva DONE de `git log --grep STORY-XXX`: commits de grupo e commits que só
 # adicionam o arquivo da story dão falso positivo e falso negativo.
@@ -39,6 +45,7 @@ SHOW_ALL=0
 FETCH=0
 MINE=0
 NO_DEPS=0
+EPICS=0
 
 die() {
     local code="$1"; shift
@@ -57,6 +64,8 @@ uso: backlog-status.sh [--project DIR] [--ref REF] [--development SLUG] [--epic 
   --fetch          atualiza o origin antes: as branches feat/fix que outros devs já enviaram
                    (story reivindicada) só aparecem assim. Sem isto, nada é buscado
   --mine           só as stories cujo author é o seu e-mail do git (ou soltas neste checkout)
+  --epics          o grafo dos épicos (depends_on, estado, espera) e as pendências de declaração;
+                   não precisa de --project
   --no-deps        não avalia dependências entre épicos/sub-projetos (uso interno, evita recursão)
   --all            inclui DONE e OBSOLETE na tabela (por default só entram nas contagens)
   --json           uma linha JSON por story, mais uma linha "summary"
@@ -81,6 +90,7 @@ while [[ $# -gt 0 ]]; do
         --fetch)       FETCH=1; shift ;;
         --mine)        MINE=1; shift ;;
         --no-deps)     NO_DEPS=1; shift ;;
+        --epics)       EPICS=1; shift ;;
         -h|--help)     usage ;;
         *)             die 1 "argumento desconhecido: $1" ;;
     esac
@@ -96,7 +106,7 @@ fi
 if [[ -z "${PROJECT}" ]]; then
     subs=""
     for d in */; do [[ -e "${d}.git" ]] && subs="${subs} ${d%/}"; done
-    [[ -z "${subs}" ]] || die 1 "umbrella sem sub-projeto definido: use --project <um de:${subs}>"
+    [[ -z "${subs}" || "${EPICS}" -eq 1 ]] || die 1 "umbrella sem sub-projeto definido: use --project <um de:${subs}>"
     PROJECT="."
 fi
 
@@ -157,13 +167,21 @@ forgeRecords() {
     printf 'FORGE\tgit-only\n'
 }
 
-# Os `depends_on` de um frontmatter (lista inline ou em linhas `- x`), um id por linha.
+# Os ids de uma lista do frontmatter (inline ou em linhas `- x`), um por linha. Default: depends_on.
 fmDeps() {
-    awk 'NR == 1 { if ($0 != "---") exit; next }
+    awk -v key="${2:-depends_on}" 'NR == 1 { if ($0 != "---") exit; next }
          $0 == "---" { exit }
-         /^[A-Za-z_]+:/ { on = ($0 ~ /^depends_on:/) }
+         /^[A-Za-z_]+:/ { on = (index($0, key ":") == 1) }
          on' "$1" 2>/dev/null \
         | grep -oE '([A-Za-z0-9._-]+/)?(STORY|EPIC)-[A-Za-z0-9._-]*[A-Za-z0-9]' || true
+}
+
+# O campo existe no frontmatter, mesmo vazio (`depends_on: []`)?
+fmHas() {
+    awk -v key="$2" 'NR == 1 { if ($0 != "---") exit; next }
+         $0 == "---" { exit }
+         index($0, key ":") == 1 { found = 1; exit }
+         END { exit !found }' "$1" 2>/dev/null
 }
 
 # Dependências que atravessam esta árvore: épicos (na raiz, com o PO) e stories de outro
@@ -175,13 +193,17 @@ epicDeps() {
     # dependência aberta — nunca motivo para parar a coleta e perder o resto.
     local -; set +e
     local f e d dev sum line sub id want=() subs=()
-    local -A need=() isSub=()
+    local -A need=() isSub=() seen=()
     for d in */; do if [[ -e "${d}.git" ]]; then isSub["${d%/}"]=1; fi; done
     for f in artifacts/epics/EPIC-*.md; do
         [[ -e "${f}" ]] || continue
         e="$(basename "${f}" .md)"
         printf 'EPFILE\t%s\n' "${e}"
+        if fmHas "${f}" depends_on; then printf 'EPDECL\t%s\n' "${e}"; fi
+        printf 'EPAPPR\t%s\t%s\n' "${e}" "$(sed -n 's/^\*\*Approval\*\*:[[:space:]]*\([A-Za-z]*\).*/\1/p' "${f}" | head -1)"
         while IFS= read -r d; do printf 'EPDEP\t%s\t%s\n' "${e}" "${d}"; want+=("${d}"); done < <(fmDeps "${f}" | grep '^EPIC-')
+        while IFS= read -r d; do printf 'EPIND\t%s\t%s\n' "${e}" "${d}"; done < <(fmDeps "${f}" independent_of | grep '^EPIC-')
+        if [[ "${EPICS}" -eq 1 ]]; then want+=("${e}"); fi
     done
     # Stories que dependem de um épico inteiro, ou de uma story de outro sub-projeto.
     while IFS= read -r d; do
@@ -210,6 +232,12 @@ epicDeps() {
                 c="$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/`//g' <<<"${c}")"
                 if [[ -n "${c}" && -n "${isSub[${c}]:-}" ]]; then sub="${c}"; break; fi
             done < <(tr '|' '\n' <<<"${line}")
+            # Num guarda-chuva, a linha de story tem a célula do sub-projeto (contrato do PM). Sem
+            # ela é tabela de dependências ou prosa — e em summary juntado de cópias antigas,
+            # contá-la deixaria o épico aberto para sempre. Cada story conta uma vez.
+            if [[ "${sub}" == "." && ${#isSub[@]} -gt 0 ]]; then continue; fi
+            if [[ -n "${seen[${d}|${sub}|${id}]:-}" ]]; then continue; fi
+            seen["${d}|${sub}|${id}"]=1
             printf 'EPST\t%s\t%s\t%s\n' "${d}" "${sub}" "${id}"
             if [[ "${sub}" != "." && "${sub}" != "${SUBPROJECT}" ]]; then need["${sub}"]=1; fi
         done < <(grep -E '^\|.*STORY-' "${sum}")
@@ -304,11 +332,11 @@ collect() {
         done
     fi
 
-    [[ "${NO_DEPS}" -eq 1 ]] || epicDeps
+    [[ "${NO_DEPS}" -eq 1 && "${EPICS}" -eq 0 ]] || epicDeps
     forgeRecords
 }
 
-collect | awk -F'\t' -v devf="${DEV_FILTER}" -v epicf="${EPIC_FILTER}" -v me="${ME}" -v mine="${MINE}" -v self="${SUBPROJECT}" \
+collect | awk -F'\t' -v devf="${DEV_FILTER}" -v epicf="${EPIC_FILTER}" -v me="${ME}" -v mine="${MINE}" -v self="${SUBPROJECT}" -v epicsMode="${EPICS}" \
     -v aging="${AGING_DAYS}" -v showall="${SHOW_ALL}" -v fmt="${FORMAT}" \
     -v root="${ROOT}" -v ref="${REF}" -v refdesc="${REF_DESC}" '
 
@@ -385,15 +413,23 @@ function depStatus(sp, tok,   t, k, kk, hit, n) {
 }
 
 # Um épico está concluído quando toda story do summary dele está DONE (ou OBSOLETE).
-function epicBlock(D,   k, s, open, tot) {
-    if (D in epCycle) return D " (ciclo entre épicos)"
-    if (!epKnown[D] || epStN[D] == 0) return D " (sem stories ainda)"
+function epicState(D,   k, s, open, tot) {
+    if (!epKnown[D] || epStN[D] == 0) return "sem stories ainda"
     open = 0; tot = epStN[D]
     for (k = 1; k <= tot; k++) { s = depStatus(epStSub[D, k], epStId[D, k]); if (s != "DONE" && s != "OBSOLETE") open++ }
-    return open ? D " (" open " de " tot " abertas)" : ""
+    return open ? open " de " tot " abertas" : "DONE"
 }
 
-function blockers(id,   k, tok, sp, s, why, e, j) {
+function epicBlock(D,   s) {
+    if (D in epCycle) return D " (ciclo entre épicos)"
+    s = epicState(D)
+    return s == "DONE" ? "" : D " (" s ")"
+}
+
+# Quem não declarou depends_on não disse "nada": disse nada ainda.
+function undeclared(e) { return (e != "" && (e in epFile) && !(e in epDecl)) }
+
+function blockers(id, started,   k, tok, sp, s, why, e, j) {
     why = ""
     for (k = 1; k <= depN[id]; k++) {
         tok = dep[id, k]; sp = ""
@@ -403,8 +439,58 @@ function blockers(id,   k, tok, sp, s, why, e, j) {
         if (s != "DONE" && s != "OBSOLETE") why = joinw(why, (sp != "" ? sp "/" : "") tok " (" (s == "" ? "não encontrada" : s) ")")
     }
     e = meta[id, "epic", "s"]; if (e == "") e = meta[id, "epic", "c"]
+    # Só segura quem não começou: a declaração que falta ordena o início, e travar o merge de
+    # uma story em andamento por isso não ordena nada.
+    if (!started && undeclared(e)) why = joinw(why, e " (épico sem depends_on declarado)")
     for (j = 1; j <= epDepN[e]; j++) why = joinw(why, epicBlock(epDep[e, j]))
     return why
+}
+
+# O grafo dos épicos. Pendência é o que impede o PM de decompor o épico: depends_on ausente, ou
+# outro épico aberto com o qual a relação nunca foi declarada.
+function epicsReport(   i, j, e, a, b, st, dp, wt, pend, isOpen, nOpen, nDone, nCanc, pairs, w, r) {
+    for (i = 1; i <= epN; i++) {
+        e = epOrder[i]
+        if (epAppr[e] ~ /^[Cc]ancel/) { epSt[e] = "cancelado"; nCanc++ }
+        else { epSt[e] = epicState(e); if (epSt[e] == "DONE") nDone++; else { isOpen[e] = 1; nOpen++ } }
+    }
+    for (i = 1; i <= epN; i++) for (j = i + 1; j <= epN; j++) {
+        a = epOrder[i]; b = epOrder[j]
+        if (!(a in isOpen) || !(b in isOpen)) continue
+        if (((a, b) in reach) || ((b, a) in reach) || ((a, b) in epInd) || ((b, a) in epInd)) continue
+        pend[a] = joinw(pend[a], "relação com " b); pend[b] = joinw(pend[b], "relação com " a)
+        pairs = joinw(pairs, a " × " b)
+    }
+    for (i = 1; i <= epN; i++) {
+        e = epOrder[i]
+        dp = ""; for (j = 1; j <= epDepN[e]; j++) dp = joinw(dp, epDep[e, j])
+        if (!(e in epDecl)) { dp = "NÃO DECLARADO"; if (e in isOpen) pend[e] = joinw("depends_on", pend[e]) }
+        else if (dp == "") dp = "(nenhum)"
+        wt = ""
+        if (e in isOpen) {
+            if (e in epCycle) wt = "ciclo entre épicos"
+            else for (j = 1; j <= epDepN[e]; j++) wt = joinw(wt, epicBlock(epDep[e, j]))
+        }
+        w = (wt == "") ? "-" : wt
+        r = (pend[e] == "") ? "-" : "falta: " pend[e]
+        if (fmt == "json")
+            out[i] = "{\"epic\":" jstr(e) ",\"approval\":" jstr(epAppr[e]) ",\"state\":" jstr(epSt[e]) \
+                     ",\"depends_on\":" jstr(dp) ",\"waiting\":" jstr(wt) ",\"pending\":" jstr(pend[e]) "}"
+        else
+            out[i] = "| " e " | " (epAppr[e] == "" ? "-" : epAppr[e]) " | " dp " | " epSt[e] " | " w " | " r " |"
+    }
+    st = "Épicos: " nOpen + 0 " abertos, " nDone + 0 " DONE, " nCanc + 0 " cancelados"
+    if (fmt == "json") {
+        for (i = 1; i <= epN; i++) print out[i]
+        printf "{\"summary\":%s,\"unrelated_pairs\":%s,\"cycles\":%s}\n", jstr(st), jstr(pairs), jstr(cycles)
+        return
+    }
+    print st
+    if (epN > 0) print "\n| épico | aprovação | depende de | estado | espera | pendência |\n|---|---|---|---|---|---|"
+    for (i = 1; i <= epN; i++) print out[i]
+    if (pairs != "")  print "\nRelação não declarada entre épicos abertos: " pairs \
+        "\n  Para cada par: o que depende põe o outro em depends_on; se nenhum depende, um deles põe o outro em independent_of."
+    if (cycles != "") print "\nCiclo de dependências entre épicos (nenhum deles pode começar): " cycles
 }
 
 function jstr(s) {
@@ -480,7 +566,10 @@ $1 == "DEP" {
     }
     next
 }
-$1 == "EPFILE"  { epFile[$2] = 1; next }
+$1 == "EPFILE"  { epFile[$2] = 1; epOrder[++epN] = $2; next }
+$1 == "EPDECL"  { epDecl[$2] = 1; next }
+$1 == "EPAPPR"  { epAppr[$2] = $3; next }
+$1 == "EPIND"   { epInd[$2, $3] = 1; next }
 $1 == "EPDEP"   { epDep[$2, ++epDepN[$2]] = $3; next }
 $1 == "EPKNOWN" { epKnown[$2] = $3 + 0; next }
 $1 == "EPST"    { k = ++epStN[$2]; epStSub[$2, k] = $3; epStId[$2, k] = $4; next }
@@ -554,11 +643,13 @@ END {
     }
     for (a in epDepN) if ((a, a) in reach) { epCycle[a] = 1; cycles = joinw(cycles, a) }
 
+    if (epicsMode) { epicsReport(); exit }
+
     # Dependência aberta: quem não começou fica BLOCKED; quem já começou (empilhada) segue
     # IN-PROGRESS com alerta, e o GATE-MR espera. Avaliado sobre o status base, antes dos filtros.
     for (id in ids) {
         if (stat[id] == "DONE" || stat[id] == "OBSOLETE") continue
-        why = blockers(id)
+        why = blockers(id, stat[id] == "IN-PROGRESS")
         if (why == "") continue
         blockedBy[id] = why
         if (stat[id] == "PENDING" || stat[id] == "PLANNED") stat[id] = "BLOCKED"

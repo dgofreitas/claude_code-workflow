@@ -226,7 +226,7 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 
 > **GATE-SA**: only for **greenfield projects** (no build files AND no `artifacts/architecture/TECH-STACK.md`). Existing projects skip system-architect and GATE-SA entirely.
 
-> **Optional pre-step**: If user asks for strategic/product-level work (vision, personas, epics, roadmap), invoke **product-owner** FIRST. PO outputs feed product-manager via `artifacts/product/PM-HANDOFF-<dev>.md`. There is no GATE-PO — product-owner output flows directly to product-manager.
+> **Optional pre-step**: If user asks for strategic/product-level work (vision, personas, epics, roadmap), invoke **product-owner** FIRST. PO outputs feed product-manager via `artifacts/product/PM-HANDOFF-<dev>.md`. There is no GATE-PO — product-owner output flows directly to product-manager, through the Epic gate below. The PO ends with the `backlog-status.sh --epics` table: relay it as printed. In default mode ask "A ordem dos épicos está correta?" before product-manager — the one point where a person reads the whole graph, other developers' epics included. Auto modes do not ask.
 
 ---
 
@@ -322,6 +322,16 @@ reads:
 > pushed branch; then tech-lead stacks (its `Rule: Stacked Story`). Auto modes never stack — they wait.
 > The order comes from `depends_on` (story or epic), never from epic or story numbers: EPIC-30 may be
 > the base of EPIC-27. Naming a blocked story is not approval to skip its dependencies.
+> `blocked_by` saying `épico sem depends_on declarado` is not a wait: route to product-owner with
+> `Declarar relações: <EPIC-id>`.
+
+> **Epic gate — before delegating to product-manager.** One call, from the session root:
+> `.claude/scripts/commit-product-docs.sh --pull && .claude/scripts/backlog-status.sh --epics`.
+> Every epic the PM is about to decompose (the `Épico:` one, else every epic in the handoff) must
+> show `-` in **pendência**. Otherwise do not delegate the PM: relay those rows and route to
+> product-owner with `Declarar relações: <EPIC-id> (<pendência>)` — `falta: depends_on` is a
+> dependency nobody declared, `falta: relação com EPIC-x` a pair nobody weighed (the newer epic may
+> be the base of the older one). Same in every mode: an undeclared order is never auto-passed.
 
 ---
 
