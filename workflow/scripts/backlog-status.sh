@@ -13,6 +13,10 @@
 #   IN-PROGRESS  PR/MR aberto, worktree ou branch local não mergeada, ou checkpoint fora de <ref>
 #   PLANNED      só a technical-analysis
 #   PENDING      só o arquivo da story
+#   BLOCKED      PENDING/PLANNED com dependência aberta: uma story de `depends_on`, ou o épico
+#                dela depende (`depends_on` no EPIC-x) de um épico com story não DONE. A ordem
+#                vem do grafo, nunca do número. Começada mesmo assim, fica IN-PROGRESS com o
+#                alerta BLOCKED-BY — e o GATE-MR espera.
 #
 # Nunca deriva DONE de `git log --grep STORY-XXX`: commits de grupo e commits que só
 # adicionam o arquivo da story dão falso positivo e falso negativo.
@@ -34,6 +38,7 @@ FORMAT="table"
 SHOW_ALL=0
 FETCH=0
 MINE=0
+NO_DEPS=0
 
 die() {
     local code="$1"; shift
@@ -52,6 +57,7 @@ uso: backlog-status.sh [--project DIR] [--ref REF] [--development SLUG] [--epic 
   --fetch          atualiza o origin antes: as branches feat/fix que outros devs já enviaram
                    (story reivindicada) só aparecem assim. Sem isto, nada é buscado
   --mine           só as stories cujo author é o seu e-mail do git (ou soltas neste checkout)
+  --no-deps        não avalia dependências entre épicos/sub-projetos (uso interno, evita recursão)
   --all            inclui DONE e OBSOLETE na tabela (por default só entram nas contagens)
   --json           uma linha JSON por story, mais uma linha "summary"
 EOF
@@ -74,6 +80,7 @@ while [[ $# -gt 0 ]]; do
         --json)        FORMAT="json"; shift ;;
         --fetch)       FETCH=1; shift ;;
         --mine)        MINE=1; shift ;;
+        --no-deps)     NO_DEPS=1; shift ;;
         -h|--help)     usage ;;
         *)             die 1 "argumento desconhecido: $1" ;;
     esac
@@ -150,6 +157,71 @@ forgeRecords() {
     printf 'FORGE\tgit-only\n'
 }
 
+# Os `depends_on` de um frontmatter (lista inline ou em linhas `- x`), um id por linha.
+fmDeps() {
+    awk 'NR == 1 { if ($0 != "---") exit; next }
+         $0 == "---" { exit }
+         /^[A-Za-z_]+:/ { on = ($0 ~ /^depends_on:/) }
+         on' "$1" 2>/dev/null \
+        | grep -oE '([A-Za-z0-9._-]+/)?(STORY|EPIC)-[A-Za-z0-9._-]*[A-Za-z0-9]' || true
+}
+
+# Dependências que atravessam esta árvore: épicos (na raiz, com o PO) e stories de outro
+# sub-projeto. Para cada épico do qual algum outro depende, as stories dele saem do summary do
+# development dele — onde quer que tenham sido escritas, por quem for — e o status de cada uma
+# vem do sub-projeto dela (uma chamada com --no-deps por sub-projeto, não por story).
+epicDeps() {
+    # Sem set -e aqui: um épico citado e ainda sem arquivo, ou um grep sem resultado, é uma
+    # dependência aberta — nunca motivo para parar a coleta e perder o resto.
+    local -; set +e
+    local f e d dev sum line sub id want=() subs=()
+    local -A need=() isSub=()
+    for d in */; do if [[ -e "${d}.git" ]]; then isSub["${d%/}"]=1; fi; done
+    for f in artifacts/epics/EPIC-*.md; do
+        [[ -e "${f}" ]] || continue
+        e="$(basename "${f}" .md)"
+        printf 'EPFILE\t%s\n' "${e}"
+        while IFS= read -r d; do printf 'EPDEP\t%s\t%s\n' "${e}" "${d}"; want+=("${d}"); done < <(fmDeps "${f}" | grep '^EPIC-')
+    done
+    # Stories que dependem de um épico inteiro, ou de uma story de outro sub-projeto.
+    while IFS= read -r d; do
+        case "${d}" in
+            EPIC-*) want+=("${d}") ;;
+            */STORY-*) need["${d%%/*}"]=1 ;;
+        esac
+    done < <({ git -C "${ROOT}" grep -h -A8 -E '^depends_on:' "${REF}" -- "${STORY_DIR}/" 2>/dev/null || true
+               ( cd "${ROOT}" && grep -h -A8 -E '^depends_on:' "${STORY_DIR}"/*.md 2>/dev/null ) || true; } \
+             | grep -oE '([A-Za-z0-9._-]+/)?(STORY|EPIC)-[A-Za-z0-9._-]*[A-Za-z0-9]' | sort -u)
+    for d in $(printf '%s\n' "${want[@]}" | sort -u); do
+        f="artifacts/epics/${d}.md"
+        dev="$(sed -n '1,20p' "${f}" 2>/dev/null | sed -n 's/^development:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}[[:space:]]*$/\1/p' | head -1)"
+        [[ -n "${dev}" ]] || dev="${d#EPIC-}"
+        sum=""
+        for f in "artifacts/epics/BACKLOG-SUMMARY-${dev}.md" "${ROOT}/${STORY_DIR}/BACKLOG-SUMMARY-${dev}.md"; do
+            if [[ -f "${f}" ]]; then sum="${f}"; break; fi
+        done
+        [[ -n "${sum}" ]] || { printf 'EPKNOWN\t%s\t0\n' "${d}"; continue; }
+        printf 'EPKNOWN\t%s\t1\n' "${d}"
+        while IFS= read -r line; do
+            id="$(grep -oE 'STORY-[A-Za-z0-9._-]*[A-Za-z0-9]' <<<"${line}" | head -1)"
+            [[ -n "${id}" ]] || continue
+            sub="."
+            while IFS= read -r c; do
+                c="$(sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/`//g' <<<"${c}")"
+                if [[ -n "${c}" && -n "${isSub[${c}]:-}" ]]; then sub="${c}"; break; fi
+            done < <(tr '|' '\n' <<<"${line}")
+            printf 'EPST\t%s\t%s\t%s\n' "${d}" "${sub}" "${id}"
+            if [[ "${sub}" != "." && "${sub}" != "${SUBPROJECT}" ]]; then need["${sub}"]=1; fi
+        done < <(grep -E '^\|.*STORY-' "${sum}")
+    done
+    for sub in "${!need[@]}"; do
+        [[ -z "${sub}" || "${sub}" == "${SUBPROJECT}" || -z "${isSub[${sub}]:-}" ]] && continue
+        bash "${BASH_SOURCE[0]}" --project "${sub}" --all --json --no-deps 2>/dev/null \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{for(const l of s.split("\n")){if(!l)continue;let o;try{o=JSON.parse(l)}catch(e){continue}if(o.id)console.log(["XST",process.argv[1],o.id,o.status].join("\t"))}})' "${sub}" \
+            || true
+    done
+}
+
 devOf() { local b; b="$(basename "$1" .md)"; [[ "${b}" == BACKLOG-SUMMARY-* ]] && printf '%s' "${b#BACKLOG-SUMMARY-}"; }
 sumIds() { { grep -o -E 'STORY(-[0-9]+)+' || true; } | sed "s/^/SUM\t$1\t/"; }
 
@@ -163,6 +235,8 @@ collect() {
         | sed "s|^${REF}:|M\t|" || true
     git -C "${ROOT}" grep -n -A8 -E '^supersedes:' "${REF}" -- "${STORY_DIR}/" 2>/dev/null \
         | sed "s|^${REF}:|SUP\t|" || true
+    git -C "${ROOT}" grep -n -A8 -E '^depends_on:' "${REF}" -- "${STORY_DIR}/" 2>/dev/null \
+        | sed "s|^${REF}:|DEP\t|" || true
 
     # Cada worktree: arquivos rastreados na branch dele e os não versionados. O checkout
     # principal pode estar sujo e atrasado — é justamente onde moram os não versionados.
@@ -186,6 +260,8 @@ collect() {
             | sed 's/^/M\t/' || true
         ( cd "${wt}" && grep -n -H -A8 -E '^supersedes:' "${STORY_DIR}"/*.md 2>/dev/null ) \
             | sed 's/^/SUP\t/' || true
+        ( cd "${wt}" && grep -n -H -A8 -E '^depends_on:' "${STORY_DIR}"/*.md 2>/dev/null ) \
+            | sed 's/^/DEP\t/' || true
     done < <(git -C "${ROOT}" worktree list --porcelain | awk '
         /^worktree / { wt = substr($0, 10); br = "" }
         /^branch /   { br = substr($0, 8); sub(/^refs\/heads\//, "", br) }
@@ -228,10 +304,11 @@ collect() {
         done
     fi
 
+    [[ "${NO_DEPS}" -eq 1 ]] || epicDeps
     forgeRecords
 }
 
-collect | awk -F'\t' -v devf="${DEV_FILTER}" -v epicf="${EPIC_FILTER}" -v me="${ME}" -v mine="${MINE}" \
+collect | awk -F'\t' -v devf="${DEV_FILTER}" -v epicf="${EPIC_FILTER}" -v me="${ME}" -v mine="${MINE}" -v self="${SUBPROJECT}" \
     -v aging="${AGING_DAYS}" -v showall="${SHOW_ALL}" -v fmt="${FORMAT}" \
     -v root="${ROOT}" -v ref="${REF}" -v refdesc="${REF_DESC}" '
 
@@ -288,6 +365,47 @@ function resolve(name,   c, k, hit, n) {
 }
 
 function shortId(id) { match(id, /^STORY(-[0-9]+)+/); return substr(id, 1, RLENGTH) }
+
+function joinw(a, b) { return b == "" ? a : (a == "" ? b : a ", " b) }
+
+# Status de uma dependência. Neste repo vem do cálculo desta mesma chamada; noutro sub-projeto,
+# da chamada --no-deps feita para ele. Não encontrada = não DONE (DONE estaria na base).
+function depStatus(sp, tok,   t, k, kk, hit, n) {
+    if (sp == "" || sp == "." || sp == self) {
+        t = resolve(tok); if (t != "") return stat[t]
+        # Sem arquivo aqui, a story pode viver só na branch de quem a começou (enviada ou local).
+        for (k in remoteBranch) { t = k; sub(/^(feat|fix)\//, "", t); if (t == tok || index(t, tok "-") == 1) return "IN-PROGRESS" }
+        for (k in localBranch)  { t = k; sub(/^(feat|fix)\//, "", t); if (t == tok || index(t, tok "-") == 1) return "IN-PROGRESS" }
+        return ""
+    }
+    if ((sp, tok) in xst) return xst[sp, tok]
+    n = 0
+    for (k in xst) { split(k, kk, SUBSEP); if (kk[1] == sp && (index(kk[2], tok "-") == 1 || shortId(kk[2]) == tok)) { hit = xst[k]; n++ } }
+    return n == 1 ? hit : ""
+}
+
+# Um épico está concluído quando toda story do summary dele está DONE (ou OBSOLETE).
+function epicBlock(D,   k, s, open, tot) {
+    if (D in epCycle) return D " (ciclo entre épicos)"
+    if (!epKnown[D] || epStN[D] == 0) return D " (sem stories ainda)"
+    open = 0; tot = epStN[D]
+    for (k = 1; k <= tot; k++) { s = depStatus(epStSub[D, k], epStId[D, k]); if (s != "DONE" && s != "OBSOLETE") open++ }
+    return open ? D " (" open " de " tot " abertas)" : ""
+}
+
+function blockers(id,   k, tok, sp, s, why, e, j) {
+    why = ""
+    for (k = 1; k <= depN[id]; k++) {
+        tok = dep[id, k]; sp = ""
+        if (index(tok, "/")) { sp = substr(tok, 1, index(tok, "/") - 1); tok = substr(tok, index(tok, "/") + 1) }
+        if (tok ~ /^EPIC-/) { why = joinw(why, epicBlock(tok)); continue }
+        s = depStatus(sp, tok)
+        if (s != "DONE" && s != "OBSOLETE") why = joinw(why, (sp != "" ? sp "/" : "") tok " (" (s == "" ? "não encontrada" : s) ")")
+    }
+    e = meta[id, "epic", "s"]; if (e == "") e = meta[id, "epic", "c"]
+    for (j = 1; j <= epDepN[e]; j++) why = joinw(why, epicBlock(epDep[e, j]))
+    return why
+}
 
 function jstr(s) {
     gsub(/\\/, "\\\\", s); gsub(/"/, "\\\"", s); gsub(/\t/, " ", s)
@@ -347,6 +465,26 @@ $1 == "SUP" {
     }
     next
 }
+$1 == "DEP" {
+    rest = $2; for (i = 3; i <= NF; i++) rest = rest "\t" $i
+    if (rest == "--") { depOpen = ""; next }
+    if (!match(rest, /\.md[:-][0-9]+[:-]/)) next
+    path = substr(rest, 1, RSTART + 2); line = substr(rest, RSTART + RLENGTH)
+    name = basename(path); b = baseOf(name)
+    if (b == "" || name != b) next
+    if (line ~ /^depends_on:/) { depOpen = path; sub(/^depends_on:/, "", line) }
+    else if (depOpen != path || line !~ /^[ \t]*-/) { depOpen = ""; next }
+    while (match(line, /([A-Za-z0-9._-]+\/)?(STORY|EPIC)-[A-Za-z0-9._-]*[A-Za-z0-9]/)) {
+        tok = substr(line, RSTART, RLENGTH); line = substr(line, RSTART + RLENGTH)
+        if (!((b, tok) in depSeen)) { depSeen[b, tok] = 1; dep[b, ++depN[b]] = tok }
+    }
+    next
+}
+$1 == "EPFILE"  { epFile[$2] = 1; next }
+$1 == "EPDEP"   { epDep[$2, ++epDepN[$2]] = $3; next }
+$1 == "EPKNOWN" { epKnown[$2] = $3 + 0; next }
+$1 == "EPST"    { k = ++epStN[$2]; epStSub[$2, k] = $3; epStId[$2, k] = $4; next }
+$1 == "XST"     { xst[$2, $3] = $4; next }
 $1 == "WT" { if ($3 ~ /^(feat|fix)\//) wtBranch[$3] = $2; next }
 $1 == "MC" { mergedBranch[$2] = "merge commit"; next }
 $1 == "LB" { localBranch[$2] = 1; next }
@@ -398,6 +536,35 @@ END {
     for (br in remoteBranch) { id = resolve(br); if (id != "" && !(id in active)) { active[id] = 1; addWhere(id, "branch remota " br) } }
 
     for (id in ids) {
+        if (id in done)                  stat[id] = "DONE"
+        else if (id in obsoleteBy)       { stat[id] = "OBSOLETE"; addWhere(id, "supersedes em " obsoleteBy[id]) }
+        else if (id in active)           stat[id] = "IN-PROGRESS"
+        else if (has[id, "checkpoint", "branch"] || has[id, "checkpoint", "untracked"]) stat[id] = "IN-PROGRESS"
+        else if (has[id, "analysis", "ref"] || has[id, "analysis", "branch"] || has[id, "analysis", "untracked"]) stat[id] = "PLANNED"
+        else                             stat[id] = "PENDING"
+    }
+
+    # Ciclo entre épicos (A depende de B que depende de A): ninguém começaria nunca. Fecho
+    # transitivo do grafo, que é pequeno.
+    for (a in epDepN) for (j = 1; j <= epDepN[a]; j++) reach[a, epDep[a, j]] = 1
+    for (it = 0; it < 50; it++) {
+        grew = 0
+        for (k in reach) { split(k, ab, SUBSEP); for (j = 1; j <= epDepN[ab[2]]; j++) if (!((ab[1], epDep[ab[2], j]) in reach)) { reach[ab[1], epDep[ab[2], j]] = 1; grew = 1 } }
+        if (!grew) break
+    }
+    for (a in epDepN) if ((a, a) in reach) { epCycle[a] = 1; cycles = joinw(cycles, a) }
+
+    # Dependência aberta: quem não começou fica BLOCKED; quem já começou (empilhada) segue
+    # IN-PROGRESS com alerta, e o GATE-MR espera. Avaliado sobre o status base, antes dos filtros.
+    for (id in ids) {
+        if (stat[id] == "DONE" || stat[id] == "OBSOLETE") continue
+        why = blockers(id)
+        if (why == "") continue
+        blockedBy[id] = why
+        if (stat[id] == "PENDING" || stat[id] == "PLANNED") stat[id] = "BLOCKED"
+    }
+
+    for (id in ids) {
         title = meta[id, "title", "s"];       if (title == "") title = meta[id, "title", "c"]
         dev   = meta[id, "development", "s"]; if (dev == "")   dev   = meta[id, "development", "c"]
         epic  = meta[id, "epic", "s"];        if (epic == "")  epic  = meta[id, "epic", "c"]
@@ -417,12 +584,11 @@ END {
         est = meta[id, "estimate", "s"]; sub(/[ (].*/, "", est); if (est == "") est = "-"
         created = meta[id, "created", "s"]
 
-        if (id in done)                  st = "DONE"
-        else if (id in obsoleteBy)       { st = "OBSOLETE"; addWhere(id, "supersedes em " obsoleteBy[id]) }
-        else if (id in active)           st = "IN-PROGRESS"
-        else if (has[id, "checkpoint", "branch"] || has[id, "checkpoint", "untracked"]) st = "IN-PROGRESS"
-        else if (has[id, "analysis", "ref"] || has[id, "analysis", "branch"] || has[id, "analysis", "untracked"]) st = "PLANNED"
-        else                             st = "PENDING"
+        st = stat[id]
+        if (id in blockedBy) {
+            addWhere(id, "espera " blockedBy[id])
+            if (st == "IN-PROGRESS") addAlert(id, "BLOCKED-BY")
+        }
 
         if (has[id, "story", "untracked"] && !has[id, "story", "ref"] && !has[id, "story", "branch"]) {
             if (id in backed) addWhere(id, "backup em docs/stories"); else addAlert(id, "UNTRACKED")
@@ -438,14 +604,14 @@ END {
         count[st]++
         if (pr == "Must" && (st == "PENDING" || st == "PLANNED")) { mustN[st]++; must[++nmust] = shortId(id) }
 
-        stRank = (st == "IN-PROGRESS") ? 1 : (st == "PENDING") ? 2 : (st == "PLANNED") ? 3 : (st == "OBSOLETE") ? 4 : 5
+        stRank = (st == "IN-PROGRESS") ? 1 : (st == "PENDING") ? 2 : (st == "PLANNED") ? 3 : (st == "BLOCKED") ? 4 : (st == "OBSOLETE") ? 5 : 6
         if (!showall && (st == "DONE" || st == "OBSOLETE")) continue
         w = (id in where) ? where[id] : "-"
         a = (alert[id] == "") ? "-" : alert[id]
         if (fmt == "json")
             row = "{\"id\":" jstr(id) ",\"title\":" jstr(title) ",\"priority\":" jstr(pr) ",\"estimate\":" jstr(est) \
                   ",\"status\":" jstr(st) ",\"where\":" jstr(w) ",\"alerts\":" jstr(a) ",\"development\":" jstr(dev) \
-                  ",\"created\":" jstr(created) ",\"author\":" jstr(author) "}"
+                  ",\"created\":" jstr(created) ",\"author\":" jstr(author) ",\"blocked_by\":" jstr(blockedBy[id]) "}"
         else {
             if (length(title) > 60) title = substr(title, 1, 57) "..."
             gsub(/\|/, "/", title)
@@ -458,7 +624,7 @@ END {
     for (i = 1; i <= nmust; i++) mustList = mustList (i > 1 ? ", " : "") must[i]
     line = "Backlog: " count["PENDING"] + 0 " PENDING (" mustN["PENDING"] + 0 " Must Have), " \
            count["PLANNED"] + 0 " PLANNED (" mustN["PLANNED"] + 0 " Must Have), " \
-           count["IN-PROGRESS"] + 0 " IN-PROGRESS, " count["DONE"] + 0 " DONE, " count["OBSOLETE"] + 0 " OBSOLETE"
+           count["IN-PROGRESS"] + 0 " IN-PROGRESS, " count["BLOCKED"] + 0 " BLOCKED, " count["DONE"] + 0 " DONE, " count["OBSOLETE"] + 0 " OBSOLETE"
     if (forge == "") forge = "git-only"
     if (fmt == "json") {
         printf "{\"summary\":%s,\"must_have_open\":%s,\"root\":%s,\"ref\":%s,\"forge\":%s}\n", \
@@ -467,6 +633,7 @@ END {
         print "backlog-status: " root " @ " ref " (" refdesc ") · forge: " forge (forge == "git-only" ? " (sem PR aberto; DONE só por merge commit/checkpoint)" : "")
         print line
         if (mustList != "") print "Must Have não iniciadas: " mustList
+        if (cycles != "") print "Ciclo de dependências entre épicos (nenhum deles pode começar): " cycles
         if (nrows > 0) print "\n| id | título | prio | est | status | onde | alerta |\n|---|---|---|---|---|---|---|"
     }
     fflush()

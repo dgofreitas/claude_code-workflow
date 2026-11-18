@@ -222,6 +222,7 @@ type: epic
 title: [epic title]
 development: [this epic's own slug — the same as in its id, e.g. market-data-backfill]
 epic: EPIC-XXX
+depends_on: [EPIC-YYY]  # epics that must be DONE before this one starts — omit if none
 generated_by: product-owner
 schema_version: 1
 created: [YYYY-MM-DD]
@@ -258,9 +259,15 @@ created: [YYYY-MM-DD]
 
 ## 🔗 Dependencies
 
-- **Blocked by**: [EPIC-XXX, EPIC-YYY]
+- **Blocked by**: [EPIC-XXX, EPIC-YYY] — the same list as `depends_on`, with the reason for each
 - **Blocks**: [EPIC-ZZZ]
 - **Related to**: [EPIC-AAA]
+
+> **`depends_on` is what orders the work**, not this section and not the epic numbers:
+> `backlog-status.sh` keeps every story of this epic BLOCKED until each epic listed there has all
+> its stories DONE, and GATE-MR will not merge one ahead of them. Numbers say nothing — EPIC-30 may
+> be the base of EPIC-27. Declare every epic whose result this one builds on; one you leave out is
+> an order nobody enforces. "Related to" never blocks.
 
 ## ✅ Scope (In)
 
@@ -425,6 +432,9 @@ created: [YYYY-MM-DD]
 1. EPIC-001 (foundation)
 2. EPIC-003 (depends on 001)
 3. EPIC-002 (independent)
+
+> Derive this list from the epics' `depends_on` — never the other way round, and never from the
+> numbers. If the two ever disagree, `depends_on` is the one enforced.
 
 ## Constraints for ProductManager
 

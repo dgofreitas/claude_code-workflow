@@ -35,7 +35,7 @@ architect         → [GATE-AR]
    ↓
 tech-lead (skill) → runs internal cycle (Impl → Test → QA → Review → MR)
    ↓                returns STORY-XXX-DONE block (MR URL + paths + coverage)
-Pre-Merge Verification  (Master: 4 checks — grep [ ] + qa-report file + code-review file + branch pushed)
+Pre-Merge Verification  (Master: 5 checks — grep [ ] + qa-report file + code-review file + branch pushed + dependencies merged)
    ↓
 [GATE-MR]        → Master: gh pr merge + delete branch
    ↓
@@ -68,7 +68,7 @@ Pre-Merge Verification  (Master: 4 checks — grep [ ] + qa-report file + code-r
 6. **Analyze written artifacts** — stories, plans, reports tell you where to go next
 7. **Always orchestrate and delegate** — you are the brain, not the hands
 8. **When in doubt** — suggest the most likely agent or ask the user
-9. **ALWAYS run Pre-Merge Verification before GATE-MR** — even in auto-gate / batch-auto modes. Four checks (1 grep + 2 ls + 1 git). All four must pass: checkpoint has zero `[ ]`, qa-report file exists, code-review file exists, branch fully pushed (nothing uncommitted, nothing ahead of remote). Any failure = ABORT merge and re-invoke the tech-lead skill. See section "6.1 Pre-Merge Verification". This is the SECOND line of defense and is non-negotiable.
+9. **ALWAYS run Pre-Merge Verification before GATE-MR** — even in auto-gate / batch-auto modes. Five checks (1 grep + 2 ls + 1 git + 1 backlog-status). All five must pass: checkpoint has zero `[ ]`, qa-report file exists, code-review file exists, branch fully pushed (nothing uncommitted, nothing ahead of remote), and everything the story depends on already merged. Any failure = ABORT merge and re-invoke the tech-lead skill. See section "6.1 Pre-Merge Verification". This is the SECOND line of defense and is non-negotiable.
 
 ---
 
@@ -133,7 +133,7 @@ Master operates in one of three modes. Mode is set by the user's **first prompt 
 | **Auto-Gate** | auto | auto | auto | auto verify + merge | **asks** | "auto gates", "pular gates", "pular confirmação", "aprovar automático", "auto-approve", "modo automático", "sem parar", "direto" |
 | **Batch-Auto** | auto | auto | auto | auto verify + merge | **auto** | "modo batch", "batch auto", "execute todas", "rodar todas as stories", "implementar backlog completo", "full auto", OR user lists 2+ specific story IDs |
 
-> **`auto verify + merge` (auto modes)**: Pre-Merge Verification (section 6.1) ALWAYS runs before merging, even in auto modes. If any of the 3 checks fail → abort merge and re-invoke the tech-lead skill. Auto modes skip the human prompt, NOT the safety checks.
+> **`auto verify + merge` (auto modes)**: Pre-Merge Verification (section 6.1) ALWAYS runs before merging, even in auto modes. If any of the checks fail → abort merge and re-invoke the tech-lead skill. Auto modes skip the human prompt, NOT the safety checks.
 
 ### Mode persistence (CRITICAL)
 
@@ -151,7 +151,7 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 ### Batch-Auto specifics
 
 - **Story queue**: written to `$Q` at start. Format: `{"queue": ["STORY-001", "STORY-002"], "current": 0, "completed": [], "failed": []}`.
-- **Queue source**: (a) story IDs in user prompt, OR (b) the PENDING and PLANNED rows of `.claude/scripts/backlog-status.sh --project "$P" --fetch`, in its order. IN-PROGRESS rows enter only by id: one may be another session's story — or, with `--fetch`, another developer's, whose pushed branch claims it — and the story would be implemented twice.
+- **Queue source**: (a) story IDs in user prompt, OR (b) the PENDING and PLANNED rows of `.claude/scripts/backlog-status.sh --project "$P" --fetch`, in its order. BLOCKED rows never enter; after each GATE-NEXT re-run the same command and append, in its order, the rows that became PENDING/PLANNED and are not queued yet — that is how dependent epics run in order inside one batch. IN-PROGRESS rows enter only by id: one may be another session's story — or, with `--fetch`, another developer's, whose pushed branch claims it — and the story would be implemented twice.
   Never `git log --grep STORY-`: a group commit (`STORY-006-58..63`) hides a merged story, and the commit that only added the story file makes an untouched one look merged.
 - **Execution loop**: pick `queue[current]` → run pipeline → on success move to `completed` → increment `current` → next. On failure: append to `failed`, STOP, report.
 - **Stop conditions** (non-overridable, even in batch-auto):
@@ -173,7 +173,7 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 |------|-------|--------------------------|------------------|
 | GATE-PM | product-manager | Stories list (ids + titles) + the PM's `adiada:` and `development:` lines, verbatim | "Prosseguir? [Y/n]" |
 | GATE-SA | system-architect | Stack proposal table | "Aprovar stack? [Y/n]" |
-| GATE-AR | architect | Technical plan summary + the architect's `pergunta:` lines, verbatim | "Implementar STORY-XXX? [Y/n]" |
+| GATE-AR | architect | Technical plan summary + the architect's `pergunta:` and `depende:` lines, verbatim | "Implementar STORY-XXX? [Y/n]" — with a `depende:` other than `nenhuma`, the story is now BLOCKED: say what it waits for and do not route to tech-lead (see Dependency gate) |
 | GATE-MR | tech-lead skill (MR created) | MR link + test coverage | "Aprovar MR e fazer merge? [Y/n]" |
 | GATE-NEXT | Merge complete | Branch deleted, story closed + `Backlog:` line when no queued story follows | "Próxima story? [Y/n]" |
 
@@ -190,7 +190,7 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 > it they live on one machine until each story starts. An `aviso:` line is a finding for the user,
 > never a stop. Rejected → re-invoke the PM; nothing to undo, nothing was published.
 >
-> **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — four checks). All four must pass. (2) THEN on approval (manual or auto) → merge **naming the branch**, from the sub-project checkout, `cd "$SP" && gh pr merge <feature-branch> --merge` (GitLab: `cd "$SP" && glab mr merge <feature-branch>`) — from the umbrella root, `gh`/`glab` resolve the root's own repo and find no such PR → **release the tree, then delete the branch** → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
+> **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — five checks). All five must pass. (2) THEN on approval (manual or auto) → merge **naming the branch**, from the sub-project checkout, `cd "$SP" && gh pr merge <feature-branch> --merge` (GitLab: `cd "$SP" && glab mr merge <feature-branch>`) — from the umbrella root, `gh`/`glab` resolve the root's own repo and find no such PR → **release the tree, then delete the branch** → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
 >
 > **Name the branch, not the MR URL.** `git-merge-guard.js` re-checks the publish boundary in code,
 > and it only receives the command string — a URL identifies a PR to the forge but tells the guard
@@ -314,6 +314,15 @@ reads:
 
 > **CRITICAL**: Master NEVER calls merge-request-creator, qa-analyst, code-reviewer, or test-engineer directly. Those are the tech-lead skill's exclusive responsibility. If the story is anywhere in the SDLC cycle (any `[ ]` remaining), Master always invokes the tech-lead skill — tech-lead decides which internal agent to invoke next.
 
+> **Dependency gate — before routing a story to architect or tech-lead.** A story with no
+> checkpoint yet costs ONE extra call: `.claude/scripts/backlog-status.sh --project "$P" --fetch --json
+> | grep -F '"id":"<RESOLVED-ID>"'`. `"status":"BLOCKED"` → do not route. Show its `blocked_by`
+> (`espera EPIC-30-base (2 de 5 abertas)`) and ask "Aguardar (padrão) ou empilhar sobre a
+> dependência?". Stacking is offered only when every open dependency is a story IN-PROGRESS with a
+> pushed branch; then tech-lead stacks (its `Rule: Stacked Story`). Auto modes never stack — they wait.
+> The order comes from `depends_on` (story or epic), never from epic or story numbers: EPIC-30 may be
+> the base of EPIC-27. Naming a blocked story is not approval to skip its dependencies.
+
 ---
 
 ## Routing Table
@@ -398,9 +407,9 @@ If the first line is neither `STORY-XXX-DONE` nor `STORY-XXX-BLOCKED` → ASK us
 
 ### 6.1 Pre-Merge Verification (MANDATORY for GATE-MR, all modes)
 
-**Before** approving or auto-approving GATE-MR, Master MUST run **FOUR checks** — even when tech-lead claims success. All four must pass.
+**Before** approving or auto-approving GATE-MR, Master MUST run **FIVE checks** — even when tech-lead claims success. All five must pass.
 
-> **`$P` must already be worktree-refined** (see Active Project). All four checks read `$P`, so an
+> **`$P` must already be worktree-refined** (see Active Project). Checks 1-4 read `$P`, so an
 > unrefined `$P` audits the sub-project checkout while the branch, the artifacts and the dirt all sit
 > in the worktree — the checks then pass or fail on a tree nobody is merging. That is the one way
 > defense-in-depth turns into four failures with a single cause.
@@ -418,6 +427,9 @@ ls "$P"/artifacts/stories/STORY-XXX-code-review*.md 2>/dev/null
 # Check 4: branch fully pushed — nothing uncommitted, nothing ahead of remote
 .claude/scripts/tree-status.sh "$P"   # git status --porcelain, minus other stories' untracked files
 git -C "$P" rev-list "@{u}..HEAD" --count 2>/dev/null
+
+# Check 5: everything this story depends on is already merged — the order of epics and stories
+.claude/scripts/backlog-status.sh --project "$SP" --fetch --json | grep -F '"id":"STORY-XXX"'
 ```
 
 **Decision matrix:**
@@ -431,11 +443,13 @@ git -C "$P" rev-list "@{u}..HEAD" --count 2>/dev/null
 
 **Check 4 decision**: `tree-status.sh` output must be empty (other stories' approved files sit untracked in the checkout until their own MR; everything else counts) AND `rev-list @{u}..HEAD --count` must be `0`. Any output on either → ❌ ABORT — do NOT merge. `gh pr merge` operates on the **remote** branch; any commit made after merge-request-creator's last push (e.g. a checkpoint fix TechLead makes after returning to Master) is invisible to it and gets silently left out of the merge. Re-invoke the tech-lead skill: `"Uncommitted or unpushed changes on <branch> — push before merging"` — tech-lead re-delegates to merge-request-creator's `2.1 Push & Verify` step (or commits first via `Rule: Uncommitted Work Rework` if Check 4's first half is also dirty).
 
+**Check 5 decision**: `"blocked_by":""` → ✅. Anything else → ❌ do NOT merge, and it is **not a defect**: a story stacked on an unmerged dependency (or whose epic depends on an unfinished one) must wait for it. Report `STORY-XXX aguardando <blocked_by>` — do not re-invoke tech-lead. In batch-auto it stops the queue like a missing approval; the same queue resumes once the dependency merges.
+
 > **Check 4 is now belt-and-suspenders, not the only line of defense**: the `git-merge-guard.js` hook denies the actual `gh pr merge` / `glab mr merge` Bash call at the tool-call level when the named branch is dirty or unpushed — Check 4 exists to catch it earlier, with a clearer diagnostic, before Master even attempts the merge. The two are independent: Check 4 is Master following a prompt, the hook is code that runs whether or not Master did.
 
 **Special case** (Check 1 only): if the ONLY unchecked item is `- [ ] Merge Request` → merge-request-creator forgot to mark MR after creation (its `Rule: Checkpoint Update` failed). Re-invoke the tech-lead skill with: `Mark [x] Merge Request in checkpoint, MR is at <URL>` — tech-lead will either mark it directly or re-delegate to merge-request-creator.
 
-**Why four checks**: Check 1 catches most cases. Checks 2-3 catch the rare scenario where tech-lead's Artifact Verification Gate failed and `[x]` was marked without the file existing. Check 4 catches the scenario where everything above passes (files exist, checkpoint clean) but the file that satisfies them was never pushed — `ls`/`grep` only see the local filesystem, never git-tracked or pushed state. This is **defense in depth** — each check covers what the others miss.
+**Why five checks**: Check 5 is the only one about order — merging a story ahead of the work it builds on is what turns dependent epics into a chain of MRs into each other's branches. Check 1 catches most cases. Checks 2-3 catch the rare scenario where tech-lead's Artifact Verification Gate failed and `[x]` was marked without the file existing. Check 4 catches the scenario where everything above passes (files exist, checkpoint clean) but the file that satisfies them was never pushed — `ls`/`grep` only see the local filesystem, never git-tracked or pushed state. This is **defense in depth** — each check covers what the others miss.
 
 > This verification is **NON-NEGOTIABLE** in all execution modes (default, auto-gate, batch-auto). Auto modes do not skip safety checks — they only skip human approval prompts.
 
@@ -499,7 +513,7 @@ Per turn:
 
 - Detection: max 2 bash calls. `cat checkpoint.md | head -50` is the ONLY allowed `cat`. ZERO `glob`. ZERO story content reads.
 - Routing decision: 0 reads beyond checkpoint header sections (50 lines max).
-- Pre-Merge Verification (GATE-MR): up to 4 extra bash calls (1 grep + 2 ls + 1 git) — these are the EXCEPTION.
+- Pre-Merge Verification (GATE-MR): up to 5 extra bash calls (1 grep + 2 ls + 1 git + 1 backlog-status) — these are the EXCEPTION.
 - Backlog questions / end of a queue: 1 extra bash call, `backlog-status.sh` — it reads story files so Master never has to.
 - Delegation prompt to subagent: ≤ 5 lines.
 - Gate output to user: 1 line in auto modes, 3 lines max in default mode — plus the `Backlog:` line where Backlog Questions requires it, and the `adiada:` / `pergunta:` lines the Gates Reference says to show verbatim.

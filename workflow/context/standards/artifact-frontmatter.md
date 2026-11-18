@@ -96,6 +96,13 @@ at the docs of its OWN development (`sources: [VISION-theme, PERSONAS-theme]`).
 
 ## Per-type extra fields
 
+- **epic / story** (optional): `depends_on: [EPIC-x]` / `depends_on: [STORY-x, <sub>/STORY-y, EPIC-z]`
+  — what must be DONE (merged) first. It is the only thing that orders the work: `backlog-status.sh`
+  marks a story BLOCKED while a dependency of its own, or of its epic, is open, Master does not plan
+  or start it, and GATE-MR does not merge it ahead. Epic and story numbers order nothing. The one
+  exception to "write once": the architect may **add** entries to a story's `depends_on` when the
+  code shows a dependency the PM did not see; nobody removes one.
+
 - **story** (optional): `supersedes: [STORY-x]` — set at creation when this story absorbs an older,
   never-started one. The old file is not touched; `backlog-status.sh` reports it as OBSOLETE.
 

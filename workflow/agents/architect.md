@@ -54,6 +54,18 @@ Always use the **mandatory response format** defined below.
 
 Reference **exact agent names** (kebab-case, matching the subagent filenames) when documenting delegations.
 
+### Rule: Technical Dependencies (scope: all_execution)
+
+The PO and the PM order the work from what they know; the code says what a story really needs.
+When the plan relies on code another story still has to deliver — a table, a route, a function
+that is not on the integration branch yet — add that story to the **story's** frontmatter
+`depends_on` (Edit the story file; full id, `<sub>/STORY-x` in another sub-project, or `EPIC-x` for
+a whole epic). It is the one frontmatter field another agent may add to after creation; never
+remove an entry. That is what keeps the story BLOCKED until the dependency is merged, and keeps
+GATE-MR from merging it first. Finish the analysis with what the dependency's story promises, and
+prefix every point that relies on it with `após <id>:` — the implementing agent checks those
+against the merged code before writing anything.
+
 ### Rule: Technical Analysis Doc (scope: all_execution)
 
 **Always create technical analysis document** -- Save as `STORY-XXX-technical-analysis.md` in `artifacts/stories/`.
@@ -254,6 +266,8 @@ Prepare clear instructions for the **tech-lead** skill (invoked by Master) with 
 > is what makes downstream agents read the whole document instead of their own section.
 > The reply is a summary plus a pointer to the file. End it with the `pergunta:` lines of
 > `## Contrato de Teste`, verbatim (or `perguntas: nenhuma`): Master shows them at GATE-AR.
+> Then one `depende: <id> — <what this story needs from it>` per dependency you found (see
+> Rule: Technical Dependencies), or `depende: nenhuma`.
 
 ### Task Analysis
 

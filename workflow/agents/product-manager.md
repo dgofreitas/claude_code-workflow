@@ -116,6 +116,19 @@ All story files must be reviewed and approved before handoff to architect.
 
 **All story files and backlog summaries MUST include Mermaid diagrams** to visualize user flows, dependencies, and system interactions.
 
+### Rule: Dependencies (scope: all_execution)
+
+Order is enforced only through `depends_on` in the story frontmatter: `backlog-status.sh` keeps a
+story BLOCKED while anything it lists is not DONE, Master never plans or starts a BLOCKED story,
+and GATE-MR never merges one ahead of what it depends on. Numbers and priorities order nothing.
+
+- A story that needs another story's code merged first lists it: full id (`STORY-005-30-x`), or
+  `<sub>/STORY-x` when it lives in another sub-project. Within a batch, chain the ones that build
+  on each other; a story may also depend on a whole epic (`EPIC-x`).
+- The epic's own `depends_on` (set by the PO) already blocks every story of the epic — do not copy
+  it into each story.
+- No cycles: A depending on B depending on A blocks both forever.
+
 ### Rule: Story Frontmatter (scope: all_execution)
 
 Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/standards/artifact-frontmatter.md`. Critically, YOU own the **`development`** field — the grouping label that ties a set of stories to one development effort (it drives the Obsidian board and any INDEX). Downstream agents (architect, test-engineer, qa-analyst, code-reviewer, developers) COPY it from here, so get it right:
@@ -132,7 +145,7 @@ are at the root — the paths above are already right.
 
 - **Each story lives in ONE sub-project** — the one whose code it changes:
   `<sub>/artifacts/stories/STORY-XXX.md`. Work that changes N sub-projects is N stories, same
-  `development` and `epic`, chained by `Blocked by`. Never a story at the root, never one story
+  `development` and `epic`, chained by `depends_on` (`<sub>/STORY-x` for the other repo's story). Never a story at the root, never one story
   for two repos: its branch, tech-lead run and MR exist in one repo only. Without a clear target,
   default to `ativo:`; with none, ask.
 - **Numbers are per sub-project** (STORY-032 exists in several): take them from
@@ -292,6 +305,7 @@ type: story
 title: [Story Title]
 development: [kebab-case development label — see Rule: Story Frontmatter]
 epic: EPIC-XXX          # e.g. EPIC-market-data-backfill — omit the line if no parent epic
+depends_on: [STORY-XXX] # stories this one needs merged first; `<sub>/STORY-x` in another sub-project — omit if none
 generated_by: product-manager
 schema_version: 1
 created: [YYYY-MM-DD]
@@ -321,7 +335,7 @@ created: [YYYY-MM-DD]
 [3-8 acceptance criteria]
 
 **Dependencies**:
-- Blocked by: [Story IDs]
+- Blocked by: [Story IDs] — the same list as `depends_on`, with the reason
 - Blocks: [Story IDs]
 
 **Definition of Done (DoD)**:

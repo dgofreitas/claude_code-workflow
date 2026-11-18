@@ -744,6 +744,26 @@ SP="${AP:-.}"; [ "$P" != "$SP" ] && for f in "$SP"/artifacts/stories/STORY-XXX*.
 ```
 
 Tell the first implementing agent to `git add artifacts/stories/STORY-XXX*` with its commit.
+If the technical analysis has `após <id>:` points (it was planned while a dependency was still
+open), tell that agent to check each one against the code now on the base before relying on it.
+
+**Rule: Stacked Story** — only when Master says the user chose to stack a BLOCKED story on a
+dependency that is IN-PROGRESS with a pushed branch (`$DEP`, e.g. `feat/STORY-030-base`). The branch
+starts from the dependency, but **the MR still targets the base**:
+
+```bash
+BASE=$(.claude/scripts/base-branch.sh "$P"); git -C "$P" fetch -q origin
+git -C "$P" checkout -b feat/STORY-XXX --no-track "origin/$DEP"
+git -C "$P" config branch.feat/STORY-XXX.base "$BASE"        # MR target: the base, never $DEP
+git -C "$P" config branch.feat/STORY-XXX.stackedOn "$DEP"
+git -C "$P" push -q -u origin feat/STORY-XXX
+```
+
+An MR into the dependency's branch is how dependent epics turn into one MR that reaches `main`
+with all of them inside, in the wrong order. Targeting the base, the MR shows the dependency's
+commits until that one merges, then only its own; Master's Check 5 holds the merge meanwhile. A
+dependency merged by squash or rebase (not by this workflow, which merges with a merge commit)
+leaves its old commits here: `git -C "$P" rebase --onto "origin/$BASE" <dependency's old tip>`.
 
 **Commit:** `git commit -m "feat(module): description\n\n- Change 1\n\nImplements: STORY-XXX"`
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `perf`, `style`, `chore`
