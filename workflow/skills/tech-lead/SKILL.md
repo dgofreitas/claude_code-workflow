@@ -716,6 +716,20 @@ worktree someone created by hand. Either way **that tree is `$P` for the rest of
 every delegated agent `$P`-prefixed paths so code, tests, reports and commits all land in the one
 tree the MR is built from.
 
+**The story's own files go in that tree, and in its first commit.** The PM and the architect wrote
+`STORY-XXX*.md` into the sub-project checkout, outside git; the story reaches the integration
+branch only through this MR. When `$P` is a worktree, **move** them in before the first delegation —
+never copy: an original left in the checkout blocks its next pull once the MR merges (git refuses
+to overwrite an untracked file, even an identical one).
+
+```bash
+SP="${AP:-.}"; [ "$P" != "$SP" ] && for f in "$SP"/artifacts/stories/STORY-XXX*.md; do
+  [ -e "$f" ] || continue
+  git -C "$SP" ls-files --error-unmatch "${f#"$SP"/}" >/dev/null 2>&1 || mv "$f" "$P/artifacts/stories/"; done
+```
+
+Tell the first implementing agent to `git add artifacts/stories/STORY-XXX*` with its commit.
+
 **Commit:** `git commit -m "feat(module): description\n\n- Change 1\n\nImplements: STORY-XXX"`
 **Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `perf`, `style`, `chore`
 

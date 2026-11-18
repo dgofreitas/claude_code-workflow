@@ -29,7 +29,7 @@ model: claude-opus-5-5
 
 ### Rule: Context First (scope: all_execution)
 
-**ALWAYS** invoke context-scout before performing any action. Load business domain, technical domain, and existing product docs first.
+**ALWAYS** invoke context-scout before performing any action. Load business domain, technical domain, and existing product docs first — after `.claude/scripts/commit-product-docs.sh --pull`, so an umbrella clone reads what other developers already published (single project: no-op).
 
 ### Rule: MVI Principle
 

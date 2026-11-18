@@ -167,13 +167,26 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 
 | Gate | After | Output to user (default) | Default question |
 |------|-------|--------------------------|------------------|
-| GATE-PM | product-manager | Stories list (ids + titles) + the PM's `adiada:` lines, verbatim | "Prosseguir? [Y/n]" |
+| GATE-PM | product-manager | Stories list (ids + titles) + the PM's `adiada:` and `development:` lines, verbatim | "Prosseguir? [Y/n]" |
 | GATE-SA | system-architect | Stack proposal table | "Aprovar stack? [Y/n]" |
 | GATE-AR | architect | Technical plan summary + the architect's `pergunta:` lines, verbatim | "Implementar STORY-XXX? [Y/n]" |
 | GATE-MR | tech-lead skill (MR created) | MR link + test coverage | "Aprovar MR e fazer merge? [Y/n]" |
 | GATE-NEXT | Merge complete | Branch deleted, story closed + `Backlog:` line when no queued story follows | "Próxima story? [Y/n]" |
 
-> **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — four checks). All four must pass. (2) THEN on approval (manual or auto) → merge **naming the branch**, `gh pr merge <feature-branch> --merge` (GitLab: `glab mr merge <feature-branch>`) → **release the tree, then delete the branch** → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
+> **GATE-PM action**: on approval (manual or auto), ONE call before routing on, with the PM's
+> `development:` value, relaying its lines verbatim:
+>
+> ```bash
+> .claude/scripts/commit-product-docs.sh <dev>; .claude/scripts/version-stories.sh --development <dev>
+> ```
+>
+> The first publishes the development's summary at the root (umbrella; no-op in a single project).
+> The second backs the approved stories up to the remote branch `docs/stories-<dev>` — no MR, the
+> checkout untouched; each story still reaches the integration branch through its own MR. Without
+> it they live on one machine until each story starts. An `aviso:` line is a finding for the user,
+> never a stop. Rejected → re-invoke the PM; nothing to undo, nothing was published.
+>
+> **GATE-MR action**: (1) FIRST run **Pre-Merge Verification** (section 6.1 — four checks). All four must pass. (2) THEN on approval (manual or auto) → merge **naming the branch**, from the sub-project checkout, `cd "$SP" && gh pr merge <feature-branch> --merge` (GitLab: `cd "$SP" && glab mr merge <feature-branch>`) — from the umbrella root, `gh`/`glab` resolve the root's own repo and find no such PR → **release the tree, then delete the branch** → proceed to GATE-NEXT. **Never skip step 1**, even in auto-gate / batch-auto.
 >
 > **Name the branch, not the MR URL.** `git-merge-guard.js` re-checks the publish boundary in code,
 > and it only receives the command string — a URL identifies a PR to the forge but tells the guard
@@ -269,7 +282,7 @@ reads:
 > and the suggested order, but it is edited only when stories are created, and a story nobody
 > started has no checkpoint. So a pending story is invisible to `ls` and checkpoints.
 
-- Relay the `Backlog:` and `Must Have não iniciadas:` lines and the table as printed. Alerts are findings for the user: `MUST-HAVE-AGING` (a Must Have nobody started, older than 14 days), `UNTRACKED` (story file not in git), `NOT-ON-REF` (only on an unmerged branch), `NOT-IN-SUMMARY`, `STALE-WORKTREE`.
+- Relay the `Backlog:` and `Must Have não iniciadas:` lines and the table as printed. Alerts are findings for the user: `MUST-HAVE-AGING` (a Must Have nobody started, older than 14 days), `UNTRACKED` (story file outside git with no identical backup in `docs/stories-*`; pending stories normally live untracked with one), `NOT-ON-REF` (only on an unmerged branch), `NOT-IN-SUMMARY`, `STALE-WORKTREE`.
 - Answering about the session only (e.g. the follow-ups just run) → say "desta sessão" explicitly and offer the backlog.
 - Visibility, not enforcement: never refuse or reorder work because an old Must Have is pending. The user decides.
 - The **same `Backlog:` line** closes the batch final report and GATE-NEXT when no queued story follows — a queue never ends without the user seeing what is left.

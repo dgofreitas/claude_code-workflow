@@ -140,13 +140,22 @@ collect() {
 
     # Cada worktree: arquivos rastreados na branch dele e os não versionados. O checkout
     # principal pode estar sujo e atrasado — é justamente onde moram os não versionados.
-    local wt branch
+    # Stories aprovadas ficam soltas no checkout até começarem, com cópia em docs/stories-<dev>
+    # (version-stories.sh). Solta e idêntica ao backup não é UNTRACKED: está guardada.
+    local backups
+    backups="$(git -C "${ROOT}" for-each-ref --format='%(refname)' 'refs/remotes/origin/docs/stories-*' \
+        | while read -r ref; do git -C "${ROOT}" ls-tree -r "${ref}" -- "${STORY_DIR}/"; done | awk '{print $3}')"
+
+    local wt branch f
     while IFS=$'\t' read -r wt branch; do
         printf 'WT\t%s\t%s\n' "${wt}" "${branch}"
         [[ -d "${wt}/${STORY_DIR}" ]] || continue
         git -C "${wt}" ls-files -- "${STORY_DIR}/" | sed "s|^|F\twt:${wt}\t|"
-        git -C "${wt}" ls-files --others --exclude-standard -- "${STORY_DIR}/" \
-            | sed "s|^|F\tuntracked:${wt}\t|"
+        while IFS= read -r f; do
+            printf 'F\tuntracked:%s\t%s\n' "${wt}" "${f}"
+            [[ -n "${backups}" ]] && grep -qxF "$(git -C "${wt}" hash-object "${f}")" <<<"${backups}" \
+                && printf 'BK\t%s\n' "${f}"
+        done < <(git -C "${wt}" ls-files --others --exclude-standard -- "${STORY_DIR}/")
         ( cd "${wt}" && grep -n -H -E "${META_RE}" "${STORY_DIR}"/*.md 2>/dev/null ) \
             | sed 's/^/M\t/' || true
         ( cd "${wt}" && grep -n -H -A8 -E '^supersedes:' "${STORY_DIR}"/*.md 2>/dev/null ) \
@@ -302,6 +311,7 @@ $1 == "WT" { if ($3 ~ /^(feat|fix)\//) wtBranch[$3] = $2; next }
 $1 == "MC" { mergedBranch[$2] = "merge commit"; next }
 $1 == "LB" { localBranch[$2] = 1; next }
 $1 == "SUM" { inSummary[$2] = 1; next }
+$1 == "BK" { backed[basename($2)] = 1; next }
 $1 == "PR" {
     if ($2 == "MERGED") prMerged[$4] = "PR #" $3
     else if ($2 == "OPEN") prOpen[$4] = "PR #" $3 " aberto"
@@ -368,7 +378,9 @@ END {
         else if (has[id, "analysis", "ref"] || has[id, "analysis", "branch"] || has[id, "analysis", "untracked"]) st = "PLANNED"
         else                             st = "PENDING"
 
-        if (has[id, "story", "untracked"] && !has[id, "story", "ref"] && !has[id, "story", "branch"]) addAlert(id, "UNTRACKED")
+        if (has[id, "story", "untracked"] && !has[id, "story", "ref"] && !has[id, "story", "branch"]) {
+            if (id in backed) addWhere(id, "backup em docs/stories"); else addAlert(id, "UNTRACKED")
+        }
         if (has[id, "story", "branch"] && !has[id, "story", "ref"]) addAlert(id, "NOT-ON-REF")
         if (st != "DONE" && st != "OBSOLETE" && !(shortId(id) in inSummary)) addAlert(id, "NOT-IN-SUMMARY")
         if (st == "DONE" && (id in wtOf)) addAlert(id, "STALE-WORKTREE")

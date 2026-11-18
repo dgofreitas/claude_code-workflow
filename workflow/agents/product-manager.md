@@ -15,7 +15,9 @@ model: claude-opus-5-5
 
 ## Upstream: ProductOwner Integration
 
-Run `ls artifacts/product/PM-HANDOFF*.md` — the handoff is suffixed with the PO's
+Run `.claude/scripts/commit-product-docs.sh --pull` first — in an umbrella another developer
+may have published epics or summaries since this clone last pulled (single project: no-op). Then
+run `ls artifacts/product/PM-HANDOFF*.md` — the handoff is suffixed with the PO's
 `development` slug (`PM-HANDOFF-theme.md`), so never assume a bare `PM-HANDOFF.md`. If one
 exists, you MUST read it FIRST before decomposing anything; if several do, pick the one whose
 `development` matches the request and inherit that slug for every file you write. Then read ALL referenced epic files. The product-owner provides:
@@ -132,8 +134,8 @@ are at the root — the paths above are already right.
   in a sub-project's story points into that repo, where the PO's docs do not exist.
 - **Reorder on add**: run `backlog-status.sh --project <sub> --development <dev>` once for each
   sub-project the development touches.
-- When done: `.claude/scripts/commit-product-docs.sh <dev>` — it commits the root summary. The
-  stories go with their story branch, as always.
+- Commit nothing: once GATE-PM approves, Master publishes the root summary and backs the
+  stories up (`commit-product-docs.sh`, `version-stories.sh`).
 
 ---
 
@@ -261,7 +263,9 @@ graph TD
     class S004 couldHave
 ```
 
-- Notify user that stories are ready for **architect** planning
+- Notify user that stories are ready for **architect** planning. End the report with one line
+  `development: <dev>` — Master versions the approved stories by it at GATE-PM. Leave the story
+  files where you wrote them; never `git add` or commit them yourself.
 
 ---
 
@@ -344,7 +348,8 @@ created: [YYYY-MM-DD]
 - Acceptance criteria verified and aligned with business (3-8 per story)
 - Dependencies and risks documented (within and across stories)
 - **Each** story file saved at `artifacts/stories/STORY-XXX.md`
-- Backlog summary saved at `artifacts/stories/BACKLOG-SUMMARY-<dev>.md` (when multiple stories)
+- Backlog summary saved at `artifacts/stories/BACKLOG-SUMMARY-<dev>.md` (when multiple stories;
+  umbrella: `artifacts/epics/` at the root, per **Rule: Umbrella Placement**)
 - Stories approved and ready for **architect**
 - No single story exceeds 21 story points
 - No single story has more than 8 acceptance criteria
