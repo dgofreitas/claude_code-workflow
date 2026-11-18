@@ -134,8 +134,10 @@ Each epic must follow this enriched structure:
 
 **Required fields per epic:**
 
-- Epic ID — `EPIC-<development-slug>`, e.g. `EPIC-market-data-backfill` (never an opaque
-  `EPIC-005`; the id is the filename and the Obsidian graph label). See
+- Epic ID — `EPIC-<epic-slug>`, e.g. `EPIC-market-data-backfill` (never an opaque
+  `EPIC-005`; the id is the filename and the Obsidian graph label). **Each epic has its own
+  slug**, also its `development:` — the stories and backlog of that epic are one development, so
+  developers who take different epics never edit the same files. See
   `context/standards/artifact-naming.md`.
 - Title (clear, outcome-focused)
 - Persona(s) targeted
@@ -182,7 +184,7 @@ Save deliverables:
 | `artifacts/product/ROADMAP-<dev>.md` | Release plan with Mermaid Gantt |
 | `artifacts/product/NFRS-<dev>.md` | Non-functional requirements |
 | `artifacts/product/GLOSSARY-<dev>.md` | Domain terms and definitions |
-| `artifacts/epics/EPIC-<dev>.md` | One file per epic |
+| `artifacts/epics/EPIC-<epic-slug>.md` | One file per epic, each with its own slug |
 | `artifacts/epics/EPICS-SUMMARY-<dev>.md` | Backlog summary with dependency graph |
 | `artifacts/product/PM-HANDOFF-<dev>.md` | Instructions for product-manager |
 
@@ -192,8 +194,9 @@ Save deliverables:
 > written, run `.claude/scripts/commit-product-docs.sh <dev>`: no MR passes through the root, so
 > nothing else versions them. In a single project it does nothing.
 >
-> **`<dev>` is this effort's `development` slug** — the SAME value you put in every
-> frontmatter, appended after the doc name (`VISION-theme.md`, `EPICS-SUMMARY-theme.md`).
+> **`<dev>` is this effort's `development` slug** — the SAME value you put in the frontmatter
+> of every doc above except the epics, appended after the doc name (`VISION-theme.md`,
+> `EPICS-SUMMARY-theme.md`). Those docs serve all the round's epics; each epic carries its own.
 > Two efforts in one project each get their own full set; never overwrite another's.
 > A project with a single development may drop the `-<dev>` suffix.
 >
@@ -214,10 +217,10 @@ Save deliverables:
 
 ```markdown
 ---
-id: EPIC-XXX            # EPIC- + the development slug, e.g. EPIC-market-data-backfill
+id: EPIC-XXX            # EPIC- + this epic's own slug, e.g. EPIC-market-data-backfill
 type: epic
 title: [epic title]
-development: [kebab-case slug naming this epic's development effort, e.g. licenciamento]
+development: [this epic's own slug — the same as in its id, e.g. market-data-backfill]
 epic: EPIC-XXX
 generated_by: product-owner
 schema_version: 1
@@ -401,7 +404,7 @@ id: PM-HANDOFF-<dev>           # = the filename, slug included
 type: handoff
 title: PM Handoff — [Project Name]
 development: <dev>             # the slug itself
-epics: [EPIC-<dev>]            # every epic handed over
+epics: [EPIC-<epic-a>, EPIC-<epic-b>]   # every epic handed over, each with its own slug
 sources: [VISION-<dev>, PERSONAS-<dev>, OKRS-<dev>, ROADMAP-<dev>, NFRS-<dev>, GLOSSARY-<dev>]
 generated_by: product-owner
 schema_version: 1

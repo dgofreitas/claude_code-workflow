@@ -220,7 +220,7 @@ id: STORY-XXX
 type: checkpoint
 story: STORY-XXX
 title: <story title from the STORY-XXX.md heading>
-development: <story's Parent Epic id, or an explicit `development` label if the story has one>
+development: <the story's `development` value, copied; never the EPIC- id>
 epic: <Parent Epic id, if any>
 status: in-progress
 schema_version: 1
@@ -259,8 +259,8 @@ updated: <ISO timestamp>
 
 > **Frontmatter** (per `context/standards/artifact-frontmatter.md`): the checkpoint is the
 > ONE mutable artifact, so it carries the live board fields. Source `title`/`development`/`epic`
-> from the story: `title` = the STORY heading; `development` = the story's explicit `development`
-> label if present, else the `Parent Epic` id; `epic` = the Parent Epic id (omit if none).
+> from the story: `title` = the STORY heading; `development` = the story's `development`
+> value, copied (stories from an epic carry the epic's slug — never put the EPIC- id there); `epic` = the Parent Epic id (omit if none).
 
 > **Note**: `Merge Request` is tracked ONLY in `SDLC STATUS`. Do NOT duplicate it under `QUALITY AND DELIVERY` — the MR is a delivery milestone, not a quality gate.
 >
@@ -708,8 +708,23 @@ recovery `git checkout feat/X` fails too (`already used by worktree at ...`), le
 
 ```bash
 WT=$(git -C "$P" worktree list | grep -E "\[[^]]*STORY-XXX(-[^]]*)?\]" | awk '{print $1}' | head -1)
-if [ -n "$WT" ]; then P="$WT"; else git -C "$P" checkout -b feat/STORY-XXX; fi
+if [ -n "$WT" ]; then P="$WT"; else
+  BASE=$(.claude/scripts/base-branch.sh "$P"); git -C "$P" fetch -q origin
+  git -C "$P" checkout -b feat/STORY-XXX --no-track "origin/$BASE"
+  git -C "$P" config branch.feat/STORY-XXX.base "$BASE"     # where the MR goes back to
+fi
+git -C "$P" rev-parse -q --verify '@{u}' >/dev/null || git -C "$P" push -q -u origin feat/STORY-XXX
 ```
+
+`--no-track` matters: from a remote branch, `checkout -b` would make `origin/$BASE` the upstream,
+the claim push below would be skipped and every later push refused. The recorded `base` is what
+`base-branch.sh` answers for this branch from then on — once `main` and `alpha` sit on the same
+commit, the history alone no longer says which one it came from.
+**From `origin/$BASE`, not from HEAD:** the checkout may sit on an older base, or on the branch of
+the last story, and other developers' merges would be missing from the code everyone plans against.
+**The push right away is the claim:** with several developers, a story nobody can see as started
+gets started twice. `backlog-status.sh --fetch` shows a pushed `feat/`/`fix/` branch as
+IN-PROGRESS on every machine; an unpushed one stays PENDING everywhere else until the MR.
 
 A non-empty `$WT` means the branch already has a tree — the sub-project checkout itself, or a
 worktree someone created by hand. Either way **that tree is `$P` for the rest of the story**: hand

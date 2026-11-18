@@ -98,15 +98,21 @@ After creating the MR (PR URL returned successfully), you MUST update the story 
 2. **Git Data**:
 
    ```bash
-   git branch --show-current
-   git status --porcelain
-   git log --oneline main..HEAD
-   git diff --stat main..HEAD
-   git diff main..HEAD --shortstat
-   git merge-tree $(git merge-base main HEAD) main HEAD
+   BASE=$(.claude/scripts/base-branch.sh "$P")   # main in one repo, alpha in another — never assume
+   git -C "$P" fetch -q origin
+   git -C "$P" branch --show-current
+   git -C "$P" status --porcelain
+   git -C "$P" log --oneline "origin/$BASE..HEAD"
+   git -C "$P" diff --stat "origin/$BASE..HEAD"
+   git -C "$P" diff "origin/$BASE..HEAD" --shortstat
+   git -C "$P" merge-tree $(git -C "$P" merge-base "origin/$BASE" HEAD) "origin/$BASE" HEAD
    ```
 
-   `git status --porcelain` = only working-tree check here (`git diff main..HEAD` = committed history only). Non-empty = would be silently dropped from MR.
+   `$P` is the story's tree, from your prompt. `$BASE` is the MR target for every command below:
+   a hardcoded `main` sends the MR of a repo that integrates in `alpha` past it, and compares the
+   description against a branch the story never forked from.
+
+   `git status --porcelain` = only working-tree check here (`git diff origin/$BASE..HEAD` = committed history only). Non-empty = would be silently dropped from MR.
 
 3. **Agent Reports**: code-reviewer, qa-analyst, backend-developer, frontend-developer, test agents
    — and `artifacts/stories/STORY-XXX-cost-report.md` when it exists (tech-lead's script commits it just before calling you)
@@ -144,8 +150,8 @@ merge-request-creator runs AFTER tech-lead's GATE 4. Four bolded artifact/checkp
 Before running the MR Creation command (section 5):
 
 ```bash
-git push -u origin <branch>                              # push for real
-git ls-remote --heads origin <branch>                      # MUST print a line — empty output = push did not land
+git -C "$P" push -u origin <branch>                        # push for real
+git -C "$P" ls-remote --heads origin <branch>              # MUST print a line — empty output = push did not land
 ```
 
 - Empty `ls-remote` output → push failed or was silently skipped. Retry the push once (2-strike rule). If it fails again → STOP, report "Push to origin failed for <branch>" to tech-lead. Do NOT proceed to create the MR against a non-existent branch.
@@ -181,9 +187,12 @@ Conventional Commits: `<type>(<scope>): <description> [STORY-XXX]`
 
 ### 5. MR Creation
 
-**GitLab:** `glab mr create --source-branch <branch> --title "<title>" --description "<desc>" --target-branch main --labels "<labels>"`
+Run it inside the story's tree — `cd "$P" && …`. `gh`/`glab` pick the project from the current
+directory, and an umbrella root is a repo of its own: from there they open the MR in the wrong project.
 
-**GitHub:** `gh pr create --head <branch> --title "<title>" --body "<desc>" --base main --label "<labels>"`
+**GitLab:** `glab mr create --source-branch <branch> --title "<title>" --description "<desc>" --target-branch "$BASE" --labels "<labels>"`
+
+**GitHub:** `gh pr create --head <branch> --title "<title>" --body "<desc>" --base "$BASE" --label "<labels>"`
 
 > **`--source-branch` / `--head` are mandatory, not optional polish.** Both tools infer the source
 > branch from the current checkout when it is omitted — which is the wrong branch whenever the story
@@ -286,9 +295,9 @@ Generate MR descriptions in **caveman style** — terse, no fluff, only substanc
 | No secrets | `grep -rn "API_KEY\|SECRET\|PASSWORD\|TOKEN"` | No matches |
 | No debug code | `grep -rn "console\.log\|debugger\|breakpoint()\|pdb"` | No matches |
 | No TODO/FIXME | `grep -rn "TODO\|FIXME\|HACK\|XXX"` | No new ones |
-| Atomic commits | `git log --oneline main..HEAD` | One logical change each |
-| Commit format | `git log --format="%s" main..HEAD` | `type(scope): desc` |
-| Clean merge | `git merge-base --is-ancestor main HEAD` | Clean |
+| Atomic commits | `git log --oneline origin/$BASE..HEAD` | One logical change each |
+| Commit format | `git log --format="%s" origin/$BASE..HEAD` | `type(scope): desc` |
+| Clean merge | `git merge-base --is-ancestor origin/$BASE HEAD` | Clean |
 
 ---
 

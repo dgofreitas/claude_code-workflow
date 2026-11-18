@@ -20,26 +20,37 @@ may have published epics or summaries since this clone last pulled (single proje
 run `ls artifacts/product/PM-HANDOFF*.md` — the handoff is suffixed with the PO's
 `development` slug (`PM-HANDOFF-theme.md`), so never assume a bare `PM-HANDOFF.md`. If one
 exists, you MUST read it FIRST before decomposing anything; if several do, pick the one whose
-`development` matches the request and inherit that slug for every file you write. Then read ALL referenced epic files. The product-owner provides:
+`development` matches the request. Then read the epic files you will decompose (below). The product-owner provides:
+
+> **Two slugs, two jobs.** The handoff's slug names the PO's docs, which serve every epic of that
+> round: cite them by it (`[[NFRS-<po-dev>]]`). Each epic carries its own `development:` in its
+> frontmatter — that is the slug of every story and of the `BACKLOG-SUMMARY-<dev>` you write. One
+> development per epic is what lets two developers on two epics never edit the same summary.
 
 > Paths below are shown without the `-<dev>` suffix. The handoff's `sources:` field names the
 > exact files for this development — follow it, or glob (`ls artifacts/product/PERSONAS*.md`).
 
 - **Personas** at `artifacts/product/PERSONAS*.md` — reference in every story
-- **Epics** at `artifacts/epics/EPIC-XXX.md` — decompose each into stories
+- **Epics** at `artifacts/epics/EPIC-XXX.md` — decompose the ones you were given (below)
 - **NFRs** at `artifacts/product/NFRS*.md` — apply to all relevant stories
 - **Glossary** at `artifacts/product/GLOSSARY*.md` — use correct domain terminology
 - **Roadmap** at `artifacts/product/ROADMAP*.md` — respect release priorities
 
-**If no PO artifacts exist**: proceed with stories directly from user input (legacy mode).
+**If no PO artifacts exist**: proceed with stories directly from user input (legacy mode) — unless
+the request names an epic (`Épico:`) or PO work. Then stop and say no handoff was found: building
+from the request alone would drop the PO's personas and NFRs without anyone noticing.
 
 **If PO artifacts exist**:
 
 1. Read the handoff found above — extract: `development` slug, epics list, priorities,
    persona mappings, sequencing
-2. **Read each `artifacts/epics/EPIC-XXX.md`** — extract: title, description, scenarios (GIVEN/WHEN/THEN), dependencies, NFRs, acceptance criteria
-3. Order epics by: roadmap milestones > MoSCoW priority > WSJF score
-4. Decompose each epic into stories (see Decomposition Rules below)
+2. **Pick the epics to decompose.** Your prompt's `Épico:` line names them — decompose those and
+   nothing else: with several developers each one takes an epic, and stories for an epic someone
+   else owns collide with theirs. No `Épico:` line and the handoff lists one epic → that one.
+   Several and none named → stop and ask which, listing them.
+3. **Read each chosen `artifacts/epics/EPIC-XXX.md`** — extract: title, `development`, description, scenarios (GIVEN/WHEN/THEN), dependencies, NFRs, acceptance criteria
+4. Order them by: roadmap milestones > MoSCoW priority > WSJF score
+5. Decompose each into stories (see Decomposition Rules below)
 
 Each story MUST reference:
 
@@ -109,7 +120,7 @@ All story files must be reviewed and approved before handoff to architect.
 
 Every `STORY-XXX.md` MUST begin with the YAML frontmatter defined in `context/standards/artifact-frontmatter.md`. Critically, YOU own the **`development`** field — the grouping label that ties a set of stories to one development effort (it drives the Obsidian board and any INDEX). Downstream agents (architect, test-engineer, qa-analyst, code-reviewer, developers) COPY it from here, so get it right:
 
-- **Story from an epic** → set `development` to a stable kebab-case slug of that epic (e.g. `EPIC-003 "Licenciamento"` → `development: licenciamento`). All stories of the same epic share the same `development`.
+- **Story from an epic** → set `development` to the epic's own `development:` value, verbatim (e.g. `EPIC-licenciamento` → `development: licenciamento`); an older epic without one → a stable kebab-case slug of its title. All stories of the same epic share the same `development`.
 - **No epic** (legacy / direct request) → pick ONE kebab-case label from the request theme and reuse it for EVERY story in this batch (e.g. `development: catalogo-recursos`). This is what lets stories be grouped even without epics.
 - `title` = the story title; `epic` = Parent Epic id (omit the line if none); `id` = the story id (see below); `created` = today's date.
 
@@ -124,8 +135,8 @@ are at the root — the paths above are already right.
   `development` and `epic`, chained by `Blocked by`. Never a story at the root, never one story
   for two repos: its branch, tech-lead run and MR exist in one repo only. Without a clear target,
   default to `ativo:`; with none, ask.
-- **Numbers are per sub-project** (STORY-032 exists in several): take the next free one from
-  `ls <sub>/artifacts/stories/`.
+- **Numbers are per sub-project** (STORY-032 exists in several): take them from
+  `.claude/scripts/next-story-number.sh <sub>` (see step 4 of Scope Analysis).
 - **One `BACKLOG-SUMMARY-<dev>.md` per development, at the root** in `artifacts/epics/` — never a
   copy per sub-project (copies diverge). Every story row carries its sub-project in a cell of
   its own, spelled as the directory: `| api | [[STORY-032-x]] | ... |`. `backlog-status.sh`
@@ -169,7 +180,10 @@ are at the root — the paths above are already right.
   1. List all identified epics/features
   2. Group related scenarios under their respective epic/feature
   3. Plan one story per epic or per logical feature group
-  4. Assign descriptive IDs: `STORY-<seq>-<slug>` — sequence FIRST, then 2-4 kebab-case
+  4. Assign descriptive IDs: `STORY-<seq>-<slug>` — sequence FIRST, from
+     `.claude/scripts/next-story-number.sh <project dir>` (one call per repo, then count up for
+     each further story), never from `ls`: another developer's approved stories live in their
+     backup branch and their in-progress ones on a pushed branch, not in this checkout. Then 2-4 kebab-case
      words naming the implementation (`STORY-001-license-registration`,
      `STORY-005-30-chunking-strategy`). The id IS the filename and the Obsidian graph label,
      so a bare `STORY-001` labels a dot, not a story. Full rule (incl. reserved suffixes that

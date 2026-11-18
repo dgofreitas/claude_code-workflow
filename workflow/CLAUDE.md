@@ -151,7 +151,7 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 ### Batch-Auto specifics
 
 - **Story queue**: written to `$Q` at start. Format: `{"queue": ["STORY-001", "STORY-002"], "current": 0, "completed": [], "failed": []}`.
-- **Queue source**: (a) story IDs in user prompt, OR (b) the PENDING and PLANNED rows of `.claude/scripts/backlog-status.sh --project "$P"`, in its order. IN-PROGRESS rows enter only by id: one may be another session's story, and two sessions would run it twice.
+- **Queue source**: (a) story IDs in user prompt, OR (b) the PENDING and PLANNED rows of `.claude/scripts/backlog-status.sh --project "$P" --fetch`, in its order. IN-PROGRESS rows enter only by id: one may be another session's story — or, with `--fetch`, another developer's, whose pushed branch claims it — and the story would be implemented twice.
   Never `git log --grep STORY-`: a group commit (`STORY-006-58..63`) hides a merged story, and the commit that only added the story file makes an untouched one look merged.
 - **Execution loop**: pick `queue[current]` → run pipeline → on success move to `completed` → increment `current` → next. On failure: append to `failed`, STOP, report.
 - **Stop conditions** (non-overridable, even in batch-auto):
@@ -194,15 +194,21 @@ Auto-mode confirmation is ONE line only: `⚡ [mode] — implementando STORY-XXX
 > branch it refuses outright rather than guess. `gh`/`glab` accept the branch as the PR selector, so
 > naming it costs nothing.
 >
-> **Releasing the tree**: `git branch -d` fails outright while any worktree holds the branch
-> (`error: cannot delete branch 'feat/X' used by worktree at ...`). Run both commands from the
-> **sub-project checkout** `$SP="${AP:-.}"` — never from `$P`, which may be the tree being removed:
+> **Releasing the tree**: `git branch -d` fails outright while any tree holds the branch
+> (`error: cannot delete branch 'feat/X' used by worktree at ...`) — including the sub-project
+> checkout itself, when the story was built there. Run from the **sub-project checkout**
+> `$SP="${AP:-.}"` — never from `$P`, which may be the tree being removed:
 >
 > ```bash
-> SP="${AP:-.}"
-> [ "$P" != "$SP" ] && git -C "$SP" worktree remove "$P"   # only when $P was refined to a worktree
+> SP="${AP:-.}"; BASE=$(.claude/scripts/base-branch.sh "$SP")
+> if [ "$P" != "$SP" ]; then git -C "$SP" worktree remove "$P"       # story in a worktree
+> else git -C "$SP" checkout -q "$BASE" && git -C "$SP" pull -q --ff-only; fi   # story in the checkout
 > git -C "$SP" branch -d <feature-branch>
 > ```
+>
+> Back on `$BASE` and up to date, the checkout carries the merge — and the other developers' — into
+> the next story. Left on the merged branch, the next story starts from it. A refused `pull
+> --ff-only` (local commits on `$BASE`) is reported, not forced.
 >
 > `worktree remove` refuses a dirty tree. **Never pass `--force`** — a dirty tree after a green
 > Check 4 means something was written after the merge, and forcing discards it unrecoverably. Report
@@ -237,7 +243,7 @@ If user mentioned a SPECIFIC story id ("STORY-021", "STORY-005-30"):
 If user gave a vague request ("continue", "build X"):
   1. bash: git -C "$P" worktree list                                           → EVERY tree + its branch in one call: the sub-project's branch AND any story worktree
   2a. (if some tree is on feat/<id> or fix/<id>) bash: P=<that tree's path>; cat "$P"/artifacts/stories/<id>-checkpoint.md 2>/dev/null | head -50
-  2b. (if no story branch on any tree) bash: .claude/scripts/backlog-status.sh --project "$P"
+  2b. (if no story branch on any tree) bash: .claude/scripts/backlog-status.sh --project "$P" --fetch
                                                                                → suggest the top PENDING/PLANNED row; it is already sorted by status, then priority
 ```
 
@@ -257,6 +263,9 @@ If user gave a vague request ("continue", "build X"):
 > legitimately have a checkpoint and no `STORY-XXX.md`.
 > **Zero or more than one → ASK, never guess** — `STORY-005-3` reduces to ten different
 > stories, and picking one silently runs the whole pipeline on the wrong story.
+> One exception, for several developers on one repo: when exactly one of the candidates is the
+> user's — one bash call, `grep -l "^author: $(git -C <sub> config user.email)$" <candidate story files>`
+> — take it and say which. None or several of theirs → ASK.
 > On a feature branch the id is the branch minus its `feat/`/`fix/` prefix — exact by contract, no
 > resolving. That branch may be checked out in any tree of the repo, not necessarily the one Master
 > is anchored to; `git worktree list` names both the branch and the tree that holds it.
@@ -284,6 +293,7 @@ reads:
 
 - Relay the `Backlog:` and `Must Have não iniciadas:` lines and the table as printed. Alerts are findings for the user: `MUST-HAVE-AGING` (a Must Have nobody started, older than 14 days), `UNTRACKED` (story file outside git with no identical backup in `docs/stories-*`; pending stories normally live untracked with one), `NOT-ON-REF` (only on an unmerged branch), `NOT-IN-SUMMARY`, `STALE-WORKTREE`.
 - Answering about the session only (e.g. the follow-ups just run) → say "desta sessão" explicitly and offer the backlog.
+- "minhas" / "as minhas pendências" → add `--mine` (stories whose `author:` is the user's git e-mail, or untracked in this checkout).
 - Visibility, not enforcement: never refuse or reorder work because an old Must Have is pending. The user decides.
 - The **same `Backlog:` line** closes the batch final report and GATE-NEXT when no queued story follows — a queue never ends without the user seeing what is left.
 
@@ -363,6 +373,9 @@ Delegation prompt: max 5 lines. Pass story ID + 1-line task. The subagent reads 
 In an umbrella, one of those lines anchors the subagent — it runs from the root and writes relative paths there otherwise:
 - architect / system-architect / doc-writer → `Projeto: $P` (worktree-refined).
 - product-owner / product-manager → `Guarda-chuva: <sub-projects>; ativo: <$AP or nenhum>`.
+- product-manager, umbrella or not → `Épico: <EPIC-id>` when the request names one. Each developer
+  takes an epic: without the line the PM decomposes every epic in the handoff, including the ones
+  other developers own.
 
 ### 6. Gate Handling
 

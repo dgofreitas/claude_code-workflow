@@ -32,6 +32,8 @@ EPIC_FILTER=""
 AGING_DAYS=14
 FORMAT="table"
 SHOW_ALL=0
+FETCH=0
+MINE=0
 
 die() {
     local code="$1"; shift
@@ -42,11 +44,14 @@ die() {
 usage() {
     cat >&2 <<'EOF'
 uso: backlog-status.sh [--project DIR] [--ref REF] [--development SLUG] [--epic EPIC-X]
-                       [--aging-days N] [--all] [--json]
+                       [--aging-days N] [--all] [--json] [--fetch] [--mine]
 
   --project DIR    sub-projeto (default: o desta sessão, em .claude/.state/<sessão>/active-project;
                    fora de sessão, num umbrella, é obrigatório)
-  --ref REF        referência da verdade (default: origin/main; sem fetch — é só leitura)
+  --ref REF        referência da verdade (default: origin/<branch de integração>, de base-branch.sh)
+  --fetch          atualiza o origin antes: as branches feat/fix que outros devs já enviaram
+                   (story reivindicada) só aparecem assim. Sem isto, nada é buscado
+  --mine           só as stories cujo author é o seu e-mail do git (ou soltas neste checkout)
   --all            inclui DONE e OBSOLETE na tabela (por default só entram nas contagens)
   --json           uma linha JSON por story, mais uma linha "summary"
 EOF
@@ -67,6 +72,8 @@ while [[ $# -gt 0 ]]; do
         --aging-days=*) AGING_DAYS="${1#*=}"; shift ;;
         --all)         SHOW_ALL=1; shift ;;
         --json)        FORMAT="json"; shift ;;
+        --fetch)       FETCH=1; shift ;;
+        --mine)        MINE=1; shift ;;
         -h|--help)     usage ;;
         *)             die 1 "argumento desconhecido: $1" ;;
     esac
@@ -89,8 +96,14 @@ fi
 ROOT="$(git -C "${PROJECT}" rev-parse --show-toplevel 2>/dev/null)" \
     || die 3 "não é repo git: ${PROJECT}"
 
+[[ "${FETCH}" -eq 1 ]] && { git -C "${ROOT}" fetch -q origin 2>/dev/null || true; }
+
+# A verdade é a branch de integração do repo, não um nome fixo: num repo que integra em alpha,
+# origin/main deixa de fora tudo o que foi mergeado e ainda não promovido.
 if [[ -z "${REF}" ]]; then
-    REF="origin/main"
+    base="$(bash "$(dirname "${BASH_SOURCE[0]}")/base-branch.sh" "${ROOT}" 2>/dev/null || true)"
+    REF="origin/${base:-main}"
+    git -C "${ROOT}" rev-parse --verify -q "${REF}^{commit}" >/dev/null || REF="origin/main"
     git -C "${ROOT}" rev-parse --verify -q "${REF}^{commit}" >/dev/null || REF="main"
 fi
 git -C "${ROOT}" rev-parse --verify -q "${REF}^{commit}" >/dev/null \
@@ -100,7 +113,8 @@ readonly STORY_DIR="artifacts/stories"
 # Nome do checkout principal, não de ROOT: com --project apontando para um worktree,
 # ROOT é `.worktrees/api-STORY-x` e o summary diz `api`.
 SUBPROJECT="$(basename "$(git -C "${ROOT}" worktree list --porcelain | sed -n '1s/^worktree //p')")"
-readonly META_RE='^(type|title|created|development|epic):|^\*\*(Priority|Estimate)\*\*:'
+readonly META_RE='^(type|title|created|development|epic|author):|^\*\*(Priority|Estimate)\*\*:'
+ME="$(git -C "${ROOT}" config user.email 2>/dev/null || true)"
 
 REF_DESC="$(git -C "${ROOT}" log -1 --format='%h %cs' "${REF}")"
 
@@ -114,10 +128,19 @@ forgeRecords() {
             --jq '.[] | ["PR", .state, (.number|tostring), .headRefName, .url] | @tsv' \
             2>/dev/null ) && { printf 'FORGE\tgh\n'; return; }
     elif [[ "${url}" == *gitlab* ]] && command -v glab >/dev/null 2>&1; then
-        ( cd "${ROOT}" && glab mr list --all --per-page 1000 -F json 2>/dev/null ) \
-            | node -e '
+        # O GitLab devolve no máximo 100 por página: sem paginar, os MRs antigos somem e as
+        # stories deles deixam de ser DONE.
+        local page=1 got
+        {
+            while :; do
+                got="$( cd "${ROOT}" && glab mr list --all --per-page 100 --page "${page}" -F json 2>/dev/null )" || break
+                printf '%s\n' "${got}"
+                [[ "$(printf '%s' "${got}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).length))' 2>/dev/null)" == "100" ]] || break
+                page=$((page + 1))
+            done
+        } | node -e '
                 let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
-                  for (const m of JSON.parse(s)) {
+                  for (const line of s.split("\n").filter(Boolean)) for (const m of JSON.parse(line)) {
                     const st = { merged: "MERGED", opened: "OPEN" }[m.state] || "CLOSED";
                     console.log(["PR", st, m.iid, m.source_branch, m.web_url].join("\t"));
                   }
@@ -126,6 +149,9 @@ forgeRecords() {
     fi
     printf 'FORGE\tgit-only\n'
 }
+
+devOf() { local b; b="$(basename "$1" .md)"; [[ "${b}" == BACKLOG-SUMMARY-* ]] && printf '%s' "${b#BACKLOG-SUMMARY-}"; }
+sumIds() { { grep -o -E 'STORY(-[0-9]+)+' || true; } | sed "s/^/SUM\t$1\t/"; }
 
 collect() {
     printf 'TODAY\t%s\n' "$(date +%Y-%m-%d)"
@@ -171,27 +197,41 @@ collect() {
 
     git -C "${ROOT}" for-each-ref --format='%(refname:short)' --no-merged="${REF}" \
         refs/heads/feat refs/heads/fix | sed 's/^/LB\t/' || true
+    # A branch que outro dev já enviou: a story está reivindicada, mesmo sem MR (tech-lead faz o
+    # push ao criá-la). Só aparece com --fetch, ou se um fetch recente já a trouxe. Sem
+    # --no-merged: recém-criada, ela ainda aponta para um commit da base e contaria como mergeada.
+    # A mergeada de fato continua DONE — o DONE vem antes do IN-PROGRESS.
+    git -C "${ROOT}" for-each-ref --format='%(refname:short)' \
+        refs/remotes/origin/feat refs/remotes/origin/fix | sed 's|^origin/||; s/^/RB\t/' || true
 
-    # Ids citados em qualquer BACKLOG-SUMMARY, de <ref> e dos worktrees.
-    {
-        git -C "${ROOT}" grep -h -o -E 'STORY(-[0-9]+)+' "${REF}" -- "${STORY_DIR}/BACKLOG-SUMMARY*" 2>/dev/null || true
-        while read -r wt; do
-            cat "${wt}/${STORY_DIR}"/BACKLOG-SUMMARY*.md 2>/dev/null || true
-        done < <(git -C "${ROOT}" worktree list --porcelain | sed -n 's/^worktree //p')
-        # Num guarda-chuva o summary é um por development, na raiz, e lista stories de vários
-        # sub-projetos — onde os números se repetem. Só conta a linha cuja célula de
-        # sub-projeto é este; senão o STORY-032 de outro repo cala o alerta do nosso.
-        if [[ "$(pwd -P)" != "${ROOT}" ]]; then
+    # Ids citados nos BACKLOG-SUMMARY, com o development de cada um (o nome do arquivo). A story
+    # só conta como listada no summary do PRÓPRIO development: números se repetem, e a 084 de
+    # outro dev, no summary dele, calaria o alerta da nossa. Summary sem development (legado)
+    # vale para qualquer story.
+    local p
+    while IFS= read -r p; do
+        git -C "${ROOT}" show "${REF}:${p}" 2>/dev/null | sumIds "$(devOf "${p}")"
+    done < <(git -C "${ROOT}" ls-tree --name-only "${REF}" "${STORY_DIR}/" | grep '/BACKLOG-SUMMARY[^/]*\.md$')
+    while read -r wt; do
+        for p in "${wt}/${STORY_DIR}"/BACKLOG-SUMMARY*.md; do
+            [[ -e "${p}" ]] && sumIds "$(devOf "${p}")" < "${p}"
+        done
+    done < <(git -C "${ROOT}" worktree list --porcelain | sed -n 's/^worktree //p')
+    # Num guarda-chuva o summary é um por development, na raiz, e lista stories de vários
+    # sub-projetos. Só conta a linha cuja célula de sub-projeto é este.
+    if [[ "$(pwd -P)" != "${ROOT}" ]]; then
+        for p in artifacts/epics/BACKLOG-SUMMARY*.md; do
+            [[ -e "${p}" ]] || continue
             awk -F'|' -v want="${SUBPROJECT}" '{
                 for (i = 2; i < NF; i++) { c = $i; gsub(/^[ \t]+|[ \t]+$/, "", c); if (c == want) { print; next } }
-            }' artifacts/epics/BACKLOG-SUMMARY*.md 2>/dev/null || true
-        fi
-    } | grep -o -E 'STORY(-[0-9]+)+' | sed 's/^/SUM\t/' || true
+            }' "${p}" | sumIds "$(devOf "${p}")"
+        done
+    fi
 
     forgeRecords
 }
 
-collect | awk -F'\t' -v devf="${DEV_FILTER}" -v epicf="${EPIC_FILTER}" \
+collect | awk -F'\t' -v devf="${DEV_FILTER}" -v epicf="${EPIC_FILTER}" -v me="${ME}" -v mine="${MINE}" \
     -v aging="${AGING_DAYS}" -v showall="${SHOW_ALL}" -v fmt="${FORMAT}" \
     -v root="${ROOT}" -v ref="${REF}" -v refdesc="${REF_DESC}" '
 
@@ -310,7 +350,8 @@ $1 == "SUP" {
 $1 == "WT" { if ($3 ~ /^(feat|fix)\//) wtBranch[$3] = $2; next }
 $1 == "MC" { mergedBranch[$2] = "merge commit"; next }
 $1 == "LB" { localBranch[$2] = 1; next }
-$1 == "SUM" { inSummary[$2] = 1; next }
+$1 == "RB" { remoteBranch[$2] = 1; next }
+$1 == "SUM" { inDev[$2, $3] = 1; inAny[$3] = 1; if ($2 == "") inLegacy[$3] = 1; next }
 $1 == "BK" { backed[basename($2)] = 1; next }
 $1 == "PR" {
     if ($2 == "MERGED") prMerged[$4] = "PR #" $3
@@ -354,6 +395,7 @@ END {
     for (br in prOpen)      { id = resolve(br); if (id != "") { active[id] = 1; addWhere(id, prOpen[br]) } }
     for (br in wtBranch)    { id = resolve(br); if (id != "") { active[id] = 1; wtOf[id] = wtBranch[br]; addWhere(id, "worktree " basename(wtBranch[br])) } }
     for (br in localBranch) { id = resolve(br); if (id != "" && !(id in wtOf)) { active[id] = 1; addWhere(id, "branch " br) } }
+    for (br in remoteBranch) { id = resolve(br); if (id != "" && !(id in active)) { active[id] = 1; addWhere(id, "branch remota " br) } }
 
     for (id in ids) {
         title = meta[id, "title", "s"];       if (title == "") title = meta[id, "title", "c"]
@@ -361,6 +403,10 @@ END {
         epic  = meta[id, "epic", "s"];        if (epic == "")  epic  = meta[id, "epic", "c"]
         if (devf != "" && dev != devf) continue
         if (epicf != "" && epic != epicf) continue
+        # Seu: author é o seu e-mail; sem author (story anterior ao campo), só se está solta
+        # neste checkout — só quem a escreveu aqui a tem fora do git.
+        author = meta[id, "author", "s"]
+        if (mine && !(author == me || (author == "" && has[id, "story", "untracked"]))) continue
 
         pr = meta[id, "priority", "s"]; gsub(/^[* ]+/, "", pr)
         if (pr ~ /^[Mm]ust/) { pr = "Must"; prRank = 1 }
@@ -382,7 +428,9 @@ END {
             if (id in backed) addWhere(id, "backup em docs/stories"); else addAlert(id, "UNTRACKED")
         }
         if (has[id, "story", "branch"] && !has[id, "story", "ref"]) addAlert(id, "NOT-ON-REF")
-        if (st != "DONE" && st != "OBSOLETE" && !(shortId(id) in inSummary)) addAlert(id, "NOT-IN-SUMMARY")
+        sid = shortId(id)
+        listed = (dev != "") ? (((dev, sid) in inDev) || (sid in inLegacy)) : (sid in inAny)
+        if (st != "DONE" && st != "OBSOLETE" && !listed) addAlert(id, "NOT-IN-SUMMARY")
         if (st == "DONE" && (id in wtOf)) addAlert(id, "STALE-WORKTREE")
         age = (created != "") ? today - days(created) : -1
         if (pr == "Must" && (st == "PENDING" || st == "PLANNED") && age > aging) addAlert(id, "MUST-HAVE-AGING")
@@ -397,7 +445,7 @@ END {
         if (fmt == "json")
             row = "{\"id\":" jstr(id) ",\"title\":" jstr(title) ",\"priority\":" jstr(pr) ",\"estimate\":" jstr(est) \
                   ",\"status\":" jstr(st) ",\"where\":" jstr(w) ",\"alerts\":" jstr(a) ",\"development\":" jstr(dev) \
-                  ",\"created\":" jstr(created) "}"
+                  ",\"created\":" jstr(created) ",\"author\":" jstr(author) "}"
         else {
             if (length(title) > 60) title = substr(title, 1, 57) "..."
             gsub(/\|/, "/", title)

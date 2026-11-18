@@ -11,7 +11,7 @@ number. The id is the filename, and the filename is the Obsidian graph label:
 `STORY-005-30` labels a dot, `STORY-005-30-chunking-strategy` labels a story.
 
 ```
-artifacts/epics/EPIC-<development-slug>.md     EPIC-market-data-backfill
+artifacts/epics/EPIC-<epic-slug>.md           EPIC-market-data-backfill  (own slug = its development)
 artifacts/stories/STORY-<seq>-<slug>.md        STORY-005-30-chunking-strategy
   derived artifacts append their suffix to the FULL id:
      STORY-005-30-chunking-strategy-qa-report-r2.md
