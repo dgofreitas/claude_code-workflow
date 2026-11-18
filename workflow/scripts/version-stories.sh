@@ -1,50 +1,49 @@
 #!/usr/bin/env bash
 #
-# version-stories.sh — versiona as stories de um development assim que o GATE-PM as aprova.
+# version-stories.sh — guarda no remoto as stories de um development assim que o GATE-PM as aprova.
 #
-# O PM escreve as stories no checkout, fora do git. Sem isto elas só entram numa branch
-# quando o tech-lead começa cada uma — às vezes semanas depois —, e até lá um `git clean`
-# as apaga, outra máquina não as vê e um worktree começa sem elas.
+# O PM escreve as stories no checkout, fora do git, e cada uma só entra na branch de integração
+# pelo MR dela, quando é implementada. Até lá viviam só numa máquina: um `git clean` as apagava,
+# e ninguém mais podia assumi-las. Isto as copia para a branch remota docs/stories-<dev>, que é
+# só backup: sem MR e sem commit na branch de integração local.
 #
-# Em cada projeto (num guarda-chuva, cada sub-projeto) com stories do development fora do
-# git: commit na branch de integração local, push para docs/stories-<dev> e MR para ela.
-# O commit fica no checkout de propósito: versionar numa branch à parte e deixar o original
-# solto trava o `git pull` depois do merge, mesmo com o conteúdo idêntico. Assim o pull é
-# um fast-forward.
+# Não pôr as stories na branch de integração é de propósito:
+# - com vários devs, o commit local diverge assim que outro MR é mergeado antes (o pull vira
+#   merge local, e squash ou fast-forward nem fazem pull);
+# - versionadas lá antes de começar, as stories pendentes de um dev aparecem no backlog dos
+#   outros, que podem pegá-las;
+# - o original continua solto no checkout, e o git recusa o pull que o sobrescreveria, mesmo
+#   idêntico.
 #
-# Com o checkout em outra branch, ou com commits locais que não são deste script, o commit
-# vai para um worktree temporário e os originais ficam: o aviso diz quais apagar após o merge.
-#
-# Nunca é gate: qualquer problema vira aviso e exit 0. Roda da raiz da sessão.
+# O checkout não é tocado: o commit é feito num worktree temporário. Rodar de novo para o mesmo
+# development soma na mesma branch. Nunca é gate: problema vira aviso e exit 0. Roda da raiz.
 #
 # uso: version-stories.sh --development <slug>
 
 set -uo pipefail
 
 readonly STORY_DIR="artifacts/stories"
-readonly TRAILER="Versioned-by: version-stories.sh"
 readonly REPORT_RE='-(checkpoint|technical-analysis|code-analysis|ux-spec|test-report|qa-report|code-review|cost-report|impl-report[A-Za-z0-9_-]*)(-r[0-9]+)?\.md$'
 
+usage() { echo "uso: version-stories.sh --development <slug>" >&2; exit 1; }
 DEV=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --development)   [[ $# -ge 2 ]] || { echo "uso: version-stories.sh --development <slug>" >&2; exit 1; }; DEV="$2"; shift 2 ;;
+        --development)   [[ $# -ge 2 ]] || usage; DEV="$2"; shift 2 ;;
         --development=*) DEV="${1#*=}"; shift ;;
-        *) echo "uso: version-stories.sh --development <slug>" >&2; exit 1 ;;
+        *) usage ;;
     esac
 done
-[[ -n "${DEV}" ]] || { echo "uso: version-stories.sh --development <slug>" >&2; exit 1; }
+[[ -n "${DEV}" ]] || usage
 BR="docs/stories-${DEV}"
-
-# Só uma branch longa é base: uma feature branch nunca é destino do MR destas stories.
-isLongLived() { [[ "$1" =~ ^(main|master|trunk|develop|dev|next|alpha|beta|stable|release)$ ]]; }
 
 say()  { printf 'version-stories: %s\n' "$*"; }
 warn() { printf 'version-stories: aviso: %s\n' "$*"; }
 
-# A branch de onde as stories saem: das longas de sempre, a de merge-base mais próximo de
-# HEAD (a mesma regra do catalog). A branch atual vence o empate: main e alpha no mesmo
-# commit não dizem para onde vai o MR, o checkout diz.
+isLongLived() { [[ "$1" =~ ^(main|master|trunk|develop|dev|next|alpha|beta|stable|release)$ ]]; }
+
+# Base da branch de backup: a branch de integração pela regra do catalog (merge-base mais
+# próximo de HEAD entre as longas). Só define de onde a branch nasce; não há MR.
 baseOf() {
     local dir="$1" cur first="" best="" bestn="" ref mb n
     cur="$(git -C "${dir}" branch --show-current)"
@@ -68,80 +67,54 @@ filesOf() {
         path="${st:3}"
         [[ "${path}" == *.md && ! "${path}" =~ ${REPORT_RE} ]] || continue
         if [[ "$(basename "${path}")" == "BACKLOG-SUMMARY-${DEV}.md" ]] \
-            || sed -n '1,15p' "${dir}/${path}" 2>/dev/null | grep -qx "development: ${DEV}"; then
+            || sed -n '1,15p' "${dir}/${path}" 2>/dev/null | grep -qE "^development:[[:space:]]*\"?${DEV}\"?[[:space:]]*$"; then
             printf '%s\n' "${path}"
         fi
     done < <(git -C "${dir}" status --porcelain --untracked-files=all -- "${STORY_DIR}/")
 }
 
-openMr() {
-    local dir="$1" base="$2" n="$3" url title body
-    url="$(git -C "${dir}" remote get-url origin 2>/dev/null || true)"
-    title="docs(stories): ${DEV}"
-    body="Stories do development \`${DEV}\` aprovadas no GATE-PM (${n} arquivo(s)). Versionadas antes de qualquer uma começar, para não viverem só no checkout. Só documentos, nenhum código."
-    if [[ "${url}" == *github* ]] && command -v gh >/dev/null 2>&1; then
-        ( cd "${dir}" && gh pr list --head "${BR}" --state open --json url --jq '.[0].url' 2>/dev/null | grep . ) \
-            || ( cd "${dir}" && gh pr create --head "${BR}" --base "${base}" --title "${title}" --body "${body}" 2>/dev/null | tail -1 )
-    elif [[ "${url}" == *gitlab* ]] && command -v glab >/dev/null 2>&1; then
-        ( cd "${dir}" && glab mr list --source-branch "${BR}" 2>/dev/null | grep -oE 'https://[^ ]+merge_requests/[0-9]+|![0-9]+' | head -1 | grep . ) \
-            || ( cd "${dir}" && glab mr create --source-branch "${BR}" --target-branch "${base}" --title "${title}" --description "${body}" --yes 2>/dev/null \
-                   | grep -oE 'https://[^ ]+merge_requests/[0-9]+' | head -1 )
-    fi
-}
-
 versionOne() {
-    local dir="$1" name="$2" base cur foreign tmp msg mr
+    local dir="$1" name="$2" base start tmp f
     local -a files
     mapfile -t files < <(filesOf "${dir}")
-    [[ ${#files[@]} -gt 0 ]] || return 0
+    [[ ${#files[@]} -gt 0 ]] || return 1
 
     git -C "${dir}" fetch -q origin 2>/dev/null || warn "${name}: fetch falhou; seguindo com o que há localmente"
-    base="$(baseOf "${dir}")"
-    [[ -n "${base}" ]] || { warn "${name}: sem branch de integração em origin; ${#files[@]} arquivo(s) continuam fora do git"; return 0; }
-    cur="$(git -C "${dir}" branch --show-current)"
-    msg="$(printf 'docs(stories): %s\n\nStories aprovadas no GATE-PM, versionadas antes de qualquer uma começar.\n\n%s\n\n%s\n' \
-        "${DEV}" "$(printf -- '- %s\n' "${files[@]}")" "${TRAILER}")"
-
-    # Commits locais à frente da base que não são deste script iriam juntos no MR.
-    foreign="$(git -C "${dir}" log --format='%(trailers:key=Versioned-by,valueonly,separator=%x2C)' "origin/${base}..HEAD" 2>/dev/null | grep -cv 'version-stories.sh')"
-
-    if [[ "${cur}" == "${base}" ]] && isLongLived "${base}" && [[ "${foreign}" -eq 0 ]]; then
-        git -C "${dir}" add -- "${files[@]}" || { warn "${name}: git add falhou"; return 0; }
-        git -C "${dir}" commit -q -m "${msg}" -- "${files[@]}" || { warn "${name}: git commit falhou; os arquivos ficaram no stage"; return 0; }
-        git -C "${dir}" push -q origin "HEAD:refs/heads/${BR}" 2>/dev/null \
-            || { warn "${name}: push de ${BR} falhou; o commit ficou só em ${base} local"; return 0; }
-        mr="$(openMr "${dir}" "${base}" "${#files[@]}")"
-        say "${name}: ${#files[@]} arquivo(s) em ${base} local, push ${BR} → ${mr:-abra o MR de ${BR} para ${base}}"
-        return 0
+    if git -C "${dir}" rev-parse -q --verify "refs/remotes/origin/${BR}" >/dev/null; then
+        start="origin/${BR}"
+    else
+        base="$(baseOf "${dir}")"
+        [[ -n "${base}" ]] || { warn "${name}: sem branch de integração em origin; ${#files[@]} arquivo(s) continuam só no checkout"; return 0; }
+        start="origin/${base}"
     fi
 
     tmp="$(mktemp -d)"
-    if git -C "${dir}" rev-parse -q --verify "refs/heads/${BR}" >/dev/null; then
-        git -C "${dir}" worktree add -q "${tmp}/wt" "${BR}" 2>/dev/null
-    elif git -C "${dir}" rev-parse -q --verify "refs/remotes/origin/${BR}" >/dev/null; then
-        git -C "${dir}" worktree add -q -b "${BR}" "${tmp}/wt" "origin/${BR}" 2>/dev/null
-    else
-        git -C "${dir}" worktree add -q -b "${BR}" "${tmp}/wt" "origin/${base}" 2>/dev/null
-    fi || { warn "${name}: não consegui criar o worktree de ${BR}"; rmdir "${tmp}"; return 0; }
+    git -C "${dir}" worktree add -q --detach "${tmp}/wt" "${start}" 2>/dev/null \
+        || { warn "${name}: não consegui criar o worktree temporário"; rmdir "${tmp}"; return 0; }
     for f in "${files[@]}"; do mkdir -p "${tmp}/wt/$(dirname "${f}")" && cp "${dir}/${f}" "${tmp}/wt/${f}"; done
-    git -C "${tmp}/wt" add -- "${files[@]}" \
-        && git -C "${tmp}/wt" commit -q -m "${msg}" -- "${files[@]}" \
-        && git -C "${tmp}/wt" push -q -u origin "${BR}" 2>/dev/null \
-        || warn "${name}: commit/push em ${BR} falhou"
+    git -C "${tmp}/wt" add -- "${files[@]}"
+    if git -C "${tmp}/wt" diff --cached --quiet; then
+        say "${name}: ${#files[@]} arquivo(s) já iguais em ${BR}"
+    elif git -C "${tmp}/wt" commit -q -m "docs(stories): backup de ${DEV}" -m "$(printf -- '- %s\n' "${files[@]}")" \
+         && git -C "${tmp}/wt" push -q origin "HEAD:refs/heads/${BR}" 2>/dev/null; then
+        say "${name}: ${#files[@]} arquivo(s) guardados em ${BR} (backup, sem MR; a story entra na integração pelo MR dela)"
+    else
+        warn "${name}: commit/push de ${BR} falhou; ${#files[@]} arquivo(s) continuam só no checkout"
+    fi
     git -C "${dir}" worktree remove --force "${tmp}/wt" 2>/dev/null; rmdir "${tmp}" 2>/dev/null
-    mr="$(openMr "${dir}" "${base}" "${#files[@]}")"
-    say "${name}: ${#files[@]} arquivo(s) em ${BR} → ${mr:-abra o MR de ${BR} para ${base}}"
-    local why="está em '${cur:-HEAD solto}'"
-    [[ "${foreign}" -gt 0 ]] && why="tem ${foreign} commit(s) local(is) fora de origin/${base}"
-    warn "${name}: o checkout ${why}, então os originais ficaram nele. Depois do merge, apague-os antes do pull (o git recusa sobrescrever arquivo solto, mesmo idêntico): $(printf '%s ' "${files[@]}")"
+    return 0
 }
 
+found=0
 subs=()
 for d in */; do [[ -e "${d}.git" ]] && subs+=("${d%/}"); done
 if [[ ${#subs[@]} -eq 0 ]]; then
     git rev-parse --show-toplevel >/dev/null 2>&1 || { warn "não é repositório git"; exit 0; }
-    versionOne "." "$(basename "$(pwd -P)")"
+    versionOne "." "$(basename "$(pwd -P)")" && found=1
 else
-    for s in "${subs[@]}"; do versionOne "${s}" "${s}"; done
+    for s in "${subs[@]}"; do versionOne "${s}" "${s}" && found=1; done
 fi
+# Silêncio seria lido como "versionado": um development errado ou um frontmatter fora do padrão
+# dá zero arquivos, e isso precisa aparecer.
+[[ "${found}" -eq 1 ]] || warn "nenhuma story com 'development: ${DEV}' fora do git — nada foi guardado. Confira o slug."
 exit 0
