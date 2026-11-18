@@ -27,13 +27,19 @@
 id: STORY-042-license-registration   # or EPIC-licenciamento — the entity this file is about
 type: story               # see "type" table below
 title: Cadastro de licença # human title — "know the story at a glance"
-development: licenciamento-v2  # grouping label; falls back to the Parent Epic id
+development: licenciamento-v2  # grouping label: the epic's own slug (EPIC-x → x), never the EPIC- id
 epic: EPIC-licenciamento  # formal epic link when one exists (optional)
 generated_by: product-manager  # the agent that wrote this file
 schema_version: 1
 created: 2026-07-07        # immutable
+author: dev@example.com    # added by the artifact-frontmatter hook: git e-mail of the creator
 ---
 ```
+
+`author` is never written by an agent: the hook adds it on the first Write (the repo's
+`git config user.email`) and keeps it on rewrites. It answers "which of these are mine" when
+several developers share a repo — `backlog-status.sh --mine`, and Master's choice between two
+stories with the same number.
 
 ## `type` values (one per artifact kind)
 

@@ -40,24 +40,9 @@ BR="docs/stories-${DEV}"
 say()  { printf 'version-stories: %s\n' "$*"; }
 warn() { printf 'version-stories: aviso: %s\n' "$*"; }
 
-isLongLived() { [[ "$1" =~ ^(main|master|trunk|develop|dev|next|alpha|beta|stable|release)$ ]]; }
-
-# Base da branch de backup: a branch de integração pela regra do catalog (merge-base mais
-# próximo de HEAD entre as longas). Só define de onde a branch nasce; não há MR.
-baseOf() {
-    local dir="$1" cur first="" best="" bestn="" ref mb n
-    cur="$(git -C "${dir}" branch --show-current)"
-    isLongLived "${cur}" && first="origin/${cur}"
-    for ref in ${first} origin/HEAD origin/main origin/master origin/trunk origin/develop origin/dev \
-               origin/next origin/alpha origin/beta origin/stable origin/release; do
-        git -C "${dir}" rev-parse -q --verify "${ref}^{commit}" >/dev/null || continue
-        mb="$(git -C "${dir}" merge-base HEAD "${ref}" 2>/dev/null)" || continue
-        n="$(git -C "${dir}" rev-list --count "${mb}..HEAD")"
-        if [[ -z "${bestn}" || "${n}" -lt "${bestn}" ]]; then best="${ref}"; bestn="${n}"; fi
-    done
-    [[ "${best}" == "origin/HEAD" ]] && best="$(git -C "${dir}" rev-parse --abbrev-ref origin/HEAD)"
-    printf '%s' "${best#origin/}"
-}
+# Base da branch de backup: só define de onde ela nasce; não há MR.
+BASE_SH="$(dirname "${BASH_SOURCE[0]}")/base-branch.sh"
+readonly BASE_SH
 
 # Stories (e, num projeto único, o BACKLOG-SUMMARY) do development fora do git ou alteradas.
 # Relatórios ficam de fora: nascem na branch da story e vão no MR dela.
@@ -83,7 +68,7 @@ versionOne() {
     if git -C "${dir}" rev-parse -q --verify "refs/remotes/origin/${BR}" >/dev/null; then
         start="origin/${BR}"
     else
-        base="$(baseOf "${dir}")"
+        base="$(bash "${BASE_SH}" "${dir}")"
         [[ -n "${base}" ]] || { warn "${name}: sem branch de integração em origin; ${#files[@]} arquivo(s) continuam só no checkout"; return 0; }
         start="origin/${base}"
     fi

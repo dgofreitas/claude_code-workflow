@@ -9,7 +9,8 @@
 // by the tech-lead skill.
 //
 // SOURCE artifacts (epic, story, checkpoint) are written WITH frontmatter by their own
-// agent and pass through untouched (the "already has frontmatter" guard). This keeps the
+// agent; their fields are kept, and only lineage links and a missing `author:` are added
+// (the "already has frontmatter" guard). This keeps the
 // frontmatter contract in ONE place (code) instead of duplicated across ~17 agent prompts
 // — same move the repo made for the RTK anti-loop rules (prompt → code-enforced hook).
 //
@@ -90,6 +91,40 @@ function parseFrontmatter(text) {
 
 function yamlStr(s) {
   return '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
+// --- author -------------------------------------------------------------------
+// Who created the artifact: the git e-mail of the repo it is written into (the one GitLab
+// and GitHub tie commits to). Several developers share an umbrella, and "which of these are
+// mine" must not depend on an agent remembering to write it. The creator stays the author:
+// a rewrite of an existing file keeps the author already on disk.
+function gitEmail(filePath) {
+  let dir = path.dirname(path.resolve(filePath));
+  while (!fs.existsSync(dir) && path.dirname(dir) !== dir) dir = path.dirname(dir);
+  try {
+    return require('child_process').execFileSync('git', ['-C', dir, 'config', 'user.email'],
+      { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function authorFor(filePath) {
+  try {
+    const onDisk = parseFrontmatter(fs.readFileSync(filePath, 'utf8')).author;
+    if (onDisk) return onDisk;
+  } catch {
+    // new file
+  }
+  return gitEmail(filePath);
+}
+
+// Adds `author:` as the last frontmatter field when it is missing. Never rewrites one.
+function withAuthor(text, author) {
+  if (!author || !text.startsWith('---')) return text;
+  const end = text.indexOf('\n---', 3);
+  if (end === -1 || /^author:/m.test(text.slice(3, end))) return text;
+  return text.slice(0, end) + '\nauthor: ' + author + text.slice(end);
 }
 
 // --- Obsidian lineage links -------------------------------------------------
@@ -198,7 +233,7 @@ function main() {
   // We never touch its fields (identity stays the author's), but we DO run the linkify
   // pass so its lineage shows up in the Obsidian graph. No-op when nothing is linkable.
   if (content.startsWith('---')) {
-    const linked = linkifyFrontmatter(content, path.basename(filePath, '.md'));
+    const linked = withAuthor(linkifyFrontmatter(content, path.basename(filePath, '.md')), authorFor(filePath));
     if (linked === content) { log('SKIP_HAS_FM', filePath); process.exit(0); }
     log('LINKIFY', filePath);
     emit(ti, linked);
@@ -247,6 +282,8 @@ function main() {
   lines.push('generated_by: ' + generatedBy);
   lines.push('schema_version: 1');
   lines.push('created: ' + new Date().toISOString().slice(0, 10));
+  const author = authorFor(filePath);
+  if (author) lines.push('author: ' + author);
   lines.push('---', '');
 
   const newContent = linkifyFrontmatter(lines.join('\n') + '\n' + content, base);
