@@ -222,6 +222,8 @@ type: epic
 title: [epic title]
 development: [this epic's own slug — the same as in its id, e.g. market-data-backfill]
 epic: EPIC-XXX
+depends_on: [EPIC-YYY]  # REQUIRED — epics that must be DONE before this one starts; [] if none
+independent_of: [EPIC-ZZZ]  # open epics weighed and found unrelated both ways (see Rule: Epic Relations)
 generated_by: product-owner
 schema_version: 1
 created: [YYYY-MM-DD]
@@ -258,9 +260,16 @@ created: [YYYY-MM-DD]
 
 ## 🔗 Dependencies
 
-- **Blocked by**: [EPIC-XXX, EPIC-YYY]
-- **Blocks**: [EPIC-ZZZ]
+- **Blocked by**: [EPIC-XXX, EPIC-YYY] — the same list as `depends_on`, with the reason for each
+- **Blocks**: [EPIC-ZZZ] — each of these carries this epic in its own `depends_on`
+- **Independent of**: [EPIC-BBB] — the same list as `independent_of`, with the reason for each
 - **Related to**: [EPIC-AAA]
+
+> **`depends_on` is what orders the work**, not this section and not the epic numbers:
+> `backlog-status.sh` keeps every story of this epic BLOCKED until each epic listed there has all
+> its stories DONE, and GATE-MR will not merge one ahead of them. Numbers say nothing — EPIC-30 may
+> be the base of EPIC-27. Declare every epic whose result this one builds on; one you leave out is
+> an order nobody enforces. "Related to" never blocks.
 
 ## ✅ Scope (In)
 
@@ -360,6 +369,31 @@ Examples: "Split by persona", "Split by CRUD operations", "One story per API end
 
 ---
 
+## Rule: Epic Relations (MANDATORY before finishing)
+
+Forgetting a dependency is the failure this prevents: nothing orders an epic whose base was never
+declared. So the question is asked per pair, from a computed list, never from memory:
+
+1. After writing your epics, run `.claude/scripts/backlog-status.sh --epics`. It lists every epic
+   in `artifacts/epics/` — yours and other developers' — and a **pendência** column.
+2. For every pair it reports under "Relação não declarada", decide one of three, using the epics'
+   scope and business rules:
+   - **this one needs the other's result** → add the other to this epic's `depends_on`;
+   - **the other needs this one's result** (an older epic whose base you are writing now — numbers
+     prove nothing) → add this epic to the **other** epic's `depends_on`;
+   - **neither** → add the other to this epic's `independent_of`, with the reason in "Independent of".
+   Unsure counts as a dependency: a wrong dependency delays an epic, a missing one breaks it.
+3. Run it again. Finish only when the **pendência** column is `-` for every epic you wrote or
+   touched, and there is no cycle. Report the final table — Master shows it to the user.
+
+Only add to another epic's `depends_on`/`independent_of`; never remove or reword anything in it.
+
+Delegated with `Declarar relações: <EPIC-id>`, this rule is the whole task: settle that epic's
+pendências (an epic written before `depends_on` was required gets it now, from its scope), run
+`.claude/scripts/commit-product-docs.sh <its development>`, and report the table.
+
+---
+
 ## Priority 5: Review Heuristics
 
 Before handing off to product-manager, verify:
@@ -368,7 +402,7 @@ Before handing off to product-manager, verify:
 - ✅ **Personas defined** — At least 1 persona with JTBD
 - ✅ **Measurable outcomes** — Every epic has KPIs
 - ✅ **MoSCoW applied** — Every epic prioritized
-- ✅ **Dependencies mapped** — Epic dependency graph exists
+- ✅ **Dependencies mapped** — `backlog-status.sh --epics` shows no pendência for your epics
 - ✅ **NFRs documented** — Cross-cutting concerns captured
 - ✅ **Glossary complete** — All domain terms defined
 - ✅ **Roadmap exists** — Release plan with timeline
@@ -383,7 +417,7 @@ Before handing off to product-manager, verify:
 - Epic backlog summary at `artifacts/epics/EPICS-SUMMARY-<dev>.md`
 - PM Handoff document at `artifacts/product/PM-HANDOFF-<dev>.md`
 - `.claude/scripts/commit-product-docs.sh <dev>` run (umbrella: commits them at the root)
-- Dependency graph (Mermaid) validated
+- Dependency graph (Mermaid) validated, and `backlog-status.sh --epics` run last with no pendência for your epics (Rule: Epic Relations)
 - Roadmap approved by user
 - Non-functional requirements documented
 - Ready for **product-manager** to decompose epics into stories
@@ -425,6 +459,9 @@ created: [YYYY-MM-DD]
 1. EPIC-001 (foundation)
 2. EPIC-003 (depends on 001)
 3. EPIC-002 (independent)
+
+> Derive this list from the epics' `depends_on` — never the other way round, and never from the
+> numbers. If the two ever disagree, `depends_on` is the one enforced.
 
 ## Constraints for ProductManager
 

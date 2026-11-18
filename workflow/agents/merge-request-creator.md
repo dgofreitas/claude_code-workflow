@@ -187,6 +187,10 @@ Conventional Commits: `<type>(<scope>): <description> [STORY-XXX]`
 
 ### 5. MR Creation
 
+A stacked story (`git -C "$P" config branch.<branch>.stackedOn` prints a branch) gets, as the first
+line of the description, `⚠️ Empilhada sobre <that branch>: mergear só depois dela.` — the target
+stays `$BASE`.
+
 Run it inside the story's tree — `cd "$P" && …`. `gh`/`glab` pick the project from the current
 directory, and an umbrella root is a repo of its own: from there they open the MR in the wrong project.
 

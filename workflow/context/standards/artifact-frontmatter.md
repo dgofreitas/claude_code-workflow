@@ -96,6 +96,23 @@ at the docs of its OWN development (`sources: [VISION-theme, PERSONAS-theme]`).
 
 ## Per-type extra fields
 
+- **epic** (required) / **story** (optional): `depends_on: [EPIC-x]` / `depends_on: [STORY-x, <sub>/STORY-y, EPIC-z]`
+  — what must be DONE (merged) first. It is the only thing that orders the work: `backlog-status.sh`
+  marks a story BLOCKED while a dependency of its own, or of its epic, is open, Master does not plan
+  or start it, and GATE-MR does not merge it ahead. Epic and story numbers order nothing. On an
+  epic the field is **required**, `depends_on: []` when there is none: absent means "never
+  decided", the hook refuses the Write, and its stories stay BLOCKED until it is declared.
+
+- **epic** (optional): `independent_of: [EPIC-x]` — open epics this one was weighed against and
+  found unrelated in **both** directions. `backlog-status.sh --epics` reports every pair of open
+  epics linked by neither a dependency path nor `independent_of`, and the PM does not decompose an
+  epic with such a pair pending.
+
+  Exceptions to "write once": the architect may **add** entries to a story's `depends_on` when the
+  code shows a dependency the PM did not see; the product-owner may **add** entries to an existing
+  epic's `depends_on` / `independent_of` when a newer epic turns out to be its base or unrelated to
+  it. Nobody removes one.
+
 - **story** (optional): `supersedes: [STORY-x]` — set at creation when this story absorbs an older,
   never-started one. The old file is not touched; `backlog-status.sh` reports it as OBSOLETE.
 
