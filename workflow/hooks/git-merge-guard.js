@@ -91,6 +91,21 @@ function git(args, cwd) {
   }).trim();
 }
 
+// The same rule as scripts/tree-status.sh: approved stories wait untracked in the checkout until
+// their own MR, so a story built in the checkout shares the tree with them. Only another
+// story's untracked files are left out; this story's, and any other change, still count.
+const REPORT_SUFFIX_RE = /-(checkpoint|technical-analysis|code-analysis|ux-spec|test-report|qa-report|code-review|cost-report|impl-report[A-Za-z0-9_-]*)$/;
+function storyDirt(tree, branch) {
+  const out = git(['status', '--porcelain', '--untracked-files=all'], tree);
+  const m = branch.match(/^(?:feat|fix)\/(STORY-.+)$/);
+  if (!m || !out) return out;
+  return out.split('\n').filter((l) => {
+    if (!l.startsWith('?? artifacts/stories/')) return true;
+    const base = path.basename(l.slice(3), '.md').replace(/-r\d+$/, '').replace(REPORT_SUFFIX_RE, '');
+    return !(base.startsWith('STORY-') && base !== m[1]);
+  }).join('\n');
+}
+
 function deny(reason) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
@@ -202,7 +217,7 @@ function guardPublish(command, action, repoDir) {
   }
 
   const tree = treeForBranch(branch, repoDir);
-  const dirty = tree ? git(['status', '--porcelain'], tree) : '';
+  const dirty = tree ? storyDirt(tree, branch) : '';
   let unpushed = '0';
   try {
     unpushed = git(['rev-list', `${branch}@{upstream}..${branch}`, '--count'], repoDir);

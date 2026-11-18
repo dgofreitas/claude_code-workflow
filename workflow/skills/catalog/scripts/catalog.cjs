@@ -197,6 +197,9 @@ function validate(cat) {
 
 // ---------------------------------------------------------------- index
 
+// No counts in the section headers: two stories adding one feature each both rewrite
+// `## Features (N)` — a conflict when their counts differ, a silently wrong count when they
+// match. The sorted lists merge cleanly on their own.
 function renderIndex(cat) {
   const line = (e) => '- `' + e.rel + '` | tags: ' + asList(e.tags).join(', ') + ' | summary: ' + e.summary;
   const feats = cat.entries.filter((e) => e.type === 'catalog-feature');
@@ -212,15 +215,15 @@ function renderIndex(cat) {
     '',
     '- `overview.md` | tags: overview, modules, stack | summary: What the project is, its modules and how it talks to its neighbours.',
     '',
-    '## Features (' + feats.length + ')',
+    '## Features',
     '',
   ].concat(feats.map(line), [
     '',
-    '## Contracts provided (' + prov.length + ')',
+    '## Contracts provided',
     '',
   ], prov.map(line), [
     '',
-    '## Contracts consumed (' + cons.length + ')',
+    '## Contracts consumed',
     '',
   ], cons.map(line), ['']);
   return out.join('\n');
@@ -650,8 +653,10 @@ function collectCheck(project, cat, siblings) {
     if (s && s.length) problems.push(['STALE', e.rel, 'changed since ' + e['verified-at'] + ': ' + s.join(', ')]);
   }
 
+  // An INDEX written before the counts were dropped still matches: only the headers differ.
   const idx = path.join(cat.root, 'INDEX.md');
-  if (!fs.existsSync(idx) || fs.readFileSync(idx, 'utf8') !== renderIndex(cat)) {
+  const uncounted = (t) => t.replace(/^(## [^\n]+?) \(\d+\)$/gm, '$1');
+  if (!fs.existsSync(idx) || uncounted(fs.readFileSync(idx, 'utf8')) !== renderIndex(cat)) {
     problems.push(['ERROR', 'INDEX.md', 'out of date — run `catalog.cjs index`']);
   }
 

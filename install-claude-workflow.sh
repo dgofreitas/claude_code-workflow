@@ -393,6 +393,37 @@ hasSubProjectRepos() {
     return 1
 }
 
+# Guarda-chuva: a raiz versiona `subprojects.tsv` (nome<TAB>url do origin). Um clone novo da
+# raiz chega sem os sub-projetos — e sem eles tudo roda como projeto único, com o PM gravando
+# stories na raiz. Por isso os que faltam são clonados ANTES de qualquer detecção de layout, e
+# um nome diferente do de quem os criou quebraria o casamento dos summaries pela célula.
+syncSubProjects() {
+    local root="$1" manifest="$1/subprojects.tsv" name url d
+    if [[ -f "${manifest}" ]]; then
+        while IFS=$'\t' read -r name url; do
+            [[ -z "${name}" || "${name}" == \#* || -z "${url}" ]] && continue
+            [[ -e "${root}/${name}/.git" ]] && continue
+            logInfo "  Clonando o sub-projeto ${name}"
+            git clone -q "${url}" "${root}/${name}" 2>/dev/null || logWarn "  Não consegui clonar ${name} (${url})"
+        done < "${manifest}"
+    fi
+    hasSubProjectRepos "${root}" || return 0
+
+    local tmp
+    tmp="$(mktemp)"
+    for d in "${root}"/*/; do
+        [[ -d "${d}.git" ]] || continue
+        url="$(git -C "${d}" remote get-url origin 2>/dev/null || true)"
+        [[ -n "${url}" ]] && printf '%s\t%s\n' "$(basename "${d}")" "${url}" >> "${tmp}"
+    done
+    # Mantém quem só está no manifesto (um clone que falhou não some da lista).
+    [[ -f "${manifest}" ]] && awk -F'\t' 'NF >= 2 && $1 !~ /^#/' "${manifest}" >> "${tmp}"
+    { printf '# sub-projetos deste guarda-chuva: nome<TAB>url do origin. O instalador clona os que faltam.\n'
+      sort -t$'\t' -k1,1 -u "${tmp}"; } > "${manifest}"
+    rm -f "${tmp}"
+    logInfo "  subprojects.tsv atualizado — vai no repo da raiz (commit-product-docs.sh o versiona)"
+}
+
 installBoard() {
     local targetDir="$1"      # <project>/.claude
     local projectRoot="$2"
@@ -734,6 +765,7 @@ installLocal() {
     installRtk "${targetDir}"
     installPlaywrightMcp
     installTokscale
+    syncSubProjects "${projectRoot}"
     installBoard "${targetDir}" "${projectRoot}"
     updateGitignore "${projectRoot}"
     configureTavilyMCP "${targetDir}"
